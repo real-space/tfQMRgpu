@@ -1,0 +1,488 @@
+#include <iostream> // std::cout, std::endl
+#include <fstream> // std::ifstream
+#include <cmath> // std::sqrt
+#include <vector> // std::vector<T>
+#include <cassert> // assert
+
+#include "tfqmrgpu.hxx" // includes cuda.h and tfqmrgpu.h
+#include "bsr.hxx" // bsr_t block-sparse row matrices
+
+#include "tfqmrgpu_util.hxx" // FlopChar, CCheck, copy_data_to_gpu, get_data_from_gpu
+#ifndef HAS_NO_CUDA
+    #include "tfqmrgpu_blockmult.hxx" // gemmNxNf
+#endif
+
+#ifdef DEBUG
+    #define debug_printf(TEXT...) printf(TEXT)
+#else
+    #define debug_printf(TEXT...)
+#endif
+
+#ifdef  hasGPUbenchmarks
+
+	template <typename T>
+	T* get_gpu_memory(size_t const size=1) {
+#ifdef DEBUGGPU
+		printf("#  cudaMalloc: %lu x %.3f kByte = \t%.3E MByte", size, 1e-3*sizeof(T), size*1e-6*sizeof(T));
+#endif
+		void* d = nullptr;
+		CCheck(cudaMalloc(&d, size*sizeof(T)));
+#ifdef DEBUGGPU
+		printf(" @ %p through %p \n", d, d + size*sizeof(T) - 1);
+#endif
+		return (T*)d;
+	} // get_gpu_memory
+
+	template <typename T>
+	void free_gpu_memory(T*& d) {
+		CCheck(cudaFree(d));
+		d = nullptr;
+	} // free_gpu_memory
+
+	template <typename T>
+	T* create_on_gpu(T const *const h, size_t const size=1, cudaStream_t const stream=0) {
+        T* d = get_gpu_memory<T>(size);
+        copy_data_to_gpu<T>(d, h, size, stream); // start copying to the GPU, async!
+        return d;
+	} // create_on_gpu
+
+	template <typename T>
+	T* create_on_cpu(T const (*devPtr d), size_t const size=1, cudaStream_t const stream=0) {
+        T* h = (T*) malloc(size*sizeof(T)); // c-style allocation
+        get_data_from_gpu<T>(h, d, size, stream); // start copying from the GPU, async!
+        return h;
+	} // create_on_cpu
+
+namespace GPUbench {
+
+    // benchmarking routines using the library interface //////////////////////////////// 
+
+	int benchmark_tfQMRgpu_library(
+          bsr_t const ABX[3]
+        , double const tolerance=1.0e-6
+        , int const maxIterations=999
+        , int const nRepetitions=1
+    ) {
+
+        PUSH_RANGE(__func__); // NVTX range markers for nvvp
+        printf("\n# %s on GPU !!!!\n", __func__);
+
+        auto const A = &(ABX[0]), B = &(ABX[1]), X = &(ABX[2]); // abbreviations
+
+#define callAndCheck(FUN) { \
+        debug_printf("\n# Start "#FUN"\n"); \
+        auto const stat = FUN; \
+        debug_printf("# Done  "#FUN"\n"); \
+        tfqmrgpuPrintError(stat);\
+        if (TFQMRGPU_STATUS_SUCCESS != stat) return stat; }
+
+        // step 1: create a handle for the function call
+        tfqmrgpuHandle_t handle{0};
+        callAndCheck(  tfqmrgpuCreateHandle(&handle)
+                    )
+
+        // step 2: create a CUDA stream to work on
+        cudaStream_t streamId{0};
+        {
+            auto const cudaErr = cudaStreamCreate(&streamId);
+            if (cudaSuccess != cudaErr) {
+                printf("[ERROR] CUDA call failed to create a stream in %s:%d\n", __FILE__, __LINE__);
+                return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__;
+            }
+        }
+
+        // step 3: register the CUDA stream in the handle
+        callAndCheck(  tfqmrgpuSetStream(handle, streamId)
+                    )
+        
+        if (1) { // sanity check   
+            auto streamId_copy = streamId;
+            callAndCheck(  tfqmrgpuGetStream(handle, &streamId_copy)  )
+            assert(streamId == streamId_copy);
+        }
+        
+        // step 4: analyse the blocks-sparse-row matrix patterns and create a bsrsv-plan
+        tfqmrgpuBsrsvPlan_t plan{0};
+        printf("\n# nnzb for A=%d, X=%d, B=%d \n", A->nnzb, X->nnzb, B->nnzb);
+        callAndCheck(  tfqmrgpu_bsrsv_createPlan(handle, &plan, 
+           A->nRows, // the number of block rows in A, X and B, also the number of block columns in A
+           A->RowPtr.data(), A->nnzb, A->ColInd.data(), // block-sparse-row structure for A
+           X->RowPtr.data(), X->nnzb, X->ColInd.data(), // block-sparse-row structure for X
+           B->RowPtr.data(), B->nnzb, B->ColInd.data(), // block-sparse-row structure for B
+           0) // indexOffset=0(C-style) or indexOffset=1(Fortran)
+                    )
+
+        // step 5: compute the GPU memory requirement based on block sizes
+        int const blockDim = A->fastBlockDim;
+        char const doublePrecision = 'Z';
+        size_t pBufferSize{0}; // in Bytes
+        printf("# compute the GPU memory requirements for blockDim=%d \n", blockDim);
+        callAndCheck(  tfqmrgpu_bsrsv_bufferSize(handle, plan, 
+            blockDim, // Leading dimension for blocks in matrix A.
+            blockDim, // Block dimension of matrix A, blocks in A are square blocks. blockDim <= ldA
+            blockDim, // Leading dimension for blocks in matrix B or X.
+            blockDim, // Fast block dimension of matrix B or X, RhsBlockDim <= ldB.
+            doublePrecision, // Solver precision 'C':complex<float>, 'Z':complex<double>
+            &pBufferSize)
+                    )
+
+        // step 6: allocate the GPU memory
+        void* pBuffer{nullptr};
+        {
+            auto const cudaErr = cudaMalloc(&pBuffer, pBufferSize);
+            if (cudaSuccess != cudaErr) {
+                printf("[ERROR] CUDA call failed to allocate %.6f GByte in %s:%d\n", pBufferSize*1e-9, __FILE__, __LINE__);
+                return TFQMRGPU_STATUS_ALLOCATION_FAILED;
+            } else {
+                debug_printf("# allocated %.6f GByte GPU memory at %p in %s:%d\n", pBufferSize*1e-9, pBuffer, __FILE__, __LINE__);
+                printf("# use %.6f GByte GPU memory\n", pBufferSize*1e-9);
+            }
+        }
+        
+        // step 7: register the GPU memory buffer in the bsrsv-plan
+        callAndCheck(  tfqmrgpu_bsrsv_setBuffer(handle, plan, pBuffer)
+                    )
+
+        if (1) { // sanity check   
+            auto pBuffer_copy = pBuffer;
+            callAndCheck(  tfqmrgpu_bsrsv_getBuffer(handle, plan, &pBuffer_copy)
+                        )
+            assert(pBuffer == pBuffer_copy);
+        }
+
+        // step 8a: upload the values for the matrix A
+        // values come from Fortran, so they are in RIRIRIRI layout
+        callAndCheck(  tfqmrgpu_bsrsv_setMatrix(handle, plan, 'A',
+            (char*)A->mat.data(), 'Z', blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)
+                    )
+
+        // step 8b: upload the values for the right-hand side vectors B
+        // values come from Fortran, so we need to transpose the blocks of B
+        callAndCheck(  tfqmrgpu_bsrsv_setMatrix(handle, plan, 'B',
+            (char*)B->mat.data(), 'Z', blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)
+                    )
+
+        // [optional ]step 8x: upload the values for the initial vectors X
+            
+        // step 9: envoke the transpose-free Quasi Minimal Residual solver
+        double solver_time = - getTime(); // start timer
+        callAndCheck(  tfqmrgpu_bsrsv_solve(handle, plan, tolerance, maxIterations)
+                    )
+        solver_time += getTime(); // stop timer
+        
+        // step a: spare line
+        // step b: spare line
+        // step c: spare line
+        
+        // compare matX and matR (the reference matrix)
+        auto const sizeX = X->mat.size(); 
+		std::vector<double> Xref(X->mat); // copy constructor
+        
+        // step d: retrieve the result vectors X 
+        // convert the blocks into ColMajor and RIRIRIRI to match the Fortran data layout
+        callAndCheck(  tfqmrgpu_bsrsv_getMatrix(handle, plan, 'X',
+            (char*)X->mat.data(), 'Z', blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)
+                    )
+
+        { // scope:
+            PUSH_RANGE("compare@CPU");
+            double alldev{0}, allval{0}, maxdev{0}, maxrel{0};
+            for(auto cij = 0ull; cij < sizeX; ++cij) {
+                double const dev = fabs(X->mat[cij] - Xref[cij]);
+                maxdev = std::max(maxdev, dev);
+                if (0.0 != Xref[cij]) maxrel = std::max(maxrel, dev/Xref[cij]);
+                alldev += dev;
+                allval += 1.0;
+            } // cij
+            printf("# GPU maxdev %g avgdev %g maxrel %g\n", maxdev, alldev/allval, maxrel);
+            POP_RANGE(); // end of NVTX range
+
+            if (maxdev < 1e-5) {
+                // seems correct, report performance
+                int iterations_needed;
+                double flops_performed = 0, residuum_reached = 1;
+                callAndCheck(  tfqmrgpu_bsrsv_getInfo(handle, plan, &residuum_reached, 
+                                            &iterations_needed, &flops_performed, 0x0)
+                            )
+                printf("# GPU converged in %d iterations\n", iterations_needed);
+                char const fF = ('Z' == doublePrecision)? 'F' : 'f'; // F:double, f:float
+                double const TFlop = 1e-12*flops_performed;
+                double const performance = TFlop/std::max(solver_time, 1e-6);
+                printf("# GPU performed %.3f T%clop in %.3f seconds = %.3f T%clop/s\n", 
+                                       TFlop, fF, solver_time, performance,fF);
+            } // maxdev
+        } // scope
+
+
+        // step e: destroy the plan
+        callAndCheck(  tfqmrgpu_bsrsv_destroyPlan(handle, plan)
+                    )
+        plan = 0;
+        
+        // step f: destroy the handle
+        callAndCheck(  tfqmrgpuDestroyHandle(handle)
+                    )
+        handle = 0;
+        
+        // last step, free GPU memory
+        CCheck(cudaFree(pBuffer));
+
+#undef  callAndCheck        
+        POP_RANGE(); // end of NVTX range
+        return TFQMRGPU_STATUS_SUCCESS;
+	} // benchmark_tfQMRgpu_library
+
+
+#ifndef HAS_NO_CUDA
+    template <typename real_t, int LM> // template
+	void __global__ // GPU kernel, must be launched with <<< {nmat, 1, 1}, {LM, any, 1} >>>
+	fill_cos_sin(real_t (*devPtr c)[2][LM][LM]) {
+        // fill GPU arrays with non-trivial but deterministic values
+	    int const m = blockIdx.x;
+        int const j = threadIdx.x;
+	    for(int i = threadIdx.y; i < LM; i += blockDim.y) { // grid stride loop
+            auto const arg = double(j + LM*(i + LM*m));
+            c[m][0][i][j] = std::cos(arg);
+            c[m][1][i][j] = std::sin(arg);
+        } // i
+	} // fill_cos_sin
+#endif // HAS_NO_CUDA
+
+    template <typename real_t, int LM>
+	double bench_multi( // returns the average time needed per kernel call
+          unsigned const nnzbY
+        , uint32_t const (*const starts_h)
+	    , size_t const nPairs
+	    , uint32_t const (*const pairs_h)
+	    , unsigned const nnzbA
+	    , unsigned const nnzbX
+	    , int const nRepetitions=1 // Number of iterations of the same procedure
+	    , int const nSamples=1 // Number of samples taken for timings
+    ) {
+		printf("\n# %s<%d> on GPU !!!!\n", __func__, LM);
+
+		printf("# Execute %d repetitions, sample %d times.\n", nRepetitions, nSamples);
+
+		int const mem = nnzbY + nnzbA + nnzbX;
+		printf("# Try to allocate %.3f GByte for %d * 2 real matrices of dim=%d\n", 
+		               1e-9*sizeof(real_t[2][LM][LM])*mem, mem, LM);
+		auto matY = get_gpu_memory<real_t[2][LM][LM]>(nnzbY);
+		auto matA = get_gpu_memory<real_t[2][LM][LM]>(nnzbA);
+		auto matX = get_gpu_memory<real_t[2][LM][LM]>(nnzbX);
+
+        auto starts_d = create_on_gpu<uint32_t>(starts_h, nnzbY + 1);
+        auto pairs_d  = create_on_gpu<uint32_t>(pairs_h, nPairs*2);
+
+#ifndef HAS_NO_CUDA
+        fill_cos_sin<real_t,LM> <<< nnzbA, {LM, 1024/LM, 1} >>> (matA);
+        fill_cos_sin<real_t,LM> <<< nnzbX, {LM, 1024/LM, 1} >>> (matX);
+        
+        constexpr int TUNE = 2;
+        dim3 const threads = { LM, TUNE, 1 };
+        printf("# CUDA Launch <<< %d, { %d, %d, %d } >>>\n", nnzbY, threads.x, threads.y, threads.z);
+#endif // HAS_NO_CUDA
+        assert(nnzbX == nnzbY); // for a logically square operator A
+        
+		double nFlop{0};
+		double time_sum{0}, time_rms{0}; // timing stats
+        PUSH_RANGE("GPU benchmarks zgemmNxNf");
+        for(int sample = 0; sample < nSamples; ++sample) {
+            double time{-getTime()}; // start
+            for(int repetition = 0; repetition < nRepetitions; ++repetition) {
+                // test the small matrix-matrix multiplications
+#ifndef HAS_NO_CUDA
+                gemmNxNf<real_t,LM,LM/TUNE> <<< nnzbY, threads >>> (matY, matA, matX, pairs_d, starts_d);
+                nFlop += nPairs*(8.*LM)*(LM*LM);
+#endif // HAS_NO_CUDA
+            } // repetition
+            CCheck(cudaDeviceSynchronize());
+            time += getTime(); // stop
+            time_sum += time; time_rms += time*time; // add to timing stats
+        } // sample
+        POP_RANGE(); // end of NVTX range
+
+        double const time_avg = time_sum / double(nSamples); // average
+        time_rms /= double(nSamples); 
+        time_rms = sqrt(std::max(0., time_rms - time_avg*time_avg)); // rms
+        printf("# GPU needed %.3f seconds, %.6f +/- %.6f sec per sample, %.1f %% dev\n",
+                  time_sum, time_avg, time_rms, time_rms*100./time_avg);
+
+#ifdef  SKIP_CORRECTNESS_CHECK
+		printf("# Warning! Correctness checks are deactivated with -D SKIP_CORRECTNESS_CHECK!\n");
+#else // SKIP_CORRECTNESS_CHECK
+        PUSH_RANGE("CPU checks correctness");
+        double time_chk =- getTime();
+		// check if matY has the correct values
+		double maxdev={-1}, alldev{0}, allval{0};
+		int nthreads{1};
+#pragma omp parallel
+		{ nthreads = omp_get_num_threads(); }
+		printf("# %d threads check for correct results\n", nthreads);
+		{ // correctness check scope
+            auto const matY_h = create_on_cpu<real_t[2][LM][LM]>(matY, nnzbY);
+            auto const matA_h = create_on_cpu<real_t[2][LM][LM]>(matA, nnzbA);
+            auto const matX_h = create_on_cpu<real_t[2][LM][LM]>(matX, nnzbX);
+#pragma omp parallel for reduction(+:alldev,allval) reduction(max:maxdev)
+            for(auto iY = 0u; iY < nnzbY; ++iY) {
+                auto matY_r = new real_t[2][LM][LM]; // thread-private reference result
+                for(auto i = 0; i < LM; ++i) {
+                    for(auto j = 0; j < LM; ++j) {
+                        matY_r[0][i][j] = 0; matY_r[1][i][j] = 0; // clear real and imaginary part
+                    } // j
+                } // i
+                for(auto ipair = starts_h[iY]; ipair < starts_h[iY + 1]; ++ipair) {
+                    auto const iA = pairs_h[ipair*2 + 0], iX = pairs_h[ipair*2 + 1];
+                    for(auto i = 0; i < LM; ++i) {
+                        for(auto j = 0; j < LM; ++j) {
+                            real_t cr{0}, ci{0};
+                            for(auto k = 0; k < LM; ++k) {
+                                real_t const srei = matA_h[iA][0][k][i], simi = matA_h[iA][1][k][i];
+                                real_t const vrej = matX_h[iX][0][k][j], vimj = matX_h[iX][1][k][j];
+                                cr += srei * vrej - simi * vimj; // Real part
+                                ci += srei * vimj + simi * vrej; // Imag part
+                            } // k
+                            matY_r[0][i][j] += cr; matY_r[1][i][j] += ci;
+                        } // j
+                    } // i
+                } // ipair
+                for(auto c = 0; c < 2; ++c) {
+                    for(auto i = 0; i < LM; ++i) {
+                        for(auto j = 0; j < LM; ++j) {
+                            double const dev = fabs(matY_r[c][i][j] - matY_h[iY][c][i][j]);
+                            maxdev = std::max(maxdev, dev);
+                            alldev += dev;
+                            allval += 1.0;
+                        } // j
+                    } // i
+                } // c
+                delete[] matY_r;
+            } // iY
+            delete[] matY_h;
+            delete[] matA_h;
+            delete[] matX_h;
+		} // scope
+		
+        time_chk += getTime();
+		POP_RANGE(); // end of NVTX range
+
+		printf("# GPU maxdev %g avgdev %g\n", maxdev, alldev/allval);
+        if (maxdev > 1e-4) {
+            printf("# GPU result has large deviations (%g) for dim=%d\n", maxdev, LM);
+        } else
+            printf("# CPU result checking with %d threads took %.3f sec\n", nthreads, time_chk);
+#endif // SKIP_CORRECTNESS_CHECK
+
+        { // print performance scope
+//          const char fF = (4 == sizeof(real_t))?'f':'F';
+            const char fF = FlopChar<real_t>();
+            printf("# GPU performed %.3f T%clop in %.3f seconds, i.e. %.1f G%clop/sec\n", 
+                nFlop*1e-12, fF, time_sum, nFlop*1e-9/time_sum, fF);
+        } // scope
+
+        printf("# %s: free GPU memory\n", __func__);
+		free_gpu_memory(matX);
+		free_gpu_memory(matA);
+		free_gpu_memory(matY);
+		free_gpu_memory(pairs_d);
+		free_gpu_memory(starts_d);
+
+        printf("# %s: deviceSynchronize\n", __func__);
+		cudaDeviceSynchronize();
+        printf("# %s: done\n", __func__);
+		return time_avg;
+	} // bench_multi
+
+    int benchmark_blockMatrixMatrixMultiplication(int const argc, char const *const argv[]) {
+        // ToDo: use control::get environment
+        char const *fnm  = (argc > 1)?      argv[1]  : "plan"; // inputfile
+                            assert( 'm' == *argv[2] );
+        char const fF    = (argc > 3)?     *argv[3]  : 'F'; // {F,d,D} = double, f=float
+        int const nrep   = (argc > 4)? atoi(argv[4]) : 1; // number or repetitions
+        int const nsamp  = (argc > 5)? atoi(argv[5]) : 1; // number of sampling
+        int const lsmd   = (argc > 6)? atoi(argv[6]) : 16; // block size
+
+        // read multiplication plan from input file
+        std::ifstream input(fnm, std::ifstream::in);
+        if (input.fail()) {
+            std::cout << argv[0] << ": error: did not find file" << std::endl; 
+            exit(-3);
+        } // input file not found
+
+        std::string str;
+        unsigned nnzY, nnzA, nnzX;
+        input >> str >> nnzY >> nnzA >> nnzX;
+        bool const info = false;
+        if (info) {
+            std::cout << "# nnz Y " << nnzY << std::endl;
+            std::cout << "# nnz A " << nnzA << std::endl;
+            std::cout << "# nnz X " << nnzX << std::endl;
+        } // info
+
+        std::vector<uint32_t> pairs;
+        std::vector<uint32_t> starts;
+        int64_t iY, iA, iX;
+        int beta;
+        int nzpr{-1};
+        std::vector<int> hist(96, 0); // histogram
+        int irow{-1}; //
+        int64_t iYprev{-1}; // init with an impossible index value
+        while (input >> iY >> iA >> iX >> beta) {
+    //      std::cout << iY << " " << iA << " " << iX << " " << beta << " " << std::endl; // echo the input file structure
+            if (iY != iYprev) {
+                assert(0 == beta);
+                starts.push_back(pairs.size()/2);
+                if (-1 == iYprev) { ++hist[nzpr]; nzpr = 0; } // update histogram
+                iYprev = iY;
+                ++irow;
+            } else {
+                assert(1 == beta);
+            }
+    //      assert(iY == irow); // this will fail if the iY indices do not come in order
+            ++nzpr; // number of non-zero entries per row
+            pairs.push_back(iA); // add new small matrix-matrix-multiplications between block iA and block iX
+            pairs.push_back(iX); // add new small matrix-matrix-multiplications between block iA and block iX
+        } // while
+        if (info) std::cout << "# found " << starts.size() << " result elements" << std::endl;
+        starts.push_back(pairs.size()/2); // final
+        assert(starts.size() == nnzY + 1); // we need one more for the sparse format
+
+        if (info) {
+            // show histogram about number of non-zero elements per row
+            for(nzpr = 0; nzpr < 96; ++nzpr) {
+                if (0 < hist[nzpr]) {
+                    std::cout << "# found " << hist[nzpr] << " elements with " << nzpr << " operations" << std::endl; 
+                } // nonzero
+            } // nzpr
+        } // info
+
+        auto const nPairs = pairs.size()/2; // number of small matrix-matrix-multiplications
+        if (info) std::cout << "# found " << nPairs << " operations" << std::endl;
+#ifdef  FULLDEBUG
+            std::cout << "# rows start at ";
+            for(auto rs : starts) {
+                std::cout << " " << rs;
+            } // rs
+            std::cout << std::endl;
+#endif // FULLDEBUG
+
+        switch (lsmd) { // blocksize
+#define call_it(REAL_t,LSMd) bench_multi<REAL_t, LSMd>(nnzY, starts.data(), nPairs, pairs.data(), nnzA, nnzX, nrep, nsamp)
+#define decide_precision(LSMd) if('f' == fF) { call_it(float,LSMd); } else { call_it(double,LSMd); }
+            case   4:  decide_precision(  4); break; // Lmax=1
+            case   8:  decide_precision(  8); break; // Lmax=1, noco
+            case  16:  decide_precision( 16); break; // Lmax=3
+            case  32:  decide_precision( 32); break; // Lmax=3, noco
+            case  64:  decide_precision( 64); break; // Lmax=7
+            case 128:  decide_precision(128); break; // Lmax=7, noco
+#undef  decide_precision
+#undef  call_it
+            default : std::cout << "ERROR: Case not implemented lsmd = " << lsmd << std::endl; return 1; 
+        } // switch lsmd
+
+        std::cout << "# done " << __func__ << std::endl;
+        return 0; // 0:success
+    } // benchmark_blockMatrixMatrixMultiplication
+
+} // namespace GPUbench
+
+#endif // hasGPUbenchmarks

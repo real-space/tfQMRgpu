@@ -1,0 +1,176 @@
+/* This wrapper performs the following forwarding
+ * The lowercase names with underscore on the left are 
+ *      void functions with a status variable as last argument, 
+ *      all arguments are passed by reference
+ *      so they can be called from Fortran like subroutines.
+ * The right hand side are C-interfaced functions 
+ *      that return a status (int) as defined in "tfqmrgpu.h".
+ *  
+ * tfqmrgpucreatehandle_        --> tfqmrgpuCreateHandle
+ * tfqmrgpusetstream_           --> tfqmrgpuSetStream
+ * tfqmrgpugetstream_           --> tfqmrgpuGetStream
+ * tfqmrgpuprinterror_          --> tfqmrgpuPrintError
+ * tfqmrgpu_bsrsv_createplan_   --> tfqmrgpu_bsrsv_createPlan
+ * tfqmrgpu_bsrsv_buffersize_   --> tfqmrgpu_bsrsv_bufferSize
+ * tfqmrgpucreateworkspace_     --> tfqmrgpuCreateWorkspace
+ * tfqmrgpu_bsrsv_setbuffer_    --> tfqmrgpu_bsrsv_setBuffer
+ * tfqmrgpu_bsrsv_getbuffer_    --> tfqmrgpu_bsrsv_getBuffer
+ * tfqmrgpu_bsrsv_setmatrix_c_  --> tfqmrgpu_bsrsv_setMatrix
+ * tfqmrgpu_bsrsv_setmatrix_z_  --> tfqmrgpu_bsrsv_setMatrix
+ * tfqmrgpu_bsrsv_solve_        --> tfqmrgpu_bsrsv_solve
+ * tfqmrgpu_bsrsv_getinfo_      --> tfqmrgpu_bsrsv_getInfo
+ * tfqmrgpu_bsrsv_getmatrix_c_  --> tfqmrgpu_bsrsv_getMatrix
+ * tfqmrgpu_bsrsv_getmatrix_z_  --> tfqmrgpu_bsrsv_getMatrix
+ * tfqmrgpu_bsrsv_destroyplan_  --> tfqmrgpu_bsrsv_destroyPlan
+ * tfqmrgpudestroyworkspace_    --> tfqmrgpuDestroyWorkspace
+ * tfqmrgpudestroyhandle_       --> tfqmrgpuDestroyHandle
+ * 
+ * The order of listing roughly resembles the default workflow
+ * of this library (except for GetStream and getBuffer).
+ * The _c_ and _z_ suffixes are for 32bit and 64bit complex arrays, respectively.
+ */
+
+// #include <assert.h>
+#include <stddef.h> // for size_t
+
+#ifdef DEBUG
+	#include <stdio.h>
+	#include <stdlib.h>
+#endif
+
+typedef int cudaStream_t; // workaround to test without cuda headers:
+
+#include "tfqmrgpu.h" // the full C-API of the tfqmrgpu library
+// type abbreviations
+typedef tfqmrgpuBsrsvPlan_t plan_t; //
+typedef tfqmrgpuHandle_t handle_t; //
+typedef tfqmrgpuStatus_t stat_t; //
+typedef tfqmrgpuDataLayout_t layout_t; //
+
+  // For the Fortran interface, we generate a set of wrapper void functions, 
+  // which can be called like subroutines in Fortran
+
+  void tfqmrgpuprinterror_(stat_t const *status, stat_t *stat) {
+       *stat = tfqmrgpuPrintError(*status);
+  }
+
+  void tfqmrgpucreatehandle_(handle_t *handle, stat_t *stat) {
+      *handle = NULL;
+      *stat = tfqmrgpuCreateHandle(handle); // here, handle is passed by reference
+  }
+
+  void tfqmrgpudestroyhandle_(handle_t *handle, stat_t *stat) {
+      *stat = tfqmrgpuDestroyHandle(*handle);
+      *handle = NULL;
+  }
+  
+  void tfqmrgpusetstream_(handle_t const *handle, cudaStream_t const *streamId, stat_t *stat) {
+      *stat = tfqmrgpuSetStream(*handle, *streamId);
+  }
+  
+  void tfqmrgpugetstream_(handle_t const *handle, cudaStream_t *streamId, stat_t *stat) {
+      *stat = tfqmrgpuGetStream(*handle, streamId);
+  }
+  
+  void tfqmrgpu_bsrsv_createplan_(handle_t const *handle, plan_t *plan, int const *mb, 
+      int const* bsrRowPtrA, int const *nnzbA, int const* bsrColIndA,
+      int const* bsrRowPtrX, int const *nnzbX, int const* bsrColIndX,
+      int const* bsrRowPtrB, int const *nnzbB, int const* bsrColIndB, 
+      stat_t *stat) {
+      int const FortranIndexOffset = 1;
+      *plan = NULL;
+#ifdef  DEBUG
+      printf("tfqmrgpu_bsrsv_createplan_(handle=%p, *plan=%p, mb=%d, \n"
+               "         bsrRowPtrA=%p, nnzbA=%d, bsrColIndA=%p, \n"
+               "         bsrRowPtrX=%p, nnzbX=%d, bsrColIndX=%p, \n"
+               "         bsrRowPtrB=%p, nnzbB=%d, bsrColIndB=%p, indexOffset=%d)\n",
+               *handle, *plan, *mb,            bsrRowPtrA, *nnzbA, bsrColIndA, 
+               bsrRowPtrX, *nnzbX, bsrColIndX, bsrRowPtrB, *nnzbB, bsrColIndB, FortranIndexOffset);
+#endif     
+      *stat = tfqmrgpu_bsrsv_createPlan(*handle, plan, *mb, // here, plan is passed by reference
+               bsrRowPtrA, *nnzbA, bsrColIndA,
+               bsrRowPtrX, *nnzbX, bsrColIndX,
+               bsrRowPtrB, *nnzbB, bsrColIndB,
+               FortranIndexOffset); // passed by value
+      if (TFQMRGPU_STATUS_SUCCESS != *stat) tfqmrgpuPrintError(*stat);
+#ifdef  DEBUG
+      printf("done tfqmrgpu_bsrsv_createplan_(handle=%p, *plan=%p, ...)\n", *handle, *plan);      
+#endif
+  }
+
+  void tfqmrgpu_bsrsv_destroyplan_(handle_t const *handle, plan_t *plan, stat_t *stat) {
+      *stat = tfqmrgpu_bsrsv_destroyPlan(*handle, *plan);
+      *plan = NULL;
+  }
+
+  void tfqmrgpu_bsrsv_buffersize_(handle_t const *handle, plan_t const *plan,
+      int const *ldA, int const *blockDim, int const *ldB, int const *RhsBlockDim,
+      char const *doublePrecision, size_t *pBufferSizeInBytes, stat_t *stat) {
+      *stat = tfqmrgpu_bsrsv_bufferSize(*handle, *plan,
+                *ldA, *blockDim, *ldB, *RhsBlockDim, *doublePrecision, 
+                pBufferSizeInBytes); // here, pBufferSizeInBytes is passed by reference
+  }
+  
+  void tfqmrgpucreateworkspace_(void* *pBuffer, size_t const *pBufferSizeInBytes, stat_t *stat) {
+      *stat = tfqmrgpuCreateWorkspace(pBuffer, *pBufferSizeInBytes, 'd'); // 'd':use device memory, 'm': use managed memory 
+#ifdef  DEBUGGPU
+      printf("# allocate %.6f MByte at %p @device\n", 1e-6*(*pBufferSizeInBytes), *pBuffer);
+#endif
+  }
+
+  void tfqmrgpudestroyworkspace_(void* *pBuffer, stat_t *stat) {
+      *stat = tfqmrgpuDestroyWorkspace(*pBuffer);
+  }
+  
+  void tfqmrgpu_bsrsv_setbuffer_(handle_t const *handle, plan_t const *plan, 
+              void* const *pBuffer, stat_t *stat) {
+#ifdef  DEBUG
+      printf("# register device pointer %p @device in plan\n", *pBuffer);
+#endif
+      *stat = tfqmrgpu_bsrsv_setBuffer(*handle, *plan, *pBuffer);
+#ifdef  DEBUG
+      if (TFQMRGPU_STATUS_SUCCESS != *stat) tfqmrgpuPrintError(*stat);
+#endif
+  }
+
+  void tfqmrgpu_bsrsv_getbuffer_(handle_t const *handle, plan_t const *plan,
+              void* *pBuffer, stat_t *stat) {
+#ifdef  DEBUG
+      printf("# query device pointer registered in plan\n");
+#endif      
+      *stat = tfqmrgpu_bsrsv_getBuffer(*handle, *plan, pBuffer); // here, pBuffer is passed by reference
+#ifdef  DEBUG
+      if (TFQMRGPU_STATUS_SUCCESS != *stat) tfqmrgpuPrintError(*stat);
+      printf("# device pointer %p @device registered in plan\n", *pBuffer);
+#endif
+  }
+
+  void tfqmrgpu_bsrsv_setmatrix_c_(handle_t const *handle, plan_t const *plan, char const *var, 
+          float const*  val, int const *ld, char const *trans, layout_t const *layout, stat_t *stat) {
+      *stat = tfqmrgpu_bsrsv_setMatrix(*handle, *plan, *var, (void*) val, 'C', *ld, *trans, *layout);
+  }
+
+  void tfqmrgpu_bsrsv_setmatrix_z_(handle_t const *handle, plan_t const *plan, char const *var, 
+          double const* val, int const *ld, char const *trans, layout_t const *layout, stat_t *stat) {
+      *stat = tfqmrgpu_bsrsv_setMatrix(*handle, *plan, *var, (void*) val, 'Z', *ld, *trans, *layout);
+  }
+
+  void tfqmrgpu_bsrsv_getmatrix_c_(handle_t const *handle, plan_t const *plan, char const *var,
+          float*  val, int const *ld, char const *trans, layout_t const *layout, stat_t *stat) {
+      *stat = tfqmrgpu_bsrsv_getMatrix(*handle, *plan, *var, (void*) val, 'C', *ld, *trans, *layout);
+  }
+
+  void tfqmrgpu_bsrsv_getmatrix_z_(handle_t const *handle, plan_t const *plan, char const *var,
+          double* val, int const *ld, char const *trans, layout_t const *layout, stat_t *stat) {
+      *stat = tfqmrgpu_bsrsv_getMatrix(*handle, *plan, *var, (void*) val, 'Z', *ld, *trans, *layout);
+  }
+
+  void tfqmrgpu_bsrsv_solve_(handle_t const *handle, plan_t const *plan,
+          double const *threshold, int const *maxIterations, stat_t *stat) {
+      *stat = tfqmrgpu_bsrsv_solve(*handle, *plan, *threshold, *maxIterations);
+  }
+  
+  void tfqmrgpu_bsrsv_getinfo_(handle_t const *handle, plan_t const *plan, double *residuum_reached,
+        int *iterations_needed, double *flops_performed, double *flops_performed_all, stat_t *stat) {
+      *stat = tfqmrgpu_bsrsv_getInfo(*handle, *plan, residuum_reached, iterations_needed, flops_performed, flops_performed_all); // last 4 args by reference
+  }
