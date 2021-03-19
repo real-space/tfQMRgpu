@@ -161,7 +161,11 @@ namespace tfqmrgpu {
           DOTP(zvv, v3, v5); // zvv := v3.v5
 
           // decisions based on v3.v5 and rho
-          tfQMRdec35<real_t,LM> CUDA_LAUNCH(nCols, LM, 0, streamId) (status, rho, beta, zvv, nCols);
+          tfQMRdec35<real_t,LM>
+#ifndef HAS_NO_CUDA
+              <<<nCols, LM, 0, streamId>>>
+#endif
+              (status, rho, beta, zvv, nCols);
 
           XPAY(v6, beta, v5); // v6 := v5 + beta*v6
 
@@ -174,7 +178,11 @@ namespace tfqmrgpu {
           DOTP(zvv, v3, v4); // zvv := v3.v4
           
           // decisions based on v3.v4 and rho
-          tfQMRdec34<real_t,LM> CUDA_LAUNCH(nCols, LM, 0, streamId) (status, c67, alfa, rho, eta, zvv, var, nCols);
+          tfQMRdec34<real_t,LM>
+#ifndef HAS_NO_CUDA
+              <<<nCols, LM, 0, streamId>>>
+#endif
+              (status, c67, alfa, rho, eta, zvv, var, nCols);
 
           XPAY(v7, c67, v6); // v7 := v6 + c67*v7
 
@@ -183,7 +191,11 @@ namespace tfqmrgpu {
           NRM2(dvv, v5); // dvv := ||v5||
 
           // decisions based on tau
-          tfQMRdecT<real_t,LM> CUDA_LAUNCH(nCols, LM, 0, streamId) (status, c67, eta, var, tau, alfa, dvv, nCols);
+          tfQMRdecT<real_t,LM> 
+#ifndef HAS_NO_CUDA
+              <<<nCols, LM, 0, streamId>>>
+#endif
+              (status, c67, eta, var, tau, alfa, dvv, nCols);
       
           AXPY(v1, v7, eta); // v1 := eta*v7 + v1 // update solution vector
       
@@ -200,7 +212,11 @@ namespace tfqmrgpu {
           NRM2(dvv, v5); // dvv := ||v5||
 
           // decisions based on tau
-          tfQMRdecT<real_t,LM> CUDA_LAUNCH(nCols, LM, 0, streamId) (status, 0x0, eta, var, tau, alfa, dvv, nCols);
+          tfQMRdecT<real_t,LM>
+#ifndef HAS_NO_CUDA
+              <<<nCols, LM, 0, streamId>>>
+#endif
+              (status, 0x0, eta, var, tau, alfa, dvv, nCols);
 
           AXPY(v1, v7, eta); // v1 := eta*v7 + v1 // update solution vector
           

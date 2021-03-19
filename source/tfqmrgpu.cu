@@ -499,12 +499,16 @@
         if ('z' == (doublePrecision | IgnoreCase)) {
             assert(nnzb * 2 * nRows * nCols * sizeof(double) == size);
             tfqmrgpu::transpose_blocks_kernel<double>
-                CUDA_LAUNCH(nnzb, ({nCols,nRows,1}), 2*nRows*nCols*sizeof(double), streamId)
+#ifndef HAS_NO_CUDA
+                <<<nnzb, ({nCols,nRows,1}), 2*nRows*nCols*sizeof(double), streamId>>>
+#endif
                 ((double*) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows);
         } else {
             assert(nnzb * 2 * nRows * nCols * sizeof(float)  == size);
             tfqmrgpu::transpose_blocks_kernel<float>
-                CUDA_LAUNCH(nnzb, ({nCols,nRows,1}), 2*nRows*nCols*sizeof(float) , streamId)
+#ifndef HAS_NO_CUDA
+                <<<nnzb, ({nCols,nRows,1}), 2*nRows*nCols*sizeof(float) , streamId>>>
+#endif
                 ((float *) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows); 
         }
 
@@ -564,12 +568,16 @@
         if ('z' == (doublePrecision | IgnoreCase)) {
             assert(nnzb * 2 * nRows * nCols * sizeof(double) == size);
             tfqmrgpu::transpose_blocks_kernel<double>
-                CUDA_LAUNCH(nnzb, ({nCols,nRows,1}), 2*nRows*nCols*sizeof(double), streamId)
+#ifndef HAS_NO_CUDA
+                <<<nnzb, ({nCols,nRows,1}), 2*nRows*nCols*sizeof(double), streamId>>>
+#endif
                 ((double*) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows);
         } else {
             assert(nnzb * 2 * nRows * nCols * sizeof(float)  == size);
             tfqmrgpu::transpose_blocks_kernel<float>
-                CUDA_LAUNCH(nnzb, ({nCols,nRows,1}), 2*nRows*nCols*sizeof(float) , streamId)
+#ifndef HAS_NO_CUDA
+                <<<nnzb, ({nCols,nRows,1}), 2*nRows*nCols*sizeof(float) , streamId>>>
+#endif
                 ((float *) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows); 
         }
 

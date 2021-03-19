@@ -2,9 +2,6 @@
 
 #ifndef HAS_NO_CUDA
     #include <curand.h> // random number generator for CUDA
-    #define CUDA_LAUNCH(BLOCKS, THREADS_PER_BLOCK, MEMORY, STREAM) <<<(BLOCKS), (THREADS_PER_BLOCK), (MEMORY), (STREAM)>>>
-#else
-    #define CUDA_LAUNCH(B, T, M, S)
 #endif
 
 // #include <cstdio> // for debug
@@ -314,12 +311,16 @@ namespace tfqmrgpu {
         if ('z' == (doublePrecision | IgnoreCase)) {
 //          assert(nnzb * 2 * nRows * nCols * sizeof(double) == size);
             transpose_blocks_kernel<double>
-                CUDA_LAUNCH(nnzb, ({nCols, nRows, 1}), 2*nRows*nCols*sizeof(double), streamId)
+#ifndef HAS_NO_CUDA
+                <<<nnzb, ({nCols, nRows, 1}), 2*nRows*nCols*sizeof(double), streamId>>>
+#endif
                 ((double*) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows);
         } else {
   //        assert(nnzb * 2 * nRows * nCols * sizeof(float)  == size);
             transpose_blocks_kernel<float>
-                CUDA_LAUNCH(nnzb, ({nCols, nRows, 1}), 2*nRows*nCols*sizeof(float) , streamId)
+#ifndef HAS_NO_CUDA
+                <<<nnzb, ({nCols, nRows, 1}), 2*nRows*nCols*sizeof(float) , streamId>>>
+#endif
                 ((float *) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows); 
         }
     } // transpose_blocks
@@ -559,7 +560,9 @@ namespace tfqmrgpu {
         , cudaStream_t const streamId=0
     ) {
         col_axpay <real_t, LM, true >
-            CUDA_LAUNCH(nnz, LM, 0, streamId)
+#ifndef HAS_NO_CUDA
+            <<<nnz, LM, 0, streamId>>>
+#endif
             (y, x, a, ColInd, nnz);
 
         return nnz*8.*LM*LM; // returns the number of Flops
@@ -575,7 +578,9 @@ namespace tfqmrgpu {
         , cudaStream_t const streamId=0
     ) {
         col_axpay <real_t, LM, false>
-            CUDA_LAUNCH(nnz, LM, 0, streamId)
+#ifndef HAS_NO_CUDA
+            <<<nnz, LM, 0, streamId>>>
+#endif
             (y, x, a, ColInd, nnz);
 
         return nnz*8.*LM*LM; // returns the number of Flops
