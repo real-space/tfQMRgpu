@@ -45,12 +45,12 @@ extern "C" {
 #ifdef _MPI
 	#define getTime MPI_Wtime // use the MPI internal timer
 #else
-#ifdef _OMP
+// #ifdef _OMP
 	#include <omp.h> // OpenMP threading
 	#define getTime omp_get_wtime // use the OpenMP internal timer
-#else
-	#define getTime
-#endif
+// #else
+// 	#define getTime cpu_time
+// #endif
 #endif
 
 #ifdef __CUDA_ARCH__

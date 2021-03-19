@@ -2,7 +2,7 @@
 
 #ifndef HAS_NO_CUDA
     #include <curand.h> // random number generator for CUDA
-    #define CUDA_LAUNCH(BLOCKS, THREADS_PER_BLOCK, MEMORY, STREAM) <<<BLOCKS, THREADS_PER_BLOCK, MEMORY, STREAM>>>
+    #define CUDA_LAUNCH(BLOCKS, THREADS_PER_BLOCK, MEMORY, STREAM) <<<(BLOCKS), (THREADS_PER_BLOCK), (MEMORY), (STREAM)>>>
 #else
     #define CUDA_LAUNCH(B, T, M, S)
 #endif
@@ -14,9 +14,9 @@
 // #include <cassert>
 #include <cmath> // std::abs
 
-#include "tfqmrgpu.hxx" // includes cuda.h and tfqmrgpu.h
-#include "tfqmrgpu_util.hxx" // common utilities: FlopChar, copy_data_to_gpu, get_data_from_gpu, abs2
-#include "bsr.hxx" // bsr_t, find_in_array
+#include "tfqmrgpu.hxx"           // includes cuda.h and tfqmrgpu.h
+#include "tfqmrgpu_util.hxx"      // common utilities: FlopChar, copy_data_to_gpu, get_data_from_gpu, abs2
+#include "bsr.hxx"                // bsr_t, find_in_array
 #include "tfqmrgpu_memWindow.h"   // memWindow_t
 #include "tfqmrgpu_plan.hxx"      // bsrsv_plan_t
 #include "tfqmrgpu_handle.hxx"    // tfq_handle_t

@@ -12,8 +12,7 @@ allclean: clean
 
 CC     = gcc
 CXX    = g++
-#CU     = nvcc
-CU     = g++
+CU     = nvcc
 
 ##MPI
 # CC  = mpicc
@@ -30,12 +29,12 @@ EXTFLAGS += -D DEBUG
 ERRFLAGS = -Werror -Wall -Wfatal-errors -Wno-sign-compare
 
 FEAFLAGS=
-FEAFLAGS += -D HAS_NO_CUDA
-# FEAFLAGS += -fopenmp -fno-omit-frame-pointer
+# FEAFLAGS += -D HAS_NO_CUDA
+FEAFLAGS += -fopenmp -fno-omit-frame-pointer
 
 # normal mode
 OPTFLAGS = -Ofast -mtune=power8 -mcpu=power8 -mpower8-fusion -mpower8-vector -mvsx -maltivec -mdirect-move -fstrict-aliasing -fomit-frame-pointer -fno-schedule-insns
-CUOPTFLAGS =
+CUOPTFLAGS=
 CUOPTFLAGS += -O3 --use_fast_math
 # CUOPTFLAGS += -D DEBUGGPU
 CUOPTFLAGS += -D DEBUG
@@ -50,7 +49,7 @@ OPTFLAGS  = -g
 
 # for profiling
 CUOPTFLAGS += -lineinfo
-# FEAFLAGS += -D USE_NVTX
+FEAFLAGS += -D USE_NVTX
 FEAFLAGS += -D hasGPUbenchmarks
 
 FLAGS = ${ERRFLAGS} ${FEAFLAGS} ${OPTFLAGS} ${EXTFLAGS}
@@ -64,13 +63,14 @@ GENCODE_FLAGS += -gencode arch=compute_61,code=sm_61 -gencode arch=compute_61,co
 
 CCFLAGS  = -std=gnu99 ${FLAGS}
 CXXFLAGS = -std=c++11 ${FLAGS}
-## CUFLAGS  = -std=c++11  ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
-CUFLAGS  = ${CXXFLAGS}
-CUFLAGS += -nocudainc -nocudalib
+CUFLAGS  = -std=c++11  ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
+#CUFLAGS  = ${CXXFLAGS}
+# CUFLAGS += -nocudainc -nocudalib
 
-# LDFLAGS = -lnvToolsExt -lm -g -rdynamic 
-LDFLAGS =  -lm -g -rdynamic 
-LDFLAGS += -nocudalib
+LDFLAGS =
+LDFLAGS += -lnvToolsExt
+LDFLAGS += -lm -g -rdynamic 
+# LDFLAGS += -nocudalib
 
 # HOSTNAME := $(shell command -v hostname)
 HOSTNAME = "zam054"
@@ -83,37 +83,14 @@ endif
 ### random numbers created on the GPU
 # LDFLAGS += -lcudart -lcurand
 
-DEP=$(OBJ:%.o=%.d)
+# DEP=$(OBJ:%.o=%.d)
 
 ${EXECUTABLE}: ${OBJ}
 	${CXX} ${CXXFLAGS} $^ ${LDFLAGS} -o $@
 
-%.o:${SRC}/%.c %.d
+%.o:%.c
 	${CC} ${CCFLAGS} ${INCLUDES} -c $<
-%.o:${SRC}/%.cxx %.d
+%.o:%.cxx
 	${CXX} ${CXXFLAGS} ${INCLUDES} -c $<
-%.o:${SRC}/%.cu %.d
+%.o:%.cu
 	${CU} ${CUFLAGS} ${INCLUDES} -c $<
-
-%.o:%.c %.d
-	${CC} ${CCFLAGS} ${INCLUDES} -c $<
-%.o:%.cxx %.d
-	${CXX} ${CXXFLAGS} ${INCLUDES} -c $<
-%.o:%.cu %.d
-	${CU} ${CUFLAGS} ${INCLUDES} -c $<
-
-%.d:${SRC}/%.c
-	${CC} ${CFLAGS} ${INCLUDES} -MM $^ -MF $@
-%.d:${SRC}/%.cu
-	${CXX} ${CUFLAGS} ${INCLUDES} -MM $^ -MF $@
-%.d:${SRC}/%.cxx
-	${CU} ${CXXFLAGS} ${INCLUDES} -MM $^ -MF $@
-
-%.d:%.c
-	${CC} ${CFLAGS} ${INCLUDES} -MM $^ -MF $@
-%.d:%.cu
-	${CXX} ${CUFLAGS} ${INCLUDES} -MM $^ -MF $@
-%.d:%.cxx
-	${CU} ${CXXFLAGS} ${INCLUDES} -MM $^ -MF $@
-
--include ${DEP}
