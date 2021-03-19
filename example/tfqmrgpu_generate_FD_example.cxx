@@ -244,6 +244,7 @@
   int generate(
         float const rsb
       , float const rtb
+      , char const ref
       , int const echo=0
       , float const tolerance=1e-9
       , char const *filename="FD_problem.xml"
@@ -255,16 +256,35 @@
       BlockSparseOperator<BS,  int8_t> B('B');
       BlockSparseOperator<BS, std::complex<float>> X('X');
 
+//            DENOM,          0,      1,      2,    3,    4,  5,  6,
+// ==================================================================================================  
+//                1,          0,      0,      0,    0,    0,  0,  0, & !  Laplacian switched off
+//                1,         -2,      1,      0,    0,    0,  0,  0, & !  2nd order Laplacian(lowest)
+//               12,        -30,     16,     -1,    0,    0,  0,  0, & !  4th order
+//              180,       -490,    270,    -27,    2,    0,  0,  0, & !  6th order
+//             5040,     -14350,   8064,  -1008,  128,   -9,  0,  0, & !  8th order
+//            25200,     -73766,  42000,  -6000, 1000, -125,  8,  0, & ! 10th order
+//           831600,   -2480478,1425600,-222750,44000,-7425,864,-50  & ! 12th order
+
+#ifdef HIGHER_FINITE_DIFFERENCE_ORDER      
+      int constexpr nFD = 6; // number of finite-difference neighbors
+      int32_t const FDdenom = 831600;
+      int32_t const FDcoeff[1 + nFD] = {2480478, -1425600, 222750, -44000, 7425, -864, 50}; // minus Laplacian (as appearing in electrostatics)
+#else
       int constexpr nFD = 4; // number of finite-difference neighbors
       int32_t const FDdenom = 5040;
       int32_t const FDcoeff[1 + nFD] = {14350, -8064, 1008, -128, 9}; // minus Laplacian (as appearing in electrostatics)
+#endif
       if (echo > 0) {
+          int64_t checksum{0};
           std::cout << "# use " << nFD << " finite-difference neighbors with coefficients:" << std::endl;
           for(int iFD = 0; iFD <= nFD; ++iFD) {
               std::cout << "# " << iFD << "\t"  <<  FDcoeff[iFD] << "/" << FDdenom 
                         << "\t= " << FDcoeff[iFD]/double(FDdenom) << std::endl;
+              checksum += FDcoeff[iFD] * (1 + (iFD > 0));
           } // iFD
           std::cout << std::endl;
+          assert(0 == checksum);
       } // echo
 
       // create the stencil around each origin, max block is 1 + Dimension*nFD
@@ -303,27 +323,6 @@
                   } // dir
               } // ipm
           } // isr
-
-//           int const sz = sr*(3 == Dimension);
-//           for(int z = -sz; z <= sz; ++z) {  auto const z2 = pow2(z);
-//           for(int y = -sr; y <= sr; ++y) {  auto const y2 = pow2(y);
-//           for(int x = -sr; x <= sr; ++x) {  auto const x2 = pow2(x);
-//               auto const dist2 = x2 + y2 + z2;
-//           // if (dist2 <= 8) // a spherical stencil shape
-//               if ((x2 + y2 == 0) || (y2 + z2 == 0) || (z2 + x2 == 0)) // a star shape:
-//            // only one Cartesian coordinates may be non-zero
-//               {
-//                   assert(iob < 128);
-//                   origin_blocks[iob][0] = x;
-//                   origin_blocks[iob][1] = y;
-//                   origin_blocks[iob][2] = z;
-//                   origin_blocks[iob][3] = dist2;
-//                   origin_block_index[z & 0x1f][y & 0x1f][x & 0x1f] = iob; // use & 31 as modulo 32
-//                   ++iob; // new stencil block
-//               }
-//           } // x
-//           } // y
-//           } // z
 
           assert(iob < StencilBlockZero && "stencil extent is too large");
       } // scope
@@ -592,6 +591,14 @@
           } // echo and histogram nonzero
       } // h
 
+      if ('r' == (ref | 32)) {
+          if (echo > 0) std::cout << "# create a reference solution" << std::endl;
+//        ToDo:
+//          loop over RHS blocks and solve the problem using a dense linear agebra method, e.g. zgesv
+//          store the solution in X as reference
+          
+      } // create a reference solution using LAPACK
+      
       // export the matrices into the format required for tfqmrgpu
 
       if (nullptr != filename) {
@@ -625,14 +632,15 @@
         int const block_edge
       , float const rsb
       , float const rtb
+      , char const ref
       , int const echo=0
   ) {
       // resolve non-type template parameter BlockEdge
       switch(block_edge) {
-        case 1: return generate<1,Dimension>(rsb, rtb, echo);
-        case 2: return generate<2,Dimension>(rsb, rtb, echo);
-        case 4: return generate<4,Dimension>(rsb, rtb, echo);
-        case 8: return generate<8,Dimension>(rsb, rtb, echo);
+        case 1: return generate<1,Dimension>(rsb, rtb, ref, echo);
+        case 2: return generate<2,Dimension>(rsb, rtb, ref, echo);
+        case 4: return generate<4,Dimension>(rsb, rtb, ref, echo);
+        case 8: return generate<8,Dimension>(rsb, rtb, ref, echo);
         default:
           int constexpr line_to_modify = __LINE__ - 3;
           assert(block_edge > 0 && "block_edge must be a positive integer!");
@@ -652,7 +660,8 @@
       float const rtb = std::abs((argc > 2) ? std::atof(argv[2]) : 6.75); // in units of grid points
       int const BlockEdge      = (argc > 3) ? std::atoi(argv[3]) : 2;
       int const dimension      = (argc > 4) ? std::atoi(argv[4]) : 3;
-      int const echo           = (argc > 5) ? std::atoi(argv[5]) : 5;
+      char const ref           = (argc > 5) ?          *argv[5]) : 'n';
+      int const echo           = (argc > 6) ? std::atoi(argv[6]) : 5;
 
       if (echo > 0) {
           std::cout << "# " << executable
@@ -665,7 +674,7 @@
       } // echo
 
       return (2 == dimension)?
-          generate<2>(BlockEdge, rsb, rtb, echo):
-          generate<3>(BlockEdge, rsb, rtb, echo);
+          generate<2>(BlockEdge, rsb, rtb, ref, echo):
+          generate<3>(BlockEdge, rsb, rtb, ref, echo);
   } // main
 #endif // __MAIN__

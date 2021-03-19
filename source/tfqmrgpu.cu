@@ -50,7 +50,7 @@
             // here, add all the allowed block sizes
             instance(16);
             instance(32);
-            
+
 #undef      instance            
             default: return TFQMRGPU_BLOCKSIZE_MISSING + p->LM; // also say which blocksize was requested
         } // switch LM

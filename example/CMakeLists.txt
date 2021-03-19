@@ -1,0 +1,6 @@
+add_executable(generate_FD_example tfqmrgpu_generate_FD_example.cxx)
+
+add_executable(test_xml_reader tfqmrgpu_example_xml_reader.cxx)
+
+add_executable(test_legacy_reader  tfqmrgpu_example_reader.cxx)
+
