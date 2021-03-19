@@ -158,7 +158,7 @@ namespace tfqmrgpu_example_xml_reader {
       
       double scale_values[] = {1, 1, 1};
       std::vector<unsigned> indirect[3];
-      
+
       for(auto BSM = LinearProblem->first_node(); BSM; BSM = BSM->next_sibling()) {
           auto const id = find_attribute(BSM, "id", "?", echo);
           if (echo > 5) std::printf("# BlockSparseMatrix id= %s\n", id);
@@ -238,10 +238,10 @@ namespace tfqmrgpu_example_xml_reader {
                   } // i
                   std::vector<unsigned> occurence(96, 0);
                   for(auto s : stats) {
-                      assert(s < 96);
+                      if (s >= occurence.size()) occurence.resize(s + 1);
                       ++occurence[s];
                   } // s
-                  for(int h = 0; h < 96; ++h) {
+                  for(int h = 0; h < occurence.size(); ++h) {
                       if (occurence[h] > 0) {
                           std::printf("# %s occurence[%i] = %d\n", id, h, occurence[h]);
                       } // occurred at least once

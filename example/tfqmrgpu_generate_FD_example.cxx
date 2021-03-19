@@ -49,8 +49,7 @@
     #include "bsr.hxx" // bsr_t
 #else // HAS_BSR
 
-  struct bsr_t {
-    // sparse matrix structure
+  struct bsr_t { // block sparse row matrix structure
     unsigned nRows; // number of Rows
     unsigned nCols; // number of block columns
     unsigned nnzb;  // number of non-zero blocks
@@ -345,14 +344,15 @@
           for(int dir = 0; dir < Dimension; ++dir) {
               if (echo > 9) std::printf("# z=%d y=%d x=%d dir=%c\n", z, y, x, dir+'x');
               int xyz_m[3] = {x, y, z*(3 == Dimension)}; // modified coords modulo block
-              
+
               // something seems to produce unsymmetric stencils here
               // ToDo
-              
+
               for(int iFD = -nFD; iFD <= nFD; ++iFD) {
 //                if (echo > 99) std::printf("# z=%d y=%d x=%d dir=%c iFD=%i\n", z, y, x, dir+'x', iFD);
                   int const j_dir = ixyz[dir] + iFD; // shifted grid point
-                  int const shift_dir = j_dir / BlockEdge; // how many blocks shifted?
+//                   int const shift_dir = j_dir / BlockEdge; // how many blocks shifted?
+                  int const shift_dir = (j_dir + 99*BlockEdge) / BlockEdge - 99; // how many blocks shifted?
                   xyz_m[dir] = (99*BlockEdge + j_dir) % BlockEdge;
                   assert(xyz_m[dir] >= 0);
                   auto const jb = (xyz_m[2]*BlockEdge + xyz_m[1])*BlockEdge + xyz_m[0];
@@ -433,6 +433,10 @@
       } // isrc
 
 
+
+
+
+
       // ========= construct sparsity pattern for X
 
       // create the BSR structure for X (result of linear system solve)
@@ -460,7 +464,11 @@
           assert(n_all_targets == n_all_targets_prefix);
       } // scope: sanity checks
 
-      
+
+
+
+
+
       // ========= construct sparsity pattern for B
       
       // create the BSR structure for B (identity operator)
@@ -519,6 +527,10 @@
           if (echo > 0) std::cout << "# data blocks of B are simple unit matrices" << std::endl;
       } // fill_B_with_data
 
+      
+      
+      
+      
       // now construct the A operator
 
       // ========= construct sparsity pattern for A
@@ -625,8 +637,8 @@
           int constexpr line_to_modify = __LINE__ - 3;
           assert(block_edge > 0 && "block_edge must be a positive integer!");
           std::cerr << std::endl 
-                    << "ERROR in " << __FILE__ << ": add case for BlockEdge= " << block_edge
-                    << " around line " << line_to_modify << std::endl << std::endl;
+                    << "ERROR: missing case for BlockEdge= " << block_edge << " in "
+                    << __FILE__ << ":" << line_to_modify << std::endl << std::endl;
           return -1; // error
       } // switch block_edge
   } // generate
