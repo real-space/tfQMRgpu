@@ -24,20 +24,20 @@ INCLUDES += -I../include
 # INCLUDES += -I/usr/local/cuda/include
 
 EXTFLAGS ?=
-EXTFLAGS += -D DEBUG
+EXTFLAGS += -DDEBUG
 
 ERRFLAGS = -Werror -Wall -Wfatal-errors -Wno-sign-compare
 
 FEAFLAGS=
-# FEAFLAGS += -D HAS_NO_CUDA
+# FEAFLAGS += -DHAS_NO_CUDA
 FEAFLAGS += -fopenmp -fno-omit-frame-pointer
 
 # normal mode
 OPTFLAGS = -Ofast -mtune=power8 -mcpu=power8 -mpower8-fusion -mpower8-vector -mvsx -maltivec -mdirect-move -fstrict-aliasing -fomit-frame-pointer -fno-schedule-insns
 CUOPTFLAGS=
 CUOPTFLAGS += -O3 --use_fast_math
-# CUOPTFLAGS += -D DEBUGGPU
-CUOPTFLAGS += -D DEBUG
+# CUOPTFLAGS += -DDEBUGGPU
+CUOPTFLAGS += -DDEBUG
 
 ## verbose assembler
 # CUOPTFLAGS +=  -Xptxas -v
@@ -49,16 +49,16 @@ OPTFLAGS  = -g
 
 # for profiling
 CUOPTFLAGS += -lineinfo
-FEAFLAGS += -D USE_NVTX
-FEAFLAGS += -D hasGPUbenchmarks
+FEAFLAGS += -DUSE_NVTX
+FEAFLAGS += -DhasGPUbenchmarks
 
 FLAGS = ${ERRFLAGS} ${FEAFLAGS} ${OPTFLAGS} ${EXTFLAGS}
 
 GENCODE_FLAGS =
 # GENCODE_FLAGS += -gencode arch=compute_35,code=sm_35
 # GENCODE_FLAGS += -gencode arch=compute_37,code=sm_37
-GENCODE_FLAGS += -gencode arch=compute_61,code=sm_61 -gencode arch=compute_61,code=compute_61
-# GENCODE_FLAGS += -gencode arch=compute_75,code=sm_75 -gencode arch=compute_75,code=compute_75
+# GENCODE_FLAGS += -gencode arch=compute_61,code=sm_61 -gencode arch=compute_61,code=compute_61
+GENCODE_FLAGS += -gencode arch=compute_70,code=sm_70 -gencode arch=compute_70,code=compute_70 ## V100
 # GENCODE_FLAGS += -gencode arch=compute_80,code=sm_80 -gencode arch=compute_80,code=compute_80 ## A100
 
 CCFLAGS  = -std=gnu99 ${FLAGS}
@@ -81,7 +81,7 @@ else
 # 	LDFLAGS += -L/usr/local/cuda/lib64 
 endif
 ### random numbers created on the GPU
-# LDFLAGS += -lcudart -lcurand
+LDFLAGS += -lcudart -lcurand
 
 # DEP=$(OBJ:%.o=%.d)
 
