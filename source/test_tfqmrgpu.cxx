@@ -8,7 +8,7 @@
 namespace GPUbench {
 
     // main benchmark for the performance of the tfQMR solver using the library interface
-    int benchmark_tfQMRgpu_library(bsr_t const ABX[3], double const, int const, int const);
+    int benchmark_tfQMRgpu_library(bsr_t const ABX[3], double const, int const, int const, char const);
 
     // side-benchmark for the performance of the block-matrix-matrix-multiplication only
     int benchmark_blockMatrixMatrixMultiplication(int const argc, char const *const argv[]);
@@ -32,7 +32,7 @@ int main(int const argc, char const *const argv[]) {
     printf(" please activate -D hasGPUbenchmarks to run Benchmark='%c'\n", bench); return 41;
 #endif
 
-    char const flouble = (argc > 3)?          *argv[3]  : 'd'; // d:double, f:float
+    char const flouble = (argc > 3)?          *argv[3]  : 'z'; // z:double, c:float
     int const nrep     = (argc > 4)? std::atoi(argv[4]) : 1; // number of repetitions
     int const MaxIter  = (argc > 5)? std::atoi(argv[5]) : 2000; // max. number of iteration
 
@@ -45,7 +45,7 @@ int main(int const argc, char const *const argv[]) {
 
     printf("# requested precision = %c for LM = %d\n", flouble, lsmd);
 #ifdef  hasGPUbenchmarks
-    return GPUbench::benchmark_tfQMRgpu_library(ABX, tolerance, MaxIter, nrep);
+    return GPUbench::benchmark_tfQMRgpu_library(ABX, tolerance, MaxIter, nrep, flouble);
 #else
     printf(" please activate -D hasGPUbenchmarks\n"); return 42;
 #endif

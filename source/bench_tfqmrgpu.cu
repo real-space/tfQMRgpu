@@ -62,6 +62,7 @@ namespace GPUbench {
         , double const tolerance=1.0e-6
         , int const maxIterations=999
         , int const nRepetitions=1
+        , char const doublePrecision='z' // 'c' is not fully implemented!
     ) {
 
         PUSH_RANGE(__func__); // NVTX range markers for nvvp
@@ -114,7 +115,6 @@ namespace GPUbench {
 
         // step 5: compute the GPU memory requirement based on block sizes
         int const blockDim = A->fastBlockDim;
-        char const doublePrecision = 'Z';
         size_t pBufferSize{0}; // in Bytes
         printf("# compute the GPU memory requirements for blockDim=%d \n", blockDim);
         callAndCheck(  tfqmrgpu_bsrsv_bufferSize(handle, plan, 
@@ -474,6 +474,13 @@ namespace GPUbench {
             case  32:  decide_precision( 32); break; // Lmax=3, noco
             case  64:  decide_precision( 64); break; // Lmax=7
             case 128:  decide_precision(128); break; // Lmax=7, noco
+
+            case   6:  decide_precision(  6); break;
+            case  12:  decide_precision( 12); break;
+            case  24:  decide_precision( 24); break;
+            case  48:  decide_precision( 48); break;
+            case  96:  decide_precision( 96); break;
+
 #undef  decide_precision
 #undef  call_it
             default : std::cout << "ERROR: Case not implemented lsmd = " << lsmd << std::endl; return 1; 

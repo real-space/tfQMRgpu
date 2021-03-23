@@ -37,8 +37,8 @@ OPTFLAGS = -Ofast -mtune=power8 -mcpu=power8 -mpower8-fusion -mpower8-vector -mv
 CUOPTFLAGS=
 CUOPTFLAGS += -O3 --use_fast_math
 # CUOPTFLAGS += -DDEBUGGPU
-CUOPTFLAGS += -DDEBUG
-
+# CUOPTFLAGS += -DDEBUG
+    
 ## verbose assembler
 # CUOPTFLAGS +=  -Xptxas -v
 
