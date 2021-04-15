@@ -1,7 +1,8 @@
-EXECUTABLE = test_tfqmrgpu.exe
+EXECUTABLE = bench_tfqmrgpu.exe
 all: ${EXECUTABLE}
 
-OBJ = test_tfqmrgpu.o bench_tfqmrgpu.o tfqmrgpu.o
+# OBJ = test_tfqmrgpu.o bench_tfqmrgpu.o tfqmrgpu.o
+OBJ = bench_tfqmrgpu.o tfqmrgpu.o
 
 .PHONY: clean allclean
 clean:
@@ -29,16 +30,17 @@ EXTFLAGS += -DDEBUG
 ERRFLAGS = -Werror -Wall -Wfatal-errors -Wno-sign-compare
 
 FEAFLAGS=
-# FEAFLAGS += -DHAS_NO_CUDA
-FEAFLAGS += -fopenmp -fno-omit-frame-pointer
+FEAFLAGS += -DHAS_NO_CUDA
+# FEAFLAGS += -fopenmp
+FEAFLAGS += -fno-omit-frame-pointer
 
 # normal mode
 OPTFLAGS = -Ofast -mtune=power8 -mcpu=power8 -mpower8-fusion -mpower8-vector -mvsx -maltivec -mdirect-move -fstrict-aliasing -fomit-frame-pointer -fno-schedule-insns
 CUOPTFLAGS=
 CUOPTFLAGS += -O3 --use_fast_math
-# CUOPTFLAGS += -DDEBUGGPU
-# CUOPTFLAGS += -DDEBUG
-    
+CUOPTFLAGS += -DDEBUGGPU
+CUOPTFLAGS += -DDEBUG
+
 ## verbose assembler
 # CUOPTFLAGS +=  -Xptxas -v
 
@@ -49,7 +51,7 @@ OPTFLAGS  = -g
 
 # for profiling
 CUOPTFLAGS += -lineinfo
-FEAFLAGS += -DUSE_NVTX
+# FEAFLAGS += -DUSE_NVTX
 FEAFLAGS += -DhasGPUbenchmarks
 
 FLAGS = ${ERRFLAGS} ${FEAFLAGS} ${OPTFLAGS} ${EXTFLAGS}
@@ -68,7 +70,7 @@ CUFLAGS  = -std=c++11  ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,
 # CUFLAGS += -nocudainc -nocudalib
 
 LDFLAGS =
-LDFLAGS += -lnvToolsExt
+# LDFLAGS += -lnvToolsExt
 LDFLAGS += -lm -g -rdynamic 
 # LDFLAGS += -nocudalib
 
@@ -81,9 +83,9 @@ else
 # 	LDFLAGS += -L/usr/local/cuda/lib64 
 endif
 ### random numbers created on the GPU
-LDFLAGS += -lcudart -lcurand
+# LDFLAGS += -lcudart -lcurand
 
-# DEP=$(OBJ:%.o=%.d)
+DEP=$(OBJ:%.o=%.d)
 
 ${EXECUTABLE}: ${OBJ}
 	${CXX} ${CXXFLAGS} $^ ${LDFLAGS} -o $@
@@ -94,3 +96,12 @@ ${EXECUTABLE}: ${OBJ}
 	${CXX} ${CXXFLAGS} ${INCLUDES} -c $<
 %.o:%.cu
 	${CU} ${CUFLAGS} ${INCLUDES} -c $<
+
+%.d:%.c
+	${CC} ${CFLAGS} ${INCLUDES} -MM $^ -MF $@
+%.d:%.cu
+	${CXX} -x c++ ${CXXFLAGS} ${INCLUDES} -MM $^ -MF $@
+%.d:%.cxx
+	${CXX} ${CXXFLAGS} ${INCLUDES} -MM $^ -MF $@
+
+-include ${DEP}

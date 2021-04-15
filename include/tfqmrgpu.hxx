@@ -34,23 +34,23 @@ extern "C" {
     #include "tfqmrgpu.h" // C-interface for tfqmrgpu
 } // extern "C"
 
+// // mark device pointers == pointers to GPU memory
 #define devPtr const __restrict__
-
-// #include <cmath>
-// #include <cstdio>
-// #include <cstdlib>
-// #include <cstring>
-// #include <ctime>
 
 #ifdef _MPI
 	#define getTime MPI_Wtime // use the MPI internal timer
 #else
-// #ifdef _OMP
+#ifdef _OPENMP
 	#include <omp.h> // OpenMP threading
 	#define getTime omp_get_wtime // use the OpenMP internal timer
-// #else
-// 	#define getTime cpu_time
-// #endif
+#else
+    #include <ctime> // time
+	inline double getTime() { return double(intmax_t(time(nullptr))); }
+#endif
+#endif
+
+#ifndef _OPENMP
+	inline int omp_get_num_threads() { return 1; }
 #endif
 
 #ifdef __CUDA_ARCH__

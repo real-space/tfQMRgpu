@@ -22,16 +22,16 @@
   #include <cstdlib> // std::atof, std::strtod
   #include <cstring> // std::strcmp
 
-  // from https://sourceforge.net/projects/rapidxml/files/latest/download
-  #include "../include/tools/rapidxml/rapidxml.hpp" // ::xml_document<>
-  #include "../include/tools/rapidxml/rapidxml_utils.hpp" // ::file<>
+  // git clone https://github.com/dwd/rapidxml
+  #include "../external/rapidxml/rapidxml.hpp" // ::xml_document<>
+  #include "../external/rapidxml/rapidxml_utils.hpp" // ::file<>
 #else
   #error "Example reader needs the rapidxml library!"
 #endif
 
 #ifdef  HAS_BSR
-    // use the definition of the Block-compressed Sparse Row format from the include path
-    #include "bsr.hxx" // bsr_t
+  // use the definition of the Block-compressed Sparse Row format from the include path
+  #include "bsr.hxx" // bsr_t
 #else // HAS_BSR
 
   struct bsr_t {
@@ -54,64 +54,73 @@
 
 namespace tfqmrgpu_example_xml_reader {
 
-    char const empty_string[] = "";
-  
-    inline char const * find_attribute(
-          rapidxml::xml_node<> const *node
-        , char const *const name
-        , char const *const default_value=""
-        , int const echo=0
-    ) { 
-        if (nullptr == node) return empty_string;
-        for (auto attr = node->first_attribute(); attr; attr = attr->next_attribute()) {
-            if (0 == std::strcmp(name, attr->name())) {
-                return attr->value();
-            } // found
-        } // attr
-        return default_value;
-    } // find_attribute 
-  
-    inline rapidxml::xml_node<> const * find_child(
-          rapidxml::xml_node<> const *node
-        , char const *const name
-        , int const echo=0
-    ) { 
-        if (nullptr == node) return nullptr;
-        for (auto child = node->first_node(); child; child = child->next_sibling()) {
-            if (0 == std::strcmp(name, child->name())) {
-                return child;
-            } // found
-        } // attr
-        return nullptr;
-    } // find_child 
+  inline char const * find_attribute(
+        rapidxml::xml_node<> const *node
+      , char const *const attribute_name
+      , char const *const default_value=""
+      , int const echo=0
+  ) {
+      if (nullptr != node) {
+          for (auto attr = node->first_attribute(); attr; attr = attr->next_attribute()) {
+              if (0 == std::strcmp(attribute_name, attr->name())) {
+                  if (echo > 9) std::printf("# %s: node '%s' has attribute '%s' with value '%s'\n",
+                                            __func__, node->name(), attribute_name, attr->value());
+                  return attr->value();
+              } // found
+          } // attr
+          if (echo > 7) std::printf("# %s: node '%s' has no attribute '%s', use default '%s'\n",
+                                        __func__, node->name(), attribute_name, default_value);
+      } else { // node
+          if (echo > 7) std::printf("# %s: node = NULL, use default '%s'\n", __func__, default_value);
+      } // node
+      return default_value;
+  } // find_attribute
 
-    template <typename real_t>
-    std::vector<real_t> read_sequence(
-          char const *sequence
-        , int const echo=0
-        , size_t const reserve=0
-    ) {
-        // read data from a (potentially long) char sequence into a vector
-        char *end;
-        char const *seq{sequence};
-        std::vector<real_t> v;
-        v.reserve(reserve);
-        for (double f = std::strtod(seq, &end);
-             seq != end;
-             f = std::strtod(seq, &end)) {
-            seq = end;
-            if (errno == ERANGE){
-                std::fprintf(stderr, "range error, got %g", f);
-                errno = 0;
-            } else {
-                v.push_back(real_t(f));
-            } // errno
-        } // f
-        return v;
-    } // read_sequence
+  inline rapidxml::xml_node<> const * find_child(
+        rapidxml::xml_node<> const *node
+      , char const *const child_name
+      , int const echo=0
+  ) { 
+      if (nullptr != node) {
+          for (auto child = node->first_node(); child; child = child->next_sibling()) {
+              if (0 == std::strcmp(child_name, child->name())) {
+                  if (echo > 9) std::printf("# %s: node '%s' has child '%s'\n",
+                                            __func__, node->name(), child_name);
+                  return child;
+              } // found
+          } // attr
+          if (echo > 7) std::printf("# %s: node '%s' has no child '%s'\n", __func__, node->name(), child_name);
+      } else { // node
+          if (echo > 7) std::printf("# %s: node = NULL\n", __func__);
+      } // node
+      return nullptr;
+  } // find_child
 
-//   template <typename real_t> inline real_t constexpr pow2(real_t const x) { return x*x; }
-  
+  template <typename real_t>
+  std::vector<real_t> read_sequence(
+        char const *const sequence
+      , int const echo=0
+      , size_t const reserve=0
+  ) {
+      // read data from a (potentially long) char sequence into a vector
+      char *end;
+      char const *seq{sequence};
+      std::vector<real_t> v;
+      v.reserve(reserve);
+      for (double f = std::strtod(seq, &end);
+          seq != end;
+          f = std::strtod(seq, &end)) {
+          seq = end;
+          if (errno == ERANGE){
+              if (echo > 0) std::fprintf(stderr, "range error, got %g", f);
+              errno = 0;
+          } else {
+              v.push_back(real_t(f));
+          } // errno
+      } // f
+      return v;
+  } // read_sequence
+
   inline double read_in( // returns tolerance
         bsr_t ABX[3]
       , char const *const filename
@@ -123,7 +132,7 @@ namespace tfqmrgpu_example_xml_reader {
           return 0;
       } // !filename
 
-      if (echo > 0) std::printf("# read file \"%s\" using rapidxml\n", filename);
+      if (echo > 0) std::printf("# read file '%s' using rapidxml\n", filename);
       rapidxml::file<> infile(filename);
 
       // create the root node
@@ -133,8 +142,11 @@ namespace tfqmrgpu_example_xml_reader {
       doc.parse<0>(infile.data());
 
       auto const LinearProblem = doc.first_node("LinearProblem");
-      if (!LinearProblem) return 0;
-      
+      if (!LinearProblem) {
+          std::printf("\n# Warning! Cannot find LinearProblem in file '%s'\n\n", filename);
+          return 0;
+      } // no linear problem found
+
       auto const tolerance_string = find_attribute(LinearProblem, "tolerance", "0", echo);
       tolerance = std::atof(tolerance_string);
       if (echo > 3) {
@@ -155,11 +167,11 @@ namespace tfqmrgpu_example_xml_reader {
 //         </ColumnIndex>
 //       </CompressedSparseRow>
 //     </SparseMatrix>
-      
+
       double scale_values[] = {1, 1, 1};
       std::vector<unsigned> indirect[3];
 
-      for(auto BSM = LinearProblem->first_node(); BSM; BSM = BSM->next_sibling()) {
+      for (auto BSM = LinearProblem->first_node(); BSM; BSM = BSM->next_sibling()) {
           auto const id = find_attribute(BSM, "id", "?", echo);
           if (echo > 5) std::printf("# BlockSparseMatrix id= %s\n", id);
           int const abx = ('A' == *id) ? 0 : (('B' == *id) ? 1 : 2);
@@ -177,7 +189,7 @@ namespace tfqmrgpu_example_xml_reader {
 #endif
               auto const csr = find_child(SparseMatrix, "CompressedSparseRow", echo);
               if (!csr) {
-                  std::printf("# Cannot find CompressedSparseRow in SparseMatrix\n");
+                  std::printf("\n# Warning! Cannot find CompressedSparseRow in SparseMatrix\n\n");
                   return 0;
               } // no csr found
               
@@ -188,7 +200,7 @@ namespace tfqmrgpu_example_xml_reader {
                   bsr.nRows = nonzero_element_per_row.size();
                   bsr.RowPtr.resize(bsr.nRows + 1);
                   bsr.RowPtr[0] = 0;
-                  for(int irow = 0; irow < bsr.nRows; ++irow) {
+                  for (int irow = 0; irow < bsr.nRows; ++irow) {
                       bsr.RowPtr[irow + 1] = bsr.RowPtr[irow] + nonzero_element_per_row[irow];
                   } // irow
               } else {
@@ -198,7 +210,7 @@ namespace tfqmrgpu_example_xml_reader {
                       bsr.RowPtr = read_sequence<int>(RowStart->value(), echo, nrows + 1);
                       bsr.nRows = bsr.RowPtr.size() - 1;
                   } else {
-                      std::printf("# Cannot find NonzerosPerRow nor RowStart in CompressedSparseRow\n");
+                      std::printf("\n# Warning! Cannot find NonzerosPerRow nor RowStart in CompressedSparseRow\n\n");
                       return 0;
                   } // RowStart
               } // nzpr
@@ -232,16 +244,16 @@ namespace tfqmrgpu_example_xml_reader {
               } // Indirection
               if (1) { // analyze the indirection table
                   std::vector<uint16_t> stats(bsr.nnzb, 0);
-                  for(auto i : indirect[abx]) {
+                  for (auto i : indirect[abx]) {
                       assert(0 <= i); assert(i < bsr.nnzb);
                       ++stats[i];
                   } // i
                   std::vector<unsigned> occurence(96, 0);
-                  for(auto s : stats) {
+                  for (auto s : stats) {
                       if (s >= occurence.size()) occurence.resize(s + 1);
                       ++occurence[s];
                   } // s
-                  for(int h = 0; h < occurence.size(); ++h) {
+                  for (int h = 0; h < occurence.size(); ++h) {
                       if (occurence[h] > 0) {
                           std::printf("# %s occurence[%i] = %d\n", id, h, occurence[h]);
                       } // occurred at least once
@@ -253,10 +265,9 @@ namespace tfqmrgpu_example_xml_reader {
               } // analysis
 
           } else { // SparseMatrix
-              std::printf("# Cannot find a SparseMatrix for operator \'%s\'\n", id);
+              std::printf("\n# Warning! Cannot find a SparseMatrix for operator %s\n\n", id);
           } // SparseMatrix
           
-//     <DataTensor type="real" rank="3" dimensions="19 1 1" scale="1.984126984126984e-04">
           auto const DataTensor = find_child(BSM, "DataTensor", echo);
           if (DataTensor) {
               scale_values[abx] = std::atof(find_attribute(DataTensor, "scale", "1", echo));
@@ -265,14 +276,14 @@ namespace tfqmrgpu_example_xml_reader {
               auto const dim_string = find_attribute(DataTensor, "dimensions", "0 0 0", echo);
               auto const dims = read_sequence<int>(dim_string, echo, rank);
               assert(dims.size() == rank);
-              std::printf("# Found DataTensor[%d][%d][%d] for operator \'%s\'\n", dims[0], dims[1], dims[2], id);
+              std::printf("# Found DataTensor[%d][%d][%d] for operator %s\n", dims[0], dims[1], dims[2], id);
               if (bsr.nnzb != dims[0]) {
-                  std::printf("# DataTensor[%d] dimension differs from SparseMatrix.nnz = %d of operator \'%s\'\n", dims[0], bsr.nnzb, id);
+                  std::printf("# DataTensor[%d] dimension differs from SparseMatrix.nnz = %d of operator %s\n", dims[0], bsr.nnzb, id);
               } // different
               bsr.slowBlockDim = dims[1];
               bsr.fastBlockDim = dims[2];
           } else {
-              std::printf("# Cannot find a DataTensor for operator \'%s\'\n", id);
+              std::printf("\n# Warning! Cannot find a DataTensor for operator %s\n\n", id);
           } // DataTensor
 
       } // BSM

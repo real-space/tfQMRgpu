@@ -42,7 +42,7 @@ inline cudaError cudaMemcpy(void *dest, void const *src, std::size_t count, cuda
     return cudaSuccess;
 } // cudaMemcpy
 
-inline cudaError cudaMemcpyAsync(void *dest, void const *src, std::size_t count, char kind, cudaStream_t stream) {
+inline cudaError cudaMemcpyAsync(void *dest, void const *src, std::size_t count, cudaMemcpyKind kind, cudaStream_t stream) {
     return cudaMemcpy(dest, src, count, kind);
 } // cudaMemcpyAsync
 
