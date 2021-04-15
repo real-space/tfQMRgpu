@@ -16,12 +16,11 @@
 #endif
 
 #ifdef DEBUG
-    #define debug_print(TEXT...) std::printf(TEXT)
+    #define debug_printf(...) std::printf(__VA_ARGS__)
 #else
-    #define debug_print(TEXT...)
+    #define debug_printf(...)
 #endif
 
-#ifdef  hasGPUbenchmarks
 
     template <typename T>
     T* get_gpu_memory(size_t const size=1) {
@@ -74,9 +73,9 @@ namespace GPUbench {
         auto const A = &(ABX[0]), B = &(ABX[1]), X = &(ABX[2]); // abbreviations
 
 #define callAndCheck(FUN) { \
-        debug_print("\n# Start "#FUN"\n"); \
+        debug_printf("\n# Start "#FUN"\n"); \
         auto const stat = FUN; \
-        debug_print("# Done  "#FUN"\n"); \
+        debug_printf("# Done  "#FUN"\n"); \
         tfqmrgpuPrintError(stat);\
         if (TFQMRGPU_STATUS_SUCCESS != stat) return stat; }
 
@@ -137,7 +136,7 @@ namespace GPUbench {
                 std::printf("[ERROR] CUDA call failed to allocate %.6f GByte in %s:%d\n", pBufferSize*1e-9, __FILE__, __LINE__);
                 return TFQMRGPU_STATUS_ALLOCATION_FAILED;
             } else {
-                debug_print("# allocated %.6f GByte GPU memory at %p in %s:%d\n", pBufferSize*1e-9, pBuffer, __FILE__, __LINE__);
+                debug_printf("# allocated %.6f GByte GPU memory at %p in %s:%d\n", pBufferSize*1e-9, pBuffer, __FILE__, __LINE__);
                 std::printf("# use %.6f GByte GPU memory\n", pBufferSize*1e-9);
             }
         }
@@ -285,7 +284,7 @@ namespace GPUbench {
         std::printf("# CUDA Launch <<< %d, { %d, %d, %d } >>>\n", nnzbY, threads.x, threads.y, threads.z);
 #endif // HAS_NO_CUDA
         assert(nnzbX == nnzbY); // for a logically square operator A
-        
+
         double nFlop{0};
         double time_sum{0}, time_rms{0}; // timing stats
         PUSH_RANGE("GPU benchmarks zgemmNxNf");
@@ -397,12 +396,14 @@ namespace GPUbench {
 
     int benchmark_blockMatrixMatrixMultiplication(int const argc, char const *const argv[]) {
         // ToDo: use control::get environment
-        char const *fnm  = (argc > 1)?           argv[1]  : "plan"; // inputfile
-                                 assert( 'm' == *argv[2] );
-        char const fF    = (argc > 3)?          *argv[3]  : 'F'; // {F,d,D} = double, f=float
+                                 assert( 'm' == *argv[1] ); // 'multiplication' task
+        char const *fnm  = (argc > 2)?           argv[2]  : "plan"; // inputfile
+        char const fF    = (argc > 3)?          *argv[3]  : 'f'; // {f,F,c,C, d,D,z,Z} = float or double
         int const nrep   = (argc > 4)? std::atoi(argv[4]) : 1; // number or repetitions
         int const nsamp  = (argc > 5)? std::atoi(argv[5]) : 1; // number of sampling
         int const lsmd   = (argc > 6)? std::atoi(argv[6]) : 16; // block size
+
+        bool const doublePrecision = (('d' == (fF | 32)) || ('z' == (fF | 32)));
 
         // read multiplication plan from input file
         std::ifstream input(fnm, std::ifstream::in);
@@ -470,7 +471,7 @@ namespace GPUbench {
 
         switch (lsmd) { // blocksize
 #define call_it(REAL_t,LSMd) bench_multi<REAL_t, LSMd>(nnzY, starts.data(), nPairs, pairs.data(), nnzA, nnzX, nrep, nsamp)
-#define decide_precision(LSMd) if('f' == fF) { call_it(float,LSMd); } else { call_it(double,LSMd); }
+#define decide_precision(LSMd) if (doublePrecision) { call_it(double,LSMd); } else { call_it(float,LSMd); }
             case   4:  decide_precision(  4); break; // Lmax=1
             case   8:  decide_precision(  8); break; // Lmax=1, noco
             case  16:  decide_precision( 16); break; // Lmax=3
@@ -478,6 +479,7 @@ namespace GPUbench {
             case  64:  decide_precision( 64); break; // Lmax=7
             case 128:  decide_precision(128); break; // Lmax=7, noco
 
+            // with single prime factor 3
             case   6:  decide_precision(  6); break;
             case  12:  decide_precision( 12); break;
             case  24:  decide_precision( 24); break;
@@ -495,30 +497,25 @@ namespace GPUbench {
 
 } // namespace GPUbench
 
-#endif // hasGPUbenchmarks
 
 // this main was formerly in test_tfqmrgpu.cxx
 int main(int const argc, char const *const argv[]) {
 
     if (argc < 2) { 
-        std::printf("Usage:  %s  [file]  [tfQMR/multiply]  [float/double]  "
-                        "[#repetitions]  [#iterations]  [#blocksize]\n", argv[0]);
+        std::printf("Usage:  %s  [tfQMR/multiply]  [file]  [float/double]  "
+                    "[#repetitions]  [#iterations]  [#blocksize]\n", argv[0]);
         exit(1);
     } // not enough command line args passed
 
-    char const *fnm   = (argc > 1)?  argv[1] : "problem"; // inputfile
-    char const bench  = (argc > 2)? *argv[2] : 't'; // t=tfQMR, m=multiplication
-#ifdef  hasGPUbenchmarks
+    char const bench   = (argc > 1)?          *argv[1]  : 't'; // t=tfQMR, m=multiplication
     if ('m' == bench) return GPUbench::benchmark_blockMatrixMatrixMultiplication(argc, argv);
-#else
-    std::printf(" please activate -D hasGPUbenchmarks to run Benchmark='%c'\n", bench); return 41;
-#endif
 
+    char const *fnm    = (argc > 2)?           argv[2]  : "problem"; // inputfile
     char const flouble = (argc > 3)?          *argv[3]  : 'z'; // z:double, c:float
     int const nrep     = (argc > 4)? std::atoi(argv[4]) : 1; // number of repetitions
     int const MaxIter  = (argc > 5)? std::atoi(argv[5]) : 2000; // max. number of iteration
 
-    std::printf("\n# read file %s as input.\n", fnm);
+    std::printf("\n# read file '%s' as input.\n", fnm);
     bsr_t ABX[3];
     auto const tolerance = tfqmrgpu_example_reader::read_in(ABX, fnm);
     std::printf("# found tolerance %g\n", tolerance);
@@ -526,10 +523,5 @@ int main(int const argc, char const *const argv[]) {
     int const lsmd = ABX[0].fastBlockDim;
 
     std::printf("# requested precision = %c for LM = %d\n", flouble, lsmd);
-#ifdef  hasGPUbenchmarks
     return GPUbench::benchmark_tfQMRgpu_library(ABX, tolerance, MaxIter, nrep, flouble);
-#else
-    std::printf(" please activate -D hasGPUbenchmarks\n"); return 42;
-#endif
 } // main
-

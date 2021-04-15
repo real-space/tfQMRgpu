@@ -4,11 +4,6 @@
     #include <curand.h> // random number generator for CUDA
 #endif
 
-// #include <cstdio> // for debug
-// #include <iostream>
-// #include <fstream>
-// #include <vector>
-// #include <cassert>
 #include <cmath> // std::abs
 
 #include "tfqmrgpu.hxx"           // includes cuda.h and tfqmrgpu.h
@@ -19,9 +14,9 @@
 #include "tfqmrgpu_handle.hxx"    // tfq_handle_t
 
 #ifdef DEBUG
-    #define debug_printf(TEXT...) printf(TEXT)
+    #define debug_printf(...) std::printf(__VA_ARGS__)
 #else
-    #define debug_printf(TEXT...)
+    #define debug_printf(...)
 #endif
 
 namespace tfqmrgpu {

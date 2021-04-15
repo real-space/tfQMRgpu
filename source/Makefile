@@ -52,7 +52,6 @@ OPTFLAGS  = -g
 # for profiling
 CUOPTFLAGS += -lineinfo
 # FEAFLAGS += -DUSE_NVTX
-FEAFLAGS += -DhasGPUbenchmarks
 
 FLAGS = ${ERRFLAGS} ${FEAFLAGS} ${OPTFLAGS} ${EXTFLAGS}
 

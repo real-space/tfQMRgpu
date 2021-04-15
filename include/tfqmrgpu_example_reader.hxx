@@ -45,6 +45,10 @@ namespace tfqmrgpu_example_reader {
     double tolerance{0}; // init return value
 
     std::ifstream input(filename);
+    if (!input) {
+        std::cout << "# cannot read from file '" << filename << "'!" << std::endl;
+        exit(__LINE__);
+    }
 
     unsigned block_size{0}, nCols{0};
     bsr_t* op;
@@ -130,7 +134,7 @@ namespace tfqmrgpu_example_reader {
 //              std::cout << "# empty " << std::endl;
 // #endif                
                 break; // do nothing on empty lines
-            default: std::cout << "I don''t know this keyword " << keyword << std::endl;
+            default: std::cout << "# keyword " << keyword << " unknown!" << std::endl;
         } // switch
     }
 

@@ -61,7 +61,7 @@
 
 
     // library peripherals ////////////////////////////////////////
-    template<typename T>
+    template <typename T>
     T tfqmrgpu_mem_align(T a) { return (((a - 1) >> TFQMRGPU_MEMORY_ALIGNMENT) + 1) << TFQMRGPU_MEMORY_ALIGNMENT; }
 
     tfqmrgpuStatus_t tfqmrgpuPrintError(tfqmrgpuStatus_t const status) {
@@ -78,10 +78,11 @@
             case TFQMRGPU_NO_IMPLEMENTATION:        printf("tfQMRgpu: Missing implementation at line %d!\n", line); break;
             case TFQMRGPU_BLOCKSIZE_MISSING:        printf("tfQMRgpu: Missing blocksize %d!\n", line); break;
             case TFQMRGPU_UNDOCUMENTED_ERROR:       printf("tfQMRgpu: Undocumented error at line %d!\n",     line); break;
-            case TFQMRGPU_TANSPOSITION_UNKNOWN:     printf("tfQMRgpu: Unknown transposition '%c' at line %d!\n", key, line); break;
-            case TFQMRGPU_VARIABLENAME_UNKNOWN:     printf("tfQMRgpu: Unknown variable name '%c' at line %d!\n", key, line); break;
-            case TFQMRGPU_DATALAYOUT_UNKNOWN:       printf("tfQMRgpu: Unknown data layout '%c' at line %d!\n",   key, line); break;
-            default:                                printf("tfQMRgpu: Unknown status = %d! [? at line %d]\n", status, line); return 1;
+            case TFQMRGPU_TANSPOSITION_UNKNOWN:     printf("tfQMRgpu: Unknown transposition '%c' at line %d!\n",  key, line); break;
+            case TFQMRGPU_VARIABLENAME_UNKNOWN:     printf("tfQMRgpu: Unknown variable name '%c' at line %d!\n",  key, line); break;
+            case TFQMRGPU_DATALAYOUT_UNKNOWN:       printf("tfQMRgpu: Unknown data layout '%c' at line %d!\n",    key, line); break;
+            case TFQMRGPU_PRECISION_MISSMATCH:      printf("tfQMRgpu: Missmatch in precision '%c' at line %d!\n", key, line); break;
+            default:                                printf("tfQMRgpu: Unknown status = %d at line %d!\n", status, line); return 1;
         } // switch status
         return TFQMRGPU_STATUS_SUCCESS;
     } // printError
@@ -165,15 +166,15 @@
             p->starts.clear();
             p->starts.reserve(nnzbY + 1); // exact size
 
-            for(auto irow = 0; irow < mb; ++irow) {
-                for(auto inzy = bsrRowPtrY[irow] - C0F1; inzy < bsrRowPtrY[irow + 1] - C0F1; ++inzy) {
+            for (auto irow = 0; irow < mb; ++irow) {
+                for (auto inzy = bsrRowPtrY[irow] - C0F1; inzy < bsrRowPtrY[irow + 1] - C0F1; ++inzy) {
                     auto const jcol = bsrColIndY[inzy]; // warning, jcol starts from 1 in Fortran
                     // now compute Y[irow][jcol] = sum_k A[irow][kcol] * X[krow][jcol] with k==kcol==krow
                     {
                         int const start_index = p->pairs.size()/2;
                         p->starts.push_back(start_index);
                     }
-                    for(auto inza = bsrRowPtrA[irow] - C0F1; inza < bsrRowPtrA[irow + 1] - C0F1; ++inza) {
+                    for (auto inza = bsrRowPtrA[irow] - C0F1; inza < bsrRowPtrA[irow + 1] - C0F1; ++inza) {
                         auto const kcol = bsrColIndA[inza] - C0F1;
                         auto const krow = kcol;
                         auto const inzx = find_in_array(bsrRowPtrX[krow] - C0F1, // begin
@@ -209,8 +210,8 @@
           // and compute the sparse subset list for operations of type X -= B or X += B
             p->subset.clear();
             p->subset.reserve(nnzbB); // exact size
-            for(auto irow = 0; irow < mb; ++irow) {
-                for(auto inzb = bsrRowPtrB[irow] - C0F1; inzb < bsrRowPtrB[irow + 1] - C0F1; ++inzb) {
+            for (auto irow = 0; irow < mb; ++irow) {
+                for (auto inzb = bsrRowPtrB[irow] - C0F1; inzb < bsrRowPtrB[irow + 1] - C0F1; ++inzb) {
                     auto const inzx = find_in_array(bsrRowPtrX[irow] - C0F1, // begin
                                                     bsrRowPtrX[irow + 1] - C0F1, // end
                                                     bsrColIndB[inzb], // try to find this value
@@ -231,7 +232,7 @@
             int nc{0}; // preliminary number of columns computed via the range of indices
 
             int min_colInd = 2e9, max_colInd = -min_colInd; // init as close to the largest int32_t
-            for(auto inzx = 0; inzx < nnzbX; ++inzx) {
+            for (auto inzx = 0; inzx < nnzbX; ++inzx) {
                 auto const jcol = bsrColIndX[inzx]; // we do not need to subtract the Fortran 1 here.
                 min_colInd = std::min(min_colInd, jcol); // find the minimum index
                 max_colInd = std::max(max_colInd, jcol); // find the maxmimum index
@@ -241,7 +242,7 @@
 
             // check if all indices in the range [min_colInd, max_colInd] are touched
             std::vector<int> nRowsPerColX(nc, 0);
-            for(auto inzx = 0; inzx < nnzbX; ++inzx) {
+            for (auto inzx = 0; inzx < nnzbX; ++inzx) {
                 auto const jc = bsrColIndX[inzx] - min_colInd;
                 ++nRowsPerColX[jc];
             } // inzx
@@ -249,7 +250,7 @@
             std::vector<int> translate_jc2jb(nc);
             unsigned nempty{0};
             nb = 0;
-            for(auto jc = 0; jc < nc; ++jc) {
+            for (auto jc = 0; jc < nc; ++jc) {
                 if (nRowsPerColX[jc] < 1) {
                     translate_jc2jb[jc] = -1; // empty column
                     ++nempty;
@@ -271,7 +272,7 @@
             p->original_bsrColIndX.clear();
             p->original_bsrColIndX.resize(nb); // exact size
 
-            for(auto inzx = 0; inzx < nnzbX; ++inzx) {
+            for (auto inzx = 0; inzx < nnzbX; ++inzx) {
                 auto const jc = bsrColIndX[inzx] - min_colInd; // jc in [0, nc)
                 auto const jb = translate_jc2jb[jc]; // jb in [0, nb)
                 p->colindx[inzx] = jb; // or p->colindx.push_back(jb); // but then we need reserve instead of resize above
