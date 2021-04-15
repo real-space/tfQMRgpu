@@ -8,7 +8,8 @@
 
 #include "tfqmrgpu.hxx" // includes cuda.h and tfqmrgpu.h
 #include "bsr.hxx" // bsr_t block-sparse row matrices
-#include "tfqmrgpu_example_reader.hxx" // tfqmrgpu_example_reader::read_in()
+#include "tfqmrgpu_example_reader.hxx" // ::read_in()
+#include "tfqmrgpu_example_xml_reader.hxx" // ::read_in()
 
 #include "tfqmrgpu_util.hxx" // FlopChar, CCheck, copy_data_to_gpu, get_data_from_gpu
 #ifndef HAS_NO_CUDA
@@ -517,7 +518,12 @@ int main(int const argc, char const *const argv[]) {
 
     std::printf("\n# read file '%s' as input.\n", fnm);
     bsr_t ABX[3];
-    auto const tolerance = tfqmrgpu_example_reader::read_in(ABX, fnm);
+    double tolerance{0};
+    if (std::string(fnm).find("xml") != std::string::npos) {
+        tolerance = tfqmrgpu_example_xml_reader::read_in(ABX, fnm);
+    } else {
+        tolerance = tfqmrgpu_example_reader::read_in(ABX, fnm);
+    }
     std::printf("# found tolerance %g\n", tolerance);
     std::printf("# Execute %d repetitions with max. %d iterations.\n", nrep, MaxIter);
     int const lsmd = ABX[0].fastBlockDim;

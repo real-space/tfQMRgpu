@@ -1,6 +1,4 @@
-#include <cstdio> // printf
-// #include <iostream> // ?
-// #include <fstream> // ?
+#include <cstdio> // std::printf
 #include <vector> // std::vector<T>
 #include <cassert> // assert
 
@@ -71,18 +69,18 @@
         uint32_t const line = stat / TFQMRGPU_CODE_LINE;
                   stat -= line * TFQMRGPU_CODE_LINE;
         switch (stat) {
-            case TFQMRGPU_STATUS_SUCCESS:     debug_printf("tfQMRgpu: Success!\n");           break;
-            case TFQMRGPU_STATUS_ALLOCATION_FAILED: printf("tfQMRgpu: Allocation failed!\n"); break;
-            case TFQMRGPU_POINTER_INVALID:          printf("tfQMRgpu: Pointer invalid!\n");   break;
-            case TFQMRGPU_STATUS_MAX_ITERATIONS:    printf("tfQMRgpu: Max number of iterations exceeded!\n");       break;
-            case TFQMRGPU_NO_IMPLEMENTATION:        printf("tfQMRgpu: Missing implementation at line %d!\n", line); break;
-            case TFQMRGPU_BLOCKSIZE_MISSING:        printf("tfQMRgpu: Missing blocksize %d!\n", line); break;
-            case TFQMRGPU_UNDOCUMENTED_ERROR:       printf("tfQMRgpu: Undocumented error at line %d!\n",     line); break;
-            case TFQMRGPU_TANSPOSITION_UNKNOWN:     printf("tfQMRgpu: Unknown transposition '%c' at line %d!\n",  key, line); break;
-            case TFQMRGPU_VARIABLENAME_UNKNOWN:     printf("tfQMRgpu: Unknown variable name '%c' at line %d!\n",  key, line); break;
-            case TFQMRGPU_DATALAYOUT_UNKNOWN:       printf("tfQMRgpu: Unknown data layout '%c' at line %d!\n",    key, line); break;
-            case TFQMRGPU_PRECISION_MISSMATCH:      printf("tfQMRgpu: Missmatch in precision '%c' at line %d!\n", key, line); break;
-            default:                                printf("tfQMRgpu: Unknown status = %d at line %d!\n", status, line); return 1;
+            case TFQMRGPU_STATUS_SUCCESS:          debug_printf("tfQMRgpu: Success!\n");           break;
+            case TFQMRGPU_STATUS_ALLOCATION_FAILED: std::printf("tfQMRgpu: Allocation failed!\n"); break;
+            case TFQMRGPU_POINTER_INVALID:          std::printf("tfQMRgpu: Pointer invalid!\n");   break;
+            case TFQMRGPU_STATUS_MAX_ITERATIONS:    std::printf("tfQMRgpu: Max number of iterations exceeded!\n");       break;
+            case TFQMRGPU_NO_IMPLEMENTATION:        std::printf("tfQMRgpu: Missing implementation at line %d!\n", line); break;
+            case TFQMRGPU_BLOCKSIZE_MISSING:        std::printf("tfQMRgpu: Missing blocksize %d!\n", line); break;
+            case TFQMRGPU_UNDOCUMENTED_ERROR:       std::printf("tfQMRgpu: Undocumented error at line %d!\n",     line); break;
+            case TFQMRGPU_TANSPOSITION_UNKNOWN:     std::printf("tfQMRgpu: Unknown transposition '%c' at line %d!\n",  key, line); break;
+            case TFQMRGPU_VARIABLENAME_UNKNOWN:     std::printf("tfQMRgpu: Unknown variable name '%c' at line %d!\n",  key, line); break;
+            case TFQMRGPU_DATALAYOUT_UNKNOWN:       std::printf("tfQMRgpu: Unknown data layout '%c' at line %d!\n",    key, line); break;
+            case TFQMRGPU_PRECISION_MISSMATCH:      std::printf("tfQMRgpu: Missmatch in precision '%c' at line %d!\n", key, line); break;
+            default:                                std::printf("tfQMRgpu: Unknown status = %d at line %d!\n", status, line); return 1;
         } // switch status
         return TFQMRGPU_STATUS_SUCCESS;
     } // printError
@@ -198,8 +196,8 @@
 
             p->pairs.shrink_to_fit(); // free unused host memory
 #ifdef DEBUG
-            printf("# p->pairs.data()  = %p\n", (char*)(p->pairs.data()));
-            printf("# p->starts.data() = %p\n", (char*)(p->starts.data()));
+            std::printf("# p->pairs.data()  = %p\n", (char*)(p->pairs.data()));
+            std::printf("# p->starts.data() = %p\n", (char*)(p->starts.data()));
 #endif
             p->cpu_mem += p->starts.size() * sizeof(int); // register host memory usage in Byte
             p->cpu_mem += p->pairs.size()  * sizeof(int); // register host memory usage in Byte
@@ -473,8 +471,7 @@
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         }
         if ('a' == (var | IgnoreCase)) {
-            // internally, operator A is stored column major 
-            // for coalesced memory access on the GPU
+            // internally, operator A is stored column major for coalesced memory access on the GPU
             if      ('n' == Trans) { Trans = 't'; }
             else if ('t' == Trans) { Trans = 'n'; }
             else { return TFQMRGPU_TANSPOSITION_UNKNOWN + TFQMRGPU_CODE_CHAR*Trans + TFQMRGPU_CODE_LINE*__LINE__; }

@@ -29,28 +29,7 @@
   #error "Example reader needs the rapidxml library!"
 #endif
 
-#ifdef  HAS_BSR
-  // use the definition of the Block-compressed Sparse Row format from the include path
-  #include "bsr.hxx" // bsr_t
-#else // HAS_BSR
-
-  struct bsr_t {
-    // sparse matrix structure
-    unsigned nRows; // number of Rows
-    unsigned nCols; // number of block columns
-    unsigned nnzb;  // number of non-zero blocks
-    std::vector<int> RowPtr; // [nRows + 1]
-    std::vector<int> ColInd; // [nnzb]
-
-    // block sparse matrix values
-    unsigned fastBlockDim;
-    unsigned slowBlockDim;
-    std::vector<double> mat;
-
-    std::string name;
-  }; // bsr_t
-
-#endif // HAS_BSR
+// use the definition of the Block-compressed Sparse Row format from the include path
 
 namespace tfqmrgpu_example_xml_reader {
 
@@ -276,7 +255,7 @@ namespace tfqmrgpu_example_xml_reader {
               auto const dim_string = find_attribute(DataTensor, "dimensions", "0 0 0", echo);
               auto const dims = read_sequence<int>(dim_string, echo, rank);
               assert(dims.size() == rank);
-              std::printf("# Found DataTensor[%d][%d][%d] for operator %s\n", dims[0], dims[1], dims[2], id);
+              std::printf("# Found DataTensor[%d][%d][%d] (type=%s) for operator %s\n", dims[0], dims[1], dims[2], type, id);
               if (bsr.nnzb != dims[0]) {
                   std::printf("# DataTensor[%d] dimension differs from SparseMatrix.nnz = %d of operator %s\n", dims[0], bsr.nnzb, id);
               } // different

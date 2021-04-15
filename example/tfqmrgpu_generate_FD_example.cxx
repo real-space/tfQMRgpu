@@ -36,8 +36,7 @@
 // compile and run:
 // g++ -std=c++11 -D__MAIN__ tfqmrgpu_generate_FD_example.cxx && ./a.out
 
-#include <cstdio> // std::printf
-#include <cstdio> // std::fopen, std::fprintf, std::fclose
+#include <cstdio> // std::printf, ::fopen, ::fprintf, ::fclose
 #include <iostream> // std::cout
 #include <cstdlib> // std::exit
 #include <cassert> // assert
@@ -250,8 +249,9 @@
       , char const *filename="FD_problem.xml"
   ) {
       assert(BlockEdge > 0);
-      assert(2 == Dimension || 3 == Dimension);
-      int constexpr BS = pow2(BlockEdge) * ((3 == Dimension)? BlockEdge : 1);
+      assert(Dimension > 0 && Dimension < 4);
+      int constexpr BS = BlockEdge * ((Dimension > 1)? BlockEdge : 1)
+                                   * ((Dimension > 2)? BlockEdge : 1);
       BlockSparseOperator<BS, int32_t> A('A');
       BlockSparseOperator<BS,  int8_t> B('B');
       BlockSparseOperator<BS, std::complex<float>> X('X');
@@ -303,7 +303,7 @@
       { // scope: create a finite-difference stencil in units of blocks
           int const sr = stencil_range;
           if (echo > 0) std::cout << "# stencil range " << sr << " blocks"
-              " of " << BlockEdge << "^" << Dimension << " grid points" << std::endl;
+              " of " << BlockEdge << "^" << Dimension << " = " << BS << " grid points" << std::endl;
           assert(sr < 16 && "finite-difference order is too large for origin_block_index[32][32][32]");
           for(int isr = 0; isr <= sr; ++isr) {
               for(int ipm = 1; ipm >= -1; ipm -= 2) {
@@ -333,16 +333,16 @@
       std::vector<DenseBlock<BS, int32_t>> Stencil(nob);
 
       // loop over all grid points inside one block
-      for(int z = 0; z <= (BlockEdge - 1)*(3 == Dimension); ++z) {
-      for(int y = 0; y < BlockEdge; ++y) {
-      for(int x = 0; x < BlockEdge; ++x) {
+      for(int z = 0; z <= (BlockEdge - 1)*(Dimension > 2); ++z) {
+      for(int y = 0; y <= (BlockEdge - 1)*(Dimension > 1); ++y) {
+      for(int x = 0; x <   BlockEdge; ++x) {
           if (echo > 19) std::printf("# z=%d y=%d x=%d\n", z, y, x);
           int const ixyz[3] = {x, y, z}; // grid point coords
           int const ib = (z*BlockEdge + y)*BlockEdge + x;
           assert(0 <= ib); assert(ib < BS);
           for(int dir = 0; dir < Dimension; ++dir) {
               if (echo > 9) std::printf("# z=%d y=%d x=%d dir=%c\n", z, y, x, dir+'x');
-              int xyz_m[3] = {x, y, z*(3 == Dimension)}; // modified coords modulo block
+              int xyz_m[3] = {x, y*(Dimension > 1), z*(Dimension > 2)}; // modified coords modulo block
 
               // something seems to produce unsymmetric stencils here
               // ToDo
@@ -594,9 +594,11 @@
       if ('r' == (ref | 32)) {
           if (echo > 0) std::cout << "# create a reference solution" << std::endl;
 //        ToDo:
-//          loop over RHS blocks and solve the problem using a dense linear agebra method, e.g. zgesv
+//          loop over RHS blocks and solve the problem using a dense linear algebra method, e.g. zgesv
 //          store the solution in X as reference
+#ifdef  HAS_LAPACK
           
+#endif // HAS_LAPACK
       } // create a reference solution using LAPACK
       
       // export the matrices into the format required for tfqmrgpu
@@ -611,7 +613,9 @@
           std::fprintf(f, "  <!-- input: radius_source_blocks=%g", rsb);
           std::fprintf(f,              " radius_target_blocks=%g", rtb);
           std::fprintf(f,              " block_edge=%d", BlockEdge);
-          std::fprintf(f,              " dimensions=%d -->\n", Dimension);
+          std::fprintf(f,              " dimensions=%d", Dimension);
+          std::fprintf(f,              " finite_difference=%d", nFD);
+          std::fprintf(f,              " -->\n");
           xml_export_operator(f, A);
           xml_export_operator(f, B);
           xml_export_operator(f, X);
@@ -660,21 +664,31 @@
       float const rtb = std::abs((argc > 2) ? std::atof(argv[2]) : 6.75); // in units of grid points
       int const BlockEdge      = (argc > 3) ? std::atoi(argv[3]) : 2;
       int const dimension      = (argc > 4) ? std::atoi(argv[4]) : 3;
-      char const ref           = (argc > 5) ?          *argv[5]) : 'n';
+      char const ref           = (argc > 5) ?          *argv[5]  : 'n';
       int const echo           = (argc > 6) ? std::atoi(argv[6]) : 5;
 
       if (echo > 0) {
+          std::cout << std::endl;
+          std::cout << "# ========================================" << std::endl;
+          std::cout << "# === tfQMRgpu example input generator ===" << std::endl;
+          std::cout << "# ========================================" << std::endl;
           std::cout << "# " << executable
                     << "  radius_source_blocks= " << rsb
                     << "  radius_target_blocks= " << rtb
+                    << std::endl << "#     "
                     << "  block_edge= " << BlockEdge
                     << "  dimension= " << dimension
+                    << "  compute_reference= " << ref
                     << "  echo= " << echo
-                    << std::endl;
+                    << std::endl << std::endl;
       } // echo
 
-      return (2 == dimension)?
-          generate<2>(BlockEdge, rsb, rtb, ref, echo):
-          generate<3>(BlockEdge, rsb, rtb, ref, echo);
+      switch (dimension) {
+        case  1: return generate<1>(BlockEdge, rsb, rtb, ref, echo);
+        case  2: return generate<2>(BlockEdge, rsb, rtb, ref, echo);
+        case  3: return generate<3>(BlockEdge, rsb, rtb, ref, echo);
+        default: std::cout << "Error, dimension must be in {1,2,3}!" << std::endl;
+      }
+      return 0;
   } // main
 #endif // __MAIN__
