@@ -14,25 +14,25 @@
 #include "tfqmrgpu_util.hxx" // FlopChar, CCheck, copy_data_to_gpu, get_data_from_gpu
 #ifndef HAS_NO_CUDA
     #include "tfqmrgpu_blockmult.hxx" // gemmNxNf
-#endif
+#endif // HAS_CUDA
 
 #ifdef DEBUG
     #define debug_printf(...) std::printf(__VA_ARGS__)
-#else
+#else  // DEBUG
     #define debug_printf(...)
-#endif
+#endif // DEBUG
 
 
     template <typename T>
     T* get_gpu_memory(size_t const size=1) {
 #ifdef DEBUGGPU
         std::printf("#  cudaMalloc: %lu x %.3f kByte = \t%.3E MByte", size, 1e-3*sizeof(T), size*1e-6*sizeof(T));
-#endif
+#endif // DEBUGGPU
         void* d = nullptr;
         CCheck(cudaMalloc(&d, size*sizeof(T)));
 #ifdef DEBUGGPU
-        std::printf(" @ %p through %p \n", d, d + size*sizeof(T) - 1);
-#endif
+        std::printf(" @ %p through %p \n", d, (char*)d + size*sizeof(T) - 1);
+#endif // DEBUGGPU
         return (T*)d;
     } // get_gpu_memory
 
@@ -73,12 +73,14 @@ namespace GPUbench {
 
         auto const A = &(ABX[0]), B = &(ABX[1]), X = &(ABX[2]); // abbreviations
 
-#define callAndCheck(FUN) { \
-        debug_printf("\n# Start "#FUN"\n"); \
-        auto const stat = FUN; \
-        debug_printf("# Done  "#FUN"\n"); \
-        tfqmrgpuPrintError(stat);\
-        if (TFQMRGPU_STATUS_SUCCESS != stat) return stat; }
+#define callAndCheck(FUN) \
+        { \
+            debug_printf("\n# Start "#FUN"\n"); \
+            auto const stat = FUN; \
+            debug_printf("# Done  "#FUN"\n"); \
+            tfqmrgpuPrintError(stat); \
+            if (TFQMRGPU_STATUS_SUCCESS != stat) return stat; \
+        }
 
         // step 1: create a handle for the function call
         tfqmrgpuHandle_t handle{0};
@@ -166,7 +168,7 @@ namespace GPUbench {
                     )
 
         // [optional ]step 8x: upload the values for the initial vectors X
-            
+
         // step 9: envoke the transpose-free Quasi Minimal Residual solver
         double solver_time = - getTime(); // start timer
         callAndCheck(  tfqmrgpu_bsrsv_solve(handle, plan, tolerance, maxIterations)
@@ -249,7 +251,7 @@ namespace GPUbench {
             c[m][1][i][j] = std::sin(arg);
         } // i
     } // fill_cos_sin
-#endif // HAS_NO_CUDA
+#endif // HAS_CUDA
 
     template <typename real_t, int LM>
     double bench_multi( // returns the average time needed per kernel call
@@ -283,7 +285,7 @@ namespace GPUbench {
         constexpr int TUNE = 2;
         dim3 const threads = { LM, TUNE, 1 };
         std::printf("# CUDA Launch <<< %d, { %d, %d, %d } >>>\n", nnzbY, threads.x, threads.y, threads.z);
-#endif // HAS_NO_CUDA
+#endif // HAS_CUDA
         assert(nnzbX == nnzbY); // for a logically square operator A
 
         double nFlop{0};
@@ -296,7 +298,7 @@ namespace GPUbench {
 #ifndef HAS_NO_CUDA
                 gemmNxNf<real_t,LM,LM/TUNE> <<< nnzbY, threads >>> (matY, matA, matX, pairs_d, starts_d);
                 nFlop += nPairs*(8.*LM)*(LM*LM);
-#endif // HAS_NO_CUDA
+#endif // HAS_CUDA
             } // repetition
             CCheck(cudaDeviceSynchronize());
             time += getTime(); // stop

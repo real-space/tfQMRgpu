@@ -20,7 +20,7 @@
 			printf("[ERROR] Cuda call in %s:%d failed, cudaErrorString= %s\n", file, line, cudaGetErrorString(err));
 			exit(0);
 		}
-#endif
+#endif // DEBUG
 	} // __cudaSafeCall
 
 #ifndef HAS_NO_CUDA
@@ -28,16 +28,16 @@
 #ifdef  DEBUG
         assert(grid.x == gridDim.x); assert(grid.y == gridDim.y); assert(grid.z == gridDim.z);
         assert(blk.x == blockDim.x); assert(blk.y == blockDim.y); assert(blk.z == blockDim.z);
-#endif
+#endif // DEBUG
     } // check_launch_params
-#endif
+#endif // HAS_CUDA
 
 	// Memory management /////////////////////////////////////////////////////////
 	template <typename T>
 	void copy_data_to_gpu(T (*devPtr d), T const *const h, size_t const size=1, cudaStream_t const stream=0, char const *const name="") {
 #ifdef DEBUGGPU
 		printf("# transfer %lu x %.3f kByte from %p @host to %p @device %s\n", size, 1e-3*sizeof(T), h, d, name);
-#endif
+#endif // DEBUGGPU
         CCheck(cudaMemcpyAsync(d, h, size*sizeof(T), cudaMemcpyHostToDevice, stream));
 	} // copy_data_to_gpu
 
@@ -45,7 +45,7 @@
 	void get_data_from_gpu(T *const h, T const (*devPtr d), size_t const size=1, cudaStream_t const stream=0, char const *const name="") {
 #ifdef DEBUGGPU
 		printf("# transfer %lu x %.3f kByte from %p @device to %p @host %s\n", size, 1e-3*sizeof(T), d, h, name);
-#endif
+#endif // DEBUGGPU
 		CCheck(cudaMemcpyAsync(h, d, size*sizeof(T), cudaMemcpyDeviceToHost, stream));
 	} // get_data_from_gpu
 
@@ -74,7 +74,7 @@
 #ifdef DEBUGGPU
             printf("%s:  new window [%p, %p) %s\n", __func__, (char*)win->offset, (char*)(win->offset + win->length), win_name);
             fflush(stdout);
-#endif
+#endif // DEBUGGPU
         } // win
         buffer += total_size_inByte;
         tfqmrgpu_memAlign(buffer);
@@ -100,7 +100,10 @@
         , int const num
         , char const name // only a single character
     ) {
-        if (0 == threadIdx.x) {
+#ifndef HAS_NO_CUDA
+        if (0 == threadIdx.x)
+#endif // HAS_CUDA          
+        {
             for(auto i = 0; i < num; ++i) {
                 printf("# %c[%d] ", name, i); 
                 for(auto d = 0; d < Dim; ++d) {
@@ -110,7 +113,7 @@
             } // i
         } // master
     } // print_array
-#endif
+#endif // DEBUGGPU
     
     // absolute square of a complex number computed in double
     inline __host__ __device__ double abs2(double const zRe, double const zIm) { return zRe*zRe + zIm*zIm; }

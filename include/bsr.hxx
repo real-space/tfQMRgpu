@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector> // std::vector<T>
-#include <string> // std::string
+#include <string> // std::string // really needed?
 
 struct bsr_t {
     // sparse matrix structure
@@ -20,11 +20,13 @@ struct bsr_t {
 }; // struct bsr_t
 
 
+    template <typename int_t>
     inline int find_in_array(int const begin, int const end, int const value,
-                             int const *array, int const not_found=-1) {
-#ifdef  FULL_DEBUG    
+                             int_t const *array, int const not_found=-1) {
+#ifdef  FULL_DEBUG
         printf("find_in_array(begin=%d, end=%d, value=%d, array=%p)\n", begin, end, value, array);
-#endif
+#endif // FULL_DEBUG
+
         // ToDo: the ColInd list is sorted ascendingly, so bisection search will be faster
         for(auto ind = begin; ind < end; ++ind) {
             if (value == array[ind]) return ind;

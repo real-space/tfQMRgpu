@@ -55,7 +55,7 @@ class action_t {
         printf("# buffer + startswin.offset = %p\n", buffer + p->startswin.offset);
         printf("# buffer +  pairswin.offset = %p\n", buffer + p-> pairswin.offset);
         fflush(stdout);
-#endif
+#endif // DEBUG
         copy_data_to_gpu<char>(buffer + p->startswin.offset, (char*)(p->starts.data()), p->startswin.length, streamId, "starts");
         copy_data_to_gpu<char>(buffer + p-> pairswin.offset, (char*)(p-> pairs.data()), p-> pairswin.length, streamId,  "pairs");
     } // transfer
@@ -77,7 +77,7 @@ class action_t {
 #ifndef HAS_NO_CUDA
         int constexpr TUNE = 2; // 2 has been found to yield the best performance for LM==32
         gemmNxNf <real_t,LM,LM/TUNE> <<< nnzbY, { LM, TUNE, 1 }, 0, streamId >>> (y, matA_d, x, pairs_d, starts_d);
-#else
+#else  // HAS_CUDA
         // CPU version
         auto const A = matA_d; // works since host and device memory are the same if HAS_CUDA is not defined
         for(int iYmat = 0; iYmat < nnzbY; ++iYmat) {
@@ -109,13 +109,13 @@ class action_t {
                         Yb[1][i][j] += Yim;
                     } // j
                 } // i
-#else
+#else  // 1
                 dgemm_(&tA, &tx, &n, &n, &n, &alpha, A[iAmat][0], &n, x[iXmat][0], &n, &beta, yb[0], &n);
                 dgemm_(&tA, &tx, &n, &n, &n, &minus, A[iAmat][1], &n, x[iXmat][1], &n, &beta, yb[0], &n);
                 beta = 1;
                 dgemm_(&tA, &tx, &n, &n, &n, &alpha, A[iAmat][1], &n, x[iXmat][0], &n, &beta, yb[1], &n);
                 dgemm_(&tA, &tx, &n, &n, &n, &alpha, A[iAmat][0], &n, x[iXmat][1], &n, &beta, yb[1], &n);
-#endif
+#endif // 1
             } // ipair
 
             // copy block into result array
@@ -124,7 +124,7 @@ class action_t {
             } // cij
 
         } // iYmat
-#endif
+#endif // HAS_CUDA
         auto const nPairs = p->pairs.size()/2;
         return nPairs*LM*8.*LM*LM; // returns the number of Flops
     } // multiply

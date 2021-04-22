@@ -9,9 +9,9 @@
  */
 
 // To test the functionality of tfqmrgpu_example_xml_reader.hxx:
-//      g++ -std=c++11 tfqmrgpu_example_xml_reader.cxx && ./a.out
+//      g++ -std=c++11 -I../include tfqmrgpu_example_xml_reader.cxx && ./a.out
 
-#include "tfqmrgpu_example_xml_reader.hxx" // ::read_in
+#include "tfqmrgpu_example_xml_reader.hxx" // ::read_in, bsr_t
 
 int main(int argc, char *argv[]) {
     // parse command line arguments or set default values

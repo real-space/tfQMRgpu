@@ -24,11 +24,11 @@
         #define POP_RANGE()
 
     #endif
-#else
+#else  // HAS_CUDA
 
     #include "tfqmrgpu_cudaStubs.hxx" // replaces cuda.h
 
-#endif
+#endif // HAS_CUDA
 
 extern "C" {
     #include "tfqmrgpu.h" // C-interface for tfqmrgpu
@@ -39,15 +39,15 @@ extern "C" {
 
 #ifdef _MPI
 	#define getTime MPI_Wtime // use the MPI internal timer
-#else
+#else // _MPI
 #ifdef _OPENMP
 	#include <omp.h> // OpenMP threading
 	#define getTime omp_get_wtime // use the OpenMP internal timer
-#else
+#else  // _OPENMP
     #include <ctime> // time
 	inline double getTime() { return double(intmax_t(time(nullptr))); }
-#endif
-#endif
+#endif // _OPENMP
+#endif // _MPI
 
 #ifndef _OPENMP
 	inline int omp_get_num_threads() { return 1; }
@@ -55,7 +55,7 @@ extern "C" {
 
 #ifdef __CUDA_ARCH__
     #define UNROLL _Pragma("unroll")
-#else
+#else  // __CUDA_ARCH__
     #define UNROLL
-#endif
+#endif // __CUDA_ARCH__
 

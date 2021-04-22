@@ -140,8 +140,7 @@ namespace tfqmrgpu {
 
 #ifdef DEBUGGPU    
   //     print_array<real_t,LM> <<< 1, 1 >>> (v2[0][0], nnzbB*2*LM, 'B'); cudaDeviceSynchronize(); exit(42); // hardcore debugging
-#endif    
-      
+#endif // DEBUGGPU
       tfqmrgpuStatus_t return_status = TFQMRGPU_STATUS_MAX_ITERATIONS;
       p->iterations_needed = MaxIterations; // preliminary, will be changed if it converges
       p->flops_performed = 0;
@@ -164,7 +163,7 @@ namespace tfqmrgpu {
           tfQMRdec35<real_t,LM>
 #ifndef HAS_NO_CUDA
               <<<nCols, LM, 0, streamId>>>
-#endif
+#endif // HAS_CUDA
               (status, rho, beta, zvv, nCols);
 
           XPAY(v6, beta, v5); // v6 := v5 + beta*v6
@@ -181,7 +180,7 @@ namespace tfqmrgpu {
           tfQMRdec34<real_t,LM>
 #ifndef HAS_NO_CUDA
               <<<nCols, LM, 0, streamId>>>
-#endif
+#endif // HAS_CUDA
               (status, c67, alfa, rho, eta, zvv, var, nCols);
 
           XPAY(v7, c67, v6); // v7 := v6 + c67*v7
@@ -194,7 +193,7 @@ namespace tfqmrgpu {
           tfQMRdecT<real_t,LM> 
 #ifndef HAS_NO_CUDA
               <<<nCols, LM, 0, streamId>>>
-#endif
+#endif // HAS_CUDA
               (status, c67, eta, var, tau, alfa, dvv, nCols);
       
           AXPY(v1, v7, eta); // v1 := eta*v7 + v1 // update solution vector
@@ -215,7 +214,7 @@ namespace tfqmrgpu {
           tfQMRdecT<real_t,LM>
 #ifndef HAS_NO_CUDA
               <<<nCols, LM, 0, streamId>>>
-#endif
+#endif // HAS_CUDA
               (status, 0x0, eta, var, tau, alfa, dvv, nCols);
 
           AXPY(v1, v7, eta); // v1 := eta*v7 + v1 // update solution vector

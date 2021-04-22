@@ -25,11 +25,12 @@
   // git clone https://github.com/dwd/rapidxml
   #include "../external/rapidxml/rapidxml.hpp" // ::xml_document<>
   #include "../external/rapidxml/rapidxml_utils.hpp" // ::file<>
-#else
+#else  // HAS_RAPIDXML
   #error "Example reader needs the rapidxml library!"
-#endif
+#endif // HAS_RAPIDXML
 
 // use the definition of the Block-compressed Sparse Row format from the include path
+#include "bsr.hxx" // bsr_t
 
 namespace tfqmrgpu_example_xml_reader {
 
@@ -165,7 +166,7 @@ namespace tfqmrgpu_example_xml_reader {
                   std::printf("# SparseMatrix not in CSR format!\n");
                   return 0;
               } // not CompressedSparseRow formatted
-#endif
+#endif // 0
               auto const csr = find_child(SparseMatrix, "CompressedSparseRow", echo);
               if (!csr) {
                   std::printf("\n# Warning! Cannot find CompressedSparseRow in SparseMatrix\n\n");
@@ -251,6 +252,7 @@ namespace tfqmrgpu_example_xml_reader {
           if (DataTensor) {
               scale_values[abx] = std::atof(find_attribute(DataTensor, "scale", "1", echo));
               auto const type = find_attribute(DataTensor, "type", "complex", echo);
+              int const r1c2 = ('c' == (*type | 32)) ? 2 : 1; // 1:real or 2:complex
               int const rank = std::atoi(find_attribute(DataTensor, "rank", "3", echo));
               auto const dim_string = find_attribute(DataTensor, "dimensions", "0 0 0", echo);
               auto const dims = read_sequence<int>(dim_string, echo, rank);
@@ -261,6 +263,23 @@ namespace tfqmrgpu_example_xml_reader {
               } // different
               bsr.slowBlockDim = dims[1];
               bsr.fastBlockDim = dims[2];
+              auto const block2 = dims[1] * dims[2];
+              auto const source_size = size_t(dims[0])  * block2;
+              auto const target_size = size_t(bsr.nnzb) * block2;
+              auto const data = read_sequence<double>(DataTensor->value(), echo, source_size*r1c2);
+              assert(data.size() == source_size*r1c2);
+              bsr.mat = std::vector<double>(target_size*2, 0.0); // always complex in RIRIRIRI data layout
+              // ToDo: copy and scale using indirection
+              double const scale_factor = scale_values[abx];
+              for (size_t inzb = 0; inzb < bsr.nnzb; ++inzb) {
+                  auto const iblock = indirect[abx][inzb];
+                  for (int ij = 0; ij < block2; ++ij) {
+                      for (int ri = 0; ri < r1c2; ++ri) { // real [and imaginary] part
+                          bsr.mat[(inzb*block2 + ij)*2 + ri] = data[(iblock*block2 + ij)*r1c2 + ri] * scale_factor;
+                      } // ri
+                  } // ij
+              } // inzb
+
           } else {
               std::printf("\n# Warning! Cannot find a DataTensor for operator %s\n\n", id);
           } // DataTensor

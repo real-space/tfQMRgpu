@@ -46,11 +46,12 @@
             case LM: return mysolve_LM<LM>(streamId, p, tolerance, MaxIterations, memcount)
 
             // here, add all the allowed block sizes
+            instance( 8);
             instance(16);
             instance(32);
 
 #undef      instance            
-            default: return TFQMRGPU_BLOCKSIZE_MISSING + p->LM; // also say which blocksize was requested
+            default: return TFQMRGPU_BLOCKSIZE_MISSING + TFQMRGPU_CODE_LINE*p->LM; // also say which blocksize was requested
         } // switch LM
     } // mysolve
 
@@ -80,7 +81,7 @@
             case TFQMRGPU_VARIABLENAME_UNKNOWN:     std::printf("tfQMRgpu: Unknown variable name '%c' at line %d!\n",  key, line); break;
             case TFQMRGPU_DATALAYOUT_UNKNOWN:       std::printf("tfQMRgpu: Unknown data layout '%c' at line %d!\n",    key, line); break;
             case TFQMRGPU_PRECISION_MISSMATCH:      std::printf("tfQMRgpu: Missmatch in precision '%c' at line %d!\n", key, line); break;
-            default:                                std::printf("tfQMRgpu: Unknown status = %d at line %d!\n", status, line); return 1;
+            default:                                std::printf("tfQMRgpu: Unknown status= %d at line %d!\n", status, line); return 1;
         } // switch status
         return TFQMRGPU_STATUS_SUCCESS;
     } // printError
@@ -198,7 +199,7 @@
 #ifdef DEBUG
             std::printf("# p->pairs.data()  = %p\n", (char*)(p->pairs.data()));
             std::printf("# p->starts.data() = %p\n", (char*)(p->starts.data()));
-#endif
+#endif // DEBUG
             p->cpu_mem += p->starts.size() * sizeof(int); // register host memory usage in Byte
             p->cpu_mem += p->pairs.size()  * sizeof(int); // register host memory usage in Byte
         } // scope
@@ -325,7 +326,7 @@
         if (LM != ldB)          return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // so far, this library is not that flexible
         if (LM != RhsBlockDim)  return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // so far, this library is not that flexible
 
-        auto const p = (bsrsv_plan_t*) plan;
+        auto const p = (bsrsv_plan_t*)plan;
 
         switch (doublePrecision) {
             case 'c': case 'C': p->doublePrecision = 'C'; break; // single precision complex
@@ -483,13 +484,15 @@
         {   auto const stat = tfqmrgpuGetStream(handle, &streamId);
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         }
-        
+
         if (doublePrecision != p->doublePrecision) {
             return TFQMRGPU_PRECISION_MISSMATCH + TFQMRGPU_CODE_CHAR*doublePrecision + TFQMRGPU_CODE_LINE*__LINE__;
         }
-        
-        // start asynchronous memory transfer from the host to the GPU
+
+        debug_printf("start asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
         copy_data_to_gpu<char>(ptr, (char*)val, size, streamId);
+        debug_printf(" done asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
+        
 
         // change data layout and (if necessary) transpose in-place on the GPU
         auto const l_in = TFQMRGPU_LAYOUT_RIRIRIRI,
@@ -499,14 +502,14 @@
             tfqmrgpu::transpose_blocks_kernel<double>
 #ifndef HAS_NO_CUDA
                 <<<nnzb, {nCols,nRows,1}, 2*nRows*nCols*sizeof(double), streamId>>>
-#endif
+#endif // HAS_CUDA
                 ((double*) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows);
         } else {
             assert(nnzb * 2 * nRows * nCols * sizeof(float)  == size);
             tfqmrgpu::transpose_blocks_kernel<float>
 #ifndef HAS_NO_CUDA
                 <<<nnzb, {nCols,nRows,1}, 2*nRows*nCols*sizeof(float) , streamId>>>
-#endif
+#endif // HAS_CUDA
                 ((float *) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows); 
         }
 
@@ -526,7 +529,7 @@
         {   auto const stat = datalayout_filter(layout, __LINE__);
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         }
-        
+
         double scal_imag = 1;
         char Trans = trans; // non-const copy
         {   auto const stat = transposition_filter(Trans, scal_imag, __LINE__);
@@ -537,7 +540,7 @@
         {   auto const stat = tfqmrgpuGetStream(handle, &streamId);
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         }
-        
+
         auto const p = (bsrsv_plan_t*) plan;
         if (doublePrecision != p->doublePrecision) {
             return TFQMRGPU_PRECISION_MISSMATCH + TFQMRGPU_CODE_CHAR*doublePrecision + TFQMRGPU_CODE_LINE*__LINE__;
@@ -559,7 +562,7 @@
             // simliarly, B, so we only allow to download operator X
             return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_CHAR*var + TFQMRGPU_CODE_LINE*__LINE__;
         } // only operator A
-        
+
         // change data layout and (if necessary) transpose in-place on the GPU
         auto const l_in = TFQMRGPU_LAYOUT_RRRRIIII,
                   l_out = TFQMRGPU_LAYOUT_RIRIRIRI;
@@ -568,14 +571,14 @@
             tfqmrgpu::transpose_blocks_kernel<double>
 #ifndef HAS_NO_CUDA
                 <<<nnzb, {nCols,nRows,1}, 2*nRows*nCols*sizeof(double), streamId>>>
-#endif
+#endif // HAS_CUDA
                 ((double*) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows);
         } else {
             assert(nnzb * 2 * nRows * nCols * sizeof(float)  == size);
             tfqmrgpu::transpose_blocks_kernel<float>
 #ifndef HAS_NO_CUDA
                 <<<nnzb, {nCols,nRows,1}, 2*nRows*nCols*sizeof(float) , streamId>>>
-#endif
+#endif // HAS_CUDA
                 ((float *) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows); 
         }
 

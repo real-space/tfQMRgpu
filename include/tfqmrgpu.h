@@ -33,7 +33,7 @@
     // with A, X and B are BSR (block compressed sparse row) formatted operators.
     // 
     // the tfqmrgpu_bsrsv_* routines are listed in the order of how they should be called in a default use case.
-    
+
     // tfqmrgpuBsrsvPlan_t plan = NULL; // user must perform this before calling createPlan
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_createPlan(tfqmrgpuHandle_t handle, // no interaction
         tfqmrgpuBsrsvPlan_t *plan, // out: pointer to the newly created plan
@@ -52,7 +52,7 @@
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_destroyPlan(tfqmrgpuHandle_t handle, // no interaction
                                                 tfqmrgpuBsrsvPlan_t plan); // in: pointer to the plan to be destroyed
     // plan = NULL; // user must perform this after calling destroyPlan
-    
+
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_bufferSize(tfqmrgpuHandle_t handle, // in
         tfqmrgpuBsrsvPlan_t plan, // inout: plan becomes enriched by block size information
         int const ldA,         // in: Leading dimension for blocks in matrix A.
@@ -64,12 +64,12 @@
     // returns the computed size to be allocated by cudaMalloc
 
     // void* pBuffer = cudaMalloc(pBufferSizeInBytes); // user must perform this
-    
+
     // registers the GPU memory buffer pointer in the handle and calls the random number generator.
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_setBuffer(tfqmrgpuHandle_t handle, // in
         tfqmrgpuBsrsvPlan_t plan, // inout: the buffer is registered inside the plan
         void* const pBuffer); // in: pointer to GPU memory buffer
-    
+
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_getBuffer(tfqmrgpuHandle_t handle, // in
         tfqmrgpuBsrsvPlan_t plan, // in
         void* *pBuffer); // out: pointer to GPU memory saved in handle
@@ -82,7 +82,7 @@
         int const ld, // in: leading dimension of blocks in array val.
         char const trans, // in: transposition of the input matrix blocks.
         tfqmrgpuDataLayout_t const layout); // in: input data layout {RIRIRIRI(Fortran), RRRRIIII(native)}
-    
+
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_getMatrix(tfqmrgpuHandle_t handle, // inout
         tfqmrgpuBsrsvPlan_t plan, // in:
         char const var, // in: selector which variable, only 'X' supported.
@@ -103,11 +103,11 @@
         int *iterations_needed, // out: number of iterations needed to converge
         double *flops_performed, // out: number of floating pointer operations performed for the last run
         double *flops_performed_all); // out: number of floating pointer operations performed since createPlan
-    
 
-    
+
+
     // tfqmrgpu CONSTANTS
-    
+
     tfqmrgpuStatus_t const TFQMRGPU_STATUS_SUCCESS = 0;
 
     // error codes
@@ -134,8 +134,8 @@
 
 
     // tfqmrgpu configuration:
-    
+
     size_t const TFQMRGPU_MEMORY_ALIGNMENT = 8; // 8:256 Byte
     int    const TFQMRGPU_NUMBER_OF_INSTANCES_OF_X = 7; // need 7+1 when preprocessing is active
-    
+
 #endif // TFQMRGPU_H

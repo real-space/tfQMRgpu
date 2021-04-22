@@ -131,7 +131,7 @@ namespace tfqmrgpu_example_reader {
               case str2ull("") : 
   // #ifdef DEBUG
   //              std::cout << "# empty " << std::endl;
-  // #endif                
+  // #endif // DEBUG
                   break; // do nothing on empty lines
               default: std::cout << "# keyword " << keyword << " unknown!" << std::endl;
           } // switch

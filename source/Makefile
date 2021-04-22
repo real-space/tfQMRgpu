@@ -26,6 +26,7 @@ INCLUDES += -I../include
 
 EXTFLAGS ?=
 EXTFLAGS += -DDEBUG
+EXTFLAGS += -DDEBUGGPU
 
 ERRFLAGS = -Werror -Wall -Wfatal-errors -Wno-sign-compare
 
