@@ -258,9 +258,6 @@ namespace tfqmrgpu_example_xml_reader {
               auto const dims = read_sequence<int>(dim_string, echo, rank);
               assert(dims.size() == rank);
               std::printf("# Found DataTensor[%d][%d][%d] (type=%s) for operator %s\n", dims[0], dims[1], dims[2], type, id);
-              if (bsr.nnzb != dims[0]) {
-                  std::printf("# DataTensor[%d] dimension differs from SparseMatrix.nnz = %d of operator %s\n", dims[0], bsr.nnzb, id);
-              } // different
               bsr.slowBlockDim = dims[1];
               bsr.fastBlockDim = dims[2];
               auto const block2 = dims[1] * dims[2];
@@ -268,17 +265,21 @@ namespace tfqmrgpu_example_xml_reader {
               auto const target_size = size_t(bsr.nnzb) * block2;
               auto const data = read_sequence<double>(DataTensor->value(), echo, source_size*r1c2);
               assert(data.size() == source_size*r1c2);
-              bsr.mat = std::vector<double>(target_size*2, 0.0); // always complex in RIRIRIRI data layout
-              // ToDo: copy and scale using indirection
-              double const scale_factor = scale_values[abx];
-              for (size_t inzb = 0; inzb < bsr.nnzb; ++inzb) {
-                  auto const iblock = indirect[abx][inzb];
-                  for (int ij = 0; ij < block2; ++ij) {
-                      for (int ri = 0; ri < r1c2; ++ri) { // real [and imaginary] part
-                          bsr.mat[(inzb*block2 + ij)*2 + ri] = data[(iblock*block2 + ij)*r1c2 + ri] * scale_factor;
-                      } // ri
-                  } // ij
-              } // inzb
+              bsr.mat = std::vector<double>(target_size*2, 0.0); // always complex (in RIRIRIRI data layout)
+              if (bsr.nnzb != dims[0]) {
+                  std::printf("# DataTensor[%d] dimension differs from SparseMatrix.nnz = %d of operator %s\n", dims[0], bsr.nnzb, id);
+              } else {
+                  double const scale_factor = scale_values[abx];
+                  auto const indirection = indirect[abx];
+                  for (size_t inzb = 0; inzb < bsr.nnzb; ++inzb) {
+                      auto const iblock = indirection[inzb];
+                      for (int ij = 0; ij < block2; ++ij) {
+                          for (int ri = 0; ri < r1c2; ++ri) { // real [and imaginary] part
+                              bsr.mat[(inzb*block2 + ij)*2 + ri] = data[(iblock*block2 + ij)*r1c2 + ri] * scale_factor;
+                          } // ri
+                      } // ij
+                  } // inzb
+              } // different
 
           } else {
               std::printf("\n# Warning! Cannot find a DataTensor for operator %s\n\n", id);

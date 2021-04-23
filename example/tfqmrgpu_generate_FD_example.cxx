@@ -204,10 +204,10 @@ extern "C" {
                             op.indirection.data() : nullptr;
       xml_export_bsr(f, op.bsr, "    ", ind_ptr);
       auto const nblocks = op.blocks.size();
-      if (nblocks < 1) {
-          std::fprintf(f, "  </BlockSparseMatrix>\n");
-          return;
-      }
+//       if (nblocks < 1) {
+//           std::fprintf(f, "  </BlockSparseMatrix>\n");
+//           return;
+//       }
       std::fprintf(f, "    <DataTensor type=\"%s\"", type);
       std::fprintf(f, " rank=\"3\" dimensions=\"%ld %d %d\"", nblocks, BS, BS);
       if (op.scale_data != 1) {
