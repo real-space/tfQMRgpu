@@ -23,8 +23,8 @@
   #include <cstring> // std::strcmp
 
   // git clone https://github.com/dwd/rapidxml
-  #include "../external/rapidxml/rapidxml.hpp" // ::xml_document<>
-  #include "../external/rapidxml/rapidxml_utils.hpp" // ::file<>
+  #include "rapidxml.hpp" // ::xml_document<>
+  #include "rapidxml_utils.hpp" // ::file<>
 #else  // HAS_RAPIDXML
   #error "Example reader needs the rapidxml library!"
 #endif // HAS_RAPIDXML
