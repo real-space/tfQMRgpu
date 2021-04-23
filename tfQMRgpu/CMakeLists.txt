@@ -2,6 +2,9 @@
 # TODO: git commit to version?
 set(tfQMRgpu_version 0.0.1)
 
+# For cuRAND
+find_package(CUDAToolkit REQUIRED)
+
 set(tfQMRgpu_sources source/tfqmrgpu.cu)
 
 
@@ -44,8 +47,8 @@ target_include_directories(tfQMRgpu PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/include/private
 	)
 
-# Make all dependendents of tfQMRgpu know where to find rapidxml
-target_link_libraries(tfQMRgpu RapidXML)
+# Public libraries = libraries the dependents are also linked against
+target_link_libraries(tfQMRgpu PUBLIC RapidXML CUDA::curand)
 
 
 # default installation paths
