@@ -23,7 +23,6 @@ set(CMAKE_C_STANDARD_REQUIRED True)
 add_subdirectory(third_party)
 
 add_subdirectory(tfQMRgpu)
-add_subdirectory(fortran)
 add_subdirectory(example)
 
 # TODO: add submodule to git repo?

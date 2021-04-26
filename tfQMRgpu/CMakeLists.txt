@@ -27,7 +27,7 @@ set(tfQMRgpu_public_headers include/bsr.hxx
 		     )
 
 # TODO: split into public and private headers
-# TODO: split out c++ header-only interface library
+# TODO: split out C++ header-only interface library
 
 set(tfQMRgpu_internal_headers )
 
@@ -50,12 +50,28 @@ target_include_directories(tfQMRgpu PUBLIC
 # Public libraries = libraries the dependents are also linked against
 target_link_libraries(tfQMRgpu PUBLIC RapidXML CUDA::curand)
 
+set(tfqmrgpu_targets tfQMRgpu)
+
+
+add_library(tfQMRgpu_Fortran STATIC source/tfqmrgpu_Fortran_wrappers.c)
+target_link_libraries(tfQMRgpu_Fortran PUBLIC tfQMRgpu)
+set(tfqmrgpu_targets ${tfqmrgpu_targets} tfQMRgpu_Fortran)
+
+
+option(HAS_BENCHMARK "ToDo: add description here" ON)
+
+if(HAS_BENCHMARK)
+    add_executable(bench_tfqmrgpu source/bench_tfqmrgpu.cu)
+    target_link_libraries(bench_tfqmrgpu tfQMRgpu)
+    set(tfqmrgpu_targets ${tfqmrgpu_targets} bench_tfqmrgpu)
+endif(HAS_BENCHMARK)
+
 
 # default installation paths
 include(GNUInstallDirs)
 
 # install library
-install(TARGETS tfQMRgpu
+install(TARGETS ${tfqmrgpu_targets}
 	EXPORT tfQMRgpuTargets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}

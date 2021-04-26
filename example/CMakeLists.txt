@@ -2,6 +2,20 @@
 # Earlier versions possible if using LAPACK_LIBRARIES or LAPACK95_LIBRARIES, see FindLAPACK documentation (same for BLAS)
 cmake_minimum_required(VERSION 3.18)
 
+enable_language(Fortran)
+
+
+# set the project name and version
+add_executable(tfqmrgpu_Fortran_example tfqmrgpu_Fortran_example.F90)
+
+# __MAIN__ must be defined otherwise an executable can't be generated
+target_compile_definitions(tfqmrgpu_Fortran_example PRIVATE -D__MAIN__)
+
+# link with libtfQMRgpu.so build for block-sparse operators
+target_link_libraries(tfqmrgpu_Fortran_example tfQMRgpu_Fortran)
+
+
+
 option(USE_LAPACK_REFERENCE "Calculate reference solution using LAPACK" OFF)
 
 if(USE_LAPACK_REFERENCE)
@@ -33,3 +47,19 @@ if(LAPACK_FOUND AND BLAS_FOUND)
 	target_compile_definitions(generate_FD_example PRIVATE -DHAS_LAPACK)
 	target_link_libraries(generate_FD_example LAPACK::LAPACK BLAS::BLAS)
 endif()
+
+
+# default installation paths
+include(GNUInstallDirs)
+
+set(tfqmrgpu_example_targets 
+                generate_FD_example 
+                test_xml_reader
+                test_legacy_reader
+                tfqmrgpu_Fortran_example)
+
+# install examples
+install(TARGETS ${tfqmrgpu_example_targets}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
