@@ -1,10 +1,14 @@
-#tfqmrgpu - transpose-free Quasi Minimal Resdiual method on GPUs
+tfQMRgpu - transpose-free Quasi Minimal Resdiual method on GPUs
+===============================================================
 
 Brief
+-----
     A CUDA implementation for graphical processors of the 
-    transpose-free Quasi-Minimal Residual method (tfQMR)
+    transpose-free Quasi-Minimal Residual method (tfQMR) for
+    the iterative solution of linear systems of equations
 
 Purpose
+-------
     The transpose-free quasi-minimal residual method (tfQMR)
     solves a linear systems of simultaneous equations.
     This particular implementation benefits from solving
@@ -15,7 +19,7 @@ Purpose
     and can be instanciated with user-defined linear operators
     and is independent of the platform.
 
-Details on the tfQMR method
+### Details on the tfQMR method
     In this implementation of the method proposed by
     Freund R W (1993) A transpose-free quasi-minimal residual algorithm 
         for non-Hermitian linear systems SIAM J. Sci. Comput. 14 470?482
@@ -38,7 +42,7 @@ Details on the tfQMR method
     in particular, if a block is non-zero in B, it must be non-zero 
     in X but not vice versa.
 
-Details on the Block-compressed Spare Row (BSR) format
+### Details on the Block-compressed Spare Row (BSR) format
     The BSR format is a varaiant of the Compressed Sparse Row 
     format (CSR) with matrix blocks replacing the scalar values.
     The dimension of the square matrix blocks is a compile time 
@@ -59,7 +63,7 @@ Which files belong to the test environment?
     bsr.hxx (defines the struct of a block compressed sparse row matrix)
     Makefile
     
-Which files belong to the library?
+### Which files belong to the library?
     tfqmrgpu.h (C header)
     tfqmrgpu.hxx (extern C)
     tfqmrgpu_plan.hxx (struct def for an opaque handle)
@@ -69,21 +73,21 @@ Which files belong to the library?
     tfqmrgpu.cu (CUDA implementation)
     Makefile
 
-Which files belong to the Fortran interface?
+### Which files belong to the Fortran interface?
     tfqmrgpu_Fortran_wrappers.c (C interface with Fortran-compilant call by reference)
     tfqmrgpu_Fortran.F90 (Fortran90 module, executable program if -D__MAIN__)
     tfqmrgpu_Fortran.h (Fortran constants)
     tfqmrgpu_Fortran.F (not used, maybe not working)
     linkit.sh (simple script to compile Fortran glue code and link it on JURON)
 
-How to get started with C (or C++)
+### How to get started with C (or C++)?
     For simplicity, C++ users must refer to the C-interface 
     defined in the header file tfqmrgpu.h.
     The function bench_tfQMRgpu_library in bench_tfqmrgpu.cu
     gives an example of how to use the library correctly.
     However, it only compiles together with the test environment.
 
-How to get started with Fortran90
+### How to get started with Fortran90?
     There is a quick-starter subroutine
         use tfqmrgpu, only: tfqmrgpu_bsrsv_complete
     as you can see in the program tfqmrgpu_run_example which is included
@@ -102,10 +106,10 @@ How to get started with Fortran90
         The analysis step will be performed every time, even if the
         BSR patterns did not change (which often is the case).
 
-What about Fortran77?
+### What about Fortran77?
     Currently, the dummy subroutines in tfqmrgpu_Fortran.F are out of date!
     F77 users, however, can in principle simply call the external subroutine 
     names with the tailing underscore defined in tfqmrgpu_Fortran_wrappers.c
 
-Is there a full API documentation?
+### Is there a full API documentation?
     Sorry, but no. Please refer to the comments in the code.
