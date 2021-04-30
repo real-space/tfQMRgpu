@@ -1,8 +1,8 @@
-tfQMRgpu - transpose-free Quasi Minimal Resdiual method on GPUs
-===============================================================
+tfQMRgpu 
+========
 
-Brief
------
+transpose-free Quasi Minimal Resdiual method on GPUs
+----------------------------------------------------
     A CUDA implementation for graphical processors of the 
     transpose-free Quasi-Minimal Residual method (tfQMR) for
     the iterative solution of linear systems of equations
