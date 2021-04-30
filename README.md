@@ -56,7 +56,7 @@ Purpose
     `uint16_t`, i.e. there can be at most 65,536 block columns.
 
 ### How to get started with C or C++?
-    You need read access to the header file `tfqmrgpu.h`.
+    You need read access to the header file `tfQMRgpu/include/tfqmrgpu.h`.
     The function `GPUbench::bench_tfQMRgpu_library` in `tfQMRgpu/source/bench_tfqmrgpu.cu`
     gives an example of how to use the library correctly.
 
@@ -66,9 +66,10 @@ Purpose
     as you can see in the program tfqmrgpu_run_example which is included
     in `tfqmrgpu_Fortran_example.F90` if the preprocessor flag `-D__MAIN__` is defined.
     The routine `tfqmrgpu_bsrsv_complete` allows first tests:
-    It helps the new user to find out if tfQMR is applicable to the problem
-    at hand without having to invest larger coding efforts for the 
-    integration of the tfQMRgpu library into the application code.
+    The quick-starter routine helps new users to find out if tfQMR 
+    is applicable to their problem without having to invest larger 
+    coding efforts for the integration of the tfQMRgpu library into
+    the application code.
 
     For production, the full integration of the tfQMRgpu library 
     into the user's application code should be done since calling 
