@@ -2,11 +2,12 @@
 #include <cstdlib> // std::atoi
 #include <iostream> // std::cout, std::endl
 #include <fstream> // std::ifstream
+#include <algorithm> // std::max
 #include <cmath> // std::sqrt
 #include <vector> // std::vector<T>
 #include <cassert> // assert
 
-#include "tfqmrgpu.hxx" // includes cuda.h and tfqmrgpu.h
+#include "tfqmrgpu.hxx" // includes cuda.h (or tfqmrgpu_cudaStubs.hxx) and tfqmrgpu.h
 #include "bsr.hxx" // bsr_t block-sparse row matrices
 #include "tfqmrgpu_example_reader.hxx" // ::read_in()
 #include "tfqmrgpu_example_xml_reader.hxx" // ::read_in()
@@ -23,49 +24,16 @@
 #endif // DEBUG
 
 
-    template <typename T>
-    T* get_gpu_memory(size_t const size=1) {
-#ifdef DEBUGGPU
-        std::printf("#  cudaMalloc: %lu x %.3f kByte = \t%.3E MByte", size, 1e-3*sizeof(T), size*1e-6*sizeof(T));
-#endif // DEBUGGPU
-        void* d = nullptr;
-        CCheck(cudaMalloc(&d, size*sizeof(T)));
-#ifdef DEBUGGPU
-        std::printf(" @ %p through %p \n", d, (char*)d + size*sizeof(T) - 1);
-#endif // DEBUGGPU
-        return (T*)d;
-    } // get_gpu_memory
-
-    template <typename T>
-    void free_gpu_memory(T*& d) {
-        CCheck(cudaFree(d));
-        d = nullptr;
-    } // free_gpu_memory
-
-    template <typename T>
-    T* create_on_gpu(T const *const h, size_t const size=1, cudaStream_t const stream=0) {
-        T* d = get_gpu_memory<T>(size);
-        copy_data_to_gpu<T>(d, h, size, stream); // start copying to the GPU, async!
-        return d;
-    } // create_on_gpu
-
-    template <typename T>
-    T* create_on_cpu(T const (*devPtr d), size_t const size=1, cudaStream_t const stream=0) {
-        T* h = (T*) malloc(size*sizeof(T)); // c-style allocation
-        get_data_from_gpu<T>(h, d, size, stream); // start copying from the GPU, async!
-        return h;
-    } // create_on_cpu
-
 namespace GPUbench {
 
-    // benchmarking routines using the library interface //////////////////////////////// 
+    // Example routine using the tfQMRgpu library's C-interface
 
     int benchmark_tfQMRgpu_library(
           bsr_t const ABX[3]
         , double const tolerance=1.0e-6
         , int const maxIterations=999
         , int const nRepetitions=1
-        , char const doublePrecision='z' // 'c' is not fully implemented!
+        , char const doublePrecision='z' // beware: 'c' is not fully implemented!
     ) {
 
         PUSH_RANGE(__func__); // NVTX range markers for nvvp
@@ -100,13 +68,13 @@ namespace GPUbench {
         // step 3: register the CUDA stream in the handle
         callAndCheck(  tfqmrgpuSetStream(handle, streamId)
                     )
-        
+
         if (1) { // sanity check   
             auto streamId_copy = streamId;
             callAndCheck(  tfqmrgpuGetStream(handle, &streamId_copy)  )
             assert(streamId == streamId_copy);
         }
-        
+
         // step 4: analyse the blocks-sparse-row matrix patterns and create a bsrsv-plan
         tfqmrgpuBsrsvPlan_t plan{0};
         std::printf("\n# nnzb for A=%d, X=%d, B=%d \n", A->nnzb, X->nnzb, B->nnzb);
@@ -178,7 +146,7 @@ namespace GPUbench {
         // step a: spare line
         // step b: spare line
         // step c: spare line
-        
+
         // compare matX and matR (the reference matrix)
         auto const sizeX = X->mat.size(); 
         std::vector<double> Xref(X->mat); // copy constructor
@@ -210,7 +178,7 @@ namespace GPUbench {
                                             &iterations_needed, &flops_performed, 0x0)
                             )
                 std::printf("# GPU converged in %d iterations\n", iterations_needed);
-                char const fF = ('Z' == doublePrecision)? 'F' : 'f'; // F:double, f:float
+                char const fF = ('z' == doublePrecision)? 'F' : 'f'; // F:double, f:float
                 double const TFlop = 1e-12*flops_performed;
                 double const performance = TFlop/std::max(solver_time, 1e-6);
                 std::printf("# GPU performed %.3f T%clop in %.3f seconds = %.3f T%clop/s\n", 
@@ -223,12 +191,12 @@ namespace GPUbench {
         callAndCheck(  tfqmrgpu_bsrsv_destroyPlan(handle, plan)
                     )
         plan = 0;
-        
+
         // step f: destroy the handle
         callAndCheck(  tfqmrgpuDestroyHandle(handle)
                     )
         handle = 0;
-        
+
         // last step, free GPU memory
         CCheck(cudaFree(pBuffer));
 
@@ -238,6 +206,55 @@ namespace GPUbench {
     } // benchmark_tfQMRgpu_library
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // Multiplication benchmark: measure the performance of Y = A*X
+
+    template <typename T>
+    T* get_gpu_memory(size_t const size=1) {
+#ifdef DEBUGGPU
+        std::printf("#  cudaMalloc: %lu x %.3f kByte = \t%.3E MByte", size, 1e-3*sizeof(T), size*1e-6*sizeof(T));
+#endif // DEBUGGPU
+        void* d = nullptr;
+        CCheck(cudaMalloc(&d, size*sizeof(T)));
+#ifdef DEBUGGPU
+        std::printf(" @ %p through %p \n", d, (char*)d + size*sizeof(T) - 1);
+#endif // DEBUGGPU
+        return (T*)d;
+    } // get_gpu_memory
+
+    template <typename T>
+    void free_gpu_memory(T*& d) {
+        CCheck(cudaFree(d));
+        d = nullptr;
+    } // free_gpu_memory
+
+    template <typename T>
+    T* create_on_gpu(T const *const h, size_t const size=1, cudaStream_t const stream=0) {
+        T* d = get_gpu_memory<T>(size);
+        copy_data_to_gpu<T>(d, h, size, stream); // start copying to the GPU, async!
+        return d;
+    } // create_on_gpu
+
+    template <typename T>
+    T* create_on_cpu(T const (*devPtr d), size_t const size=1, cudaStream_t const stream=0) {
+        T* h = (T*) malloc(size*sizeof(T)); // c-style allocation
+        get_data_from_gpu<T>(h, d, size, stream); // start copying from the GPU, async!
+        return h;
+    } // create_on_cpu
+    
 #ifndef HAS_NO_CUDA
     template <typename real_t, int LM> // template
     void __global__ // GPU kernel, must be launched with <<< {nmat, 1, 1}, {LM, any, 1} >>>
@@ -501,7 +518,6 @@ namespace GPUbench {
 } // namespace GPUbench
 
 
-// this main was formerly in test_tfqmrgpu.cxx
 int main(int const argc, char const *const argv[]) {
 
     if (argc < 2) { 
