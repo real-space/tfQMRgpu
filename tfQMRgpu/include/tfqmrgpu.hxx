@@ -18,12 +18,12 @@
             nvtxRangePushEx(&eventAttrib); \
         }
 
-    #else
+    #else // USE_NVTX
 
         #define PUSH_RANGE(name)
         #define POP_RANGE()
 
-    #endif
+    #endif // USE_NVTX
 #else  // HAS_CUDA
 
     #include "tfqmrgpu_cudaStubs.hxx" // replaces cuda.h
@@ -37,21 +37,17 @@ extern "C" {
 // // mark device pointers == pointers to GPU memory
 #define devPtr const __restrict__
 
-#ifdef _MPI
-	#define getTime MPI_Wtime // use the MPI internal timer
-#else // _MPI
 #ifdef _OPENMP
-	#include <omp.h> // OpenMP threading
-	#define getTime omp_get_wtime // use the OpenMP internal timer
+    #include <omp.h> // OpenMP threading library
+    #define getTime omp_get_wtime // use the OpenMP internal timer
 #else  // _OPENMP
-    #include <ctime> // time
-	inline double getTime() { return double(intmax_t(time(nullptr))); }
+    #include <ctime> // clock
+    inline double getTime() { return double(clock())/double(CLOCKS_PER_SEC); }
 #endif // _OPENMP
-#endif // _MPI
 
 #ifndef _OPENMP
-	inline int omp_get_num_threads() { return 1; }
-#endif
+    inline int omp_get_num_threads() { return 1; }
+#endif // _OPENMP
 
 #ifdef __CUDA_ARCH__
     #define UNROLL _Pragma("unroll")

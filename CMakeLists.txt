@@ -10,7 +10,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
-
+### include debug symbols e.g. for GDB
+# set(CMAKE_BUILD_TYPE Debug)
 
 ### folders:
 ###     example --> generator for finite-difference examples

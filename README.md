@@ -22,9 +22,9 @@ Purpose
 ### Details on the tfQMR method
     In this implementation of the QMR method proposed by
     Freund R W (1993) A transpose-free quasi-minimal residual algorithm 
-        for non-Hermitian linear systems SIAM J. Sci. Comput. 14 470?482
-    Freund R W and Nachtigal N (1991) QMR: a Quasi-Minimal Residual 
-        Method for Non-Hermitian Linear Systems Numer. Math. 60 315?339
+        for non-Hermitian linear systems SIAM J. Sci. Comput. 14, 470--482
+    Freund R W and Nachtigal N (1991) QMR: a Quasi-Minimal Residual
+        Method for Non-Hermitian Linear Systems Numer. Math. 60, 315--339
     we focus on solving
         A * X == B
     for the operators A, X and B.
@@ -41,6 +41,21 @@ Purpose
     The BSR shape of operator B may be sparser than that of X,
     however, if a block is non-zero in B, it must be non-zero 
     in X but not vice versa.
+
+### How to build, compile, install and test
+    tfQMRgpu uses CMake, it is recommended to create a build directory
+    cd ~/tfQMRgpu
+    mkdir build
+    cd build
+    cmake .. -DCMAKE_INSTALL_PREFIX=~/tfQMRgpu 
+             -DCMAKE_PREFIX_PATH=~/tfQMRgpu
+    make -j
+    make install
+    cd ../test/multiplication
+    ../../bin/bench_tfqmrgpu multi plan_unordered.14-287-16
+    cd ../test/full_solver
+    ../../bin/generate_FD_example
+    ../../bin/bench_tfqmrgpu tfQMR FD_example.xml
 
 ### Details on the Block-compressed Spare Row (BSR) format
     The BSR format is a variant of the Compressed Sparse Row 

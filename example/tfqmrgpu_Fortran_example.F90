@@ -329,7 +329,7 @@ implicit none
     !! compute the size of the required GPU memory buffer
     !! 'Z' means solve in double precision.
     !! The library will fail here, if the required block size has not been compiled
-    call get(handle, plan, ldA, ldA, ldA, ldA, 'Z', memSize, ierr) 
+    call get(handle, plan, ldA, ldA, ldA, ldA, 'z', memSize, ierr) 
     CheckError(ierr, "Failed to compute GPU memory requirement")
 
     !! allocate GPU memory

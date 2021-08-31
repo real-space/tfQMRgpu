@@ -1,15 +1,17 @@
 #pragma once
 
+// #define DEBUG
+
 #include "tfqmrgpu_plan.hxx" // bsrsv_plan_t
 #include "tfqmrgpu_memWindow.h" // memWindow_t
-#include "tfqmrgpu_util.hxx" // take_gpu_memory<T>, copy_data_to_gpu<T>
+#include "tfqmrgpu_util.hxx" // take_gpu_memory<T>, copy_data_to_gpu<T>, print_array
 
 #ifndef HAS_NO_CUDA
-    #include "tfqmrgpu_blockmult.hxx" // gemmNxNf
+    #include "tfqmrgpu_blockmult.hxx" // gemmNxNf, gemmNxNf1
 #endif // HAS_CUDA
 
 template <typename floating_point_t, int block_size>
-class action_t {
+class blocksparse_action_t {
   public:
       typedef floating_point_t real_t;
       static int constexpr LM = block_size;
@@ -20,11 +22,12 @@ class action_t {
   // with real_t either float or double
   //
 
-  private: // members
+  private: // private members
 
     bsrsv_plan_t* p; // ToDo: would it be better to have a reference here?
-//  std::vector<int_t> p->pairs; // [nPairs*2], each pair is one block-times-block mutliplication
-//  std::vector<int_t> p->starts; // [nnzbX + 1] number of target elements plus one
+//  std::vector<uint32_t> p->pairs; // [nPairs*2], each pair is one block-times-block multiplication
+//  std::vector<uint32_t> p->starts; // [nnzbX + 1] number of target elements plus one
+//  uint32_t p->nnzbA; // number of non-zero block in block-sparse operator A
 
     real_t (* matA_d)[2][LM][LM]; // matrix data in GPU memory
     // ToDo: try how fast it is with pairs and starts in managed memory (UVM)
@@ -33,10 +36,10 @@ class action_t {
 
   public:
 
-    action_t(bsrsv_plan_t* const plan) : p(plan) {
+    blocksparse_action_t(bsrsv_plan_t* const plan) : p(plan) {
         assert(nullptr != p);
         assert(LM == p->LM);
-        p->doublePrecision = (sizeof(real_t) > 4)? 'Z' : 'C';
+        p->doublePrecision = (sizeof(real_t) > 4)? 'z' : 'c';
     } // constructor
 
     void take_memory(char* &buffer) {
@@ -63,9 +66,9 @@ class action_t {
     bool has_preconditioner() const { return false; }
 
     // driver
-    double multiply(   
-          real_t       (*devPtr y)[2][LM][LM] // result, y[nnzbY][2][LM][LM]
-        , real_t const (*devPtr x)[2][LM][LM] // input,  x[nnzbX][2][LM][LM]
+    double multiply( 
+          real_t         (*devPtr y)[2][LM][LM] // result, y[nnzbY][2][LM][LM]
+        , real_t   const (*devPtr x)[2][LM][LM] // input,  x[nnzbX][2][LM][LM]
         , uint16_t const (*devPtr colIndex) // column indices, uint16_t allows up to 65,536 block columns
         , uint32_t const nnzbY // == nnzbX
         , uint32_t const nCols=1
@@ -75,15 +78,60 @@ class action_t {
     ) {
         // how to multiply the action onto x
 #ifndef HAS_NO_CUDA
-        int constexpr TUNE = 2; // 2 has been found to yield the best performance for LM==32
-        gemmNxNf <real_t,LM,LM/TUNE> <<< nnzbY, { LM, TUNE, 1 }, 0, streamId >>> (y, matA_d, x, pairs_d, starts_d);
+
+        // CUDA version
+#ifdef  DEBUG
+        bool constexpr show_A_X_and_Y = true;
+        if (show_A_X_and_Y) {
+            printf("\n\n# multiply:\n");
+            for(int i{0}; i < nnzbY; ++i) {
+                printf("# from [%d to %d)\n", p->starts[i], p->starts[i + 1]);
+                for(int j = p->starts[i]; j < p->starts[i + 1]; ++j) {
+                    printf("#   pair %i %i\n", p->pairs[2*j], p->pairs[2*j + 1]);
+                } // j
+            } // i
+            print_array<real_t, LM> <<< 1, 1, 0, streamId >>> (matA_d[0][0], p->nnzbA*2*LM, 'A');
+            print_array<uint32_t,1> <<< 1, 1, 0, streamId >>> ((uint32_t(*)[1])starts_d, nnzbY+1, 's', 'i');
+            print_array<uint32_t,2> <<< 1, 1, 0, streamId >>> ((uint32_t(*)[2])pairs_d, p->starts[nnzbY], 'p', 'i');
+            print_array<real_t, LM> <<< 1, 1, 0, streamId >>> (x[0][0], nnzbY*2*LM, 'x');
+        } // show_A_X_and_Y
+#endif // DEBUG
+
+        int constexpr TUNE = 4;
+        dim3 const threads = { LM, TUNE, 1 };
+        gemmNxNf <real_t,LM,LM/TUNE> <<< nnzbY, threads, 0, streamId >>> (y, matA_d, x, pairs_d, starts_d);
+
+#ifdef  DEBUG
+        cudaDeviceSynchronize(); // necessary?
+        auto const err = cudaGetLastError();
+        if (cudaSuccess != err) {
+            auto const errString = cudaGetErrorString(err);
+            printf("[ERROR] in %s:%d cudaError \"%s\" after kernel call!\n", __FILE__, __LINE__, errString);
+        } // error
+
+        if (show_A_X_and_Y) {
+            cudaDeviceSynchronize(); // necessary?
+            print_array<real_t,LM> <<< 1, 1, 0, streamId >>> (y[0][0], nnzbY*2*LM, 'y');
+            cudaDeviceSynchronize(); // necessary?
+            printf("\n");
+        } // show_A_X_and_Y
+#endif // DEBUG
+
+
+
+
+
+
 #else  // HAS_CUDA
+
         // CPU version
         auto const A = matA_d; // works since host and device memory are the same if HAS_CUDA is not defined
         for(int iYmat = 0; iYmat < nnzbY; ++iYmat) {
 
             real_t Yb[2][LM][LM]; // temporary for a block of result operator Y
-            for(int cij = 0 ; cij < 2*LM*LM; ++cij) Yb[0][0][cij] = 0;
+            for(int cij = 0; cij < 2*LM*LM; ++cij) {
+                Yb[0][0][cij] = 0;
+            } // cij
 
 //          char const tA = 'n', tx = 'n';
 //          int32_t const n = LM;
@@ -119,17 +167,26 @@ class action_t {
             } // ipair
 
             // copy block into result array
-            for(int cij = 0 ; cij < 2*LM*LM; ++cij) {
+            for(int cij = 0; cij < 2*LM*LM; ++cij) {
                 y[iYmat][0][0][cij] = Yb[0][0][cij];
             } // cij
 
         } // iYmat
+        // end of CPU version
+        
 #endif // HAS_CUDA
-        auto const nPairs = p->pairs.size()/2;
-        return nPairs*LM*8.*LM*LM; // returns the number of Flops
+
+
+
+
+
+
+
+
+        return p->pairs.size()*.5*LM*8.*LM*LM; // returns the number of Flops: 8 per complex
     } // multiply
 
     bsrsv_plan_t* get_plan() const { return p; }
 
-}; // class action_t
+}; // class blocksparse_action_t
 

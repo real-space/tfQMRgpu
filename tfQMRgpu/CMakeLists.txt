@@ -7,7 +7,6 @@ find_package(CUDAToolkit REQUIRED)
 
 set(tfQMRgpu_sources source/tfqmrgpu.cu)
 
-
 # Explicitly depend on the headers to trigger rebuilds on changes
 set(tfQMRgpu_public_headers include/bsr.hxx
 	             include/tfqmrgpu_blockmult.hxx
@@ -36,6 +35,10 @@ set(tfQMRgpu_headers ${tfQMRgpu_internal_headers} ${tfQMRgpu_public_headers})
 # build shared library
 add_library(tfQMRgpu SHARED ${tfQMRgpu_sources} ${tfQMRgpu_headers})
 
+# CUDA architectures 70=Volta, 75=Turing, 80=Ampere
+set_property(TARGET tfQMRgpu PROPERTY CUDA_ARCHITECTURES 70)
+
+
 # Make the source find the headers
 # tfQMRgpu is a library, so we use PUBLIC, this way any target that depends on tfQMRgpu will know to add this include
 # And we differentiate between build and install - on build the include in the source directory is used while 
@@ -50,6 +53,16 @@ target_include_directories(tfQMRgpu PUBLIC
 # Public libraries = libraries the dependents are also linked against
 target_link_libraries(tfQMRgpu PUBLIC RapidXML CUDA::curand)
 
+option(HAS_OPENMP "Usage of OpenMP" ON)
+if(HAS_OPENMP)
+    # add OpenMP support
+    find_package(OpenMP REQUIRED)
+    # switch OpenMP on for CUDA
+    SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler=${OpenMP_CXX_FLAGS}") 
+    # switch OpenMP on for C and C++
+    target_link_libraries(tfQMRgpu PUBLIC OpenMP::OpenMP_CXX OpenMP::OpenMP_C)
+endif(HAS_OPENMP)
+
 set(tfqmrgpu_targets tfQMRgpu)
 
 
@@ -58,10 +71,11 @@ target_link_libraries(tfQMRgpu_Fortran PUBLIC tfQMRgpu)
 set(tfqmrgpu_targets ${tfqmrgpu_targets} tfQMRgpu_Fortran)
 
 
-option(HAS_BENCHMARK "ToDo: add description here" ON)
+option(HAS_BENCHMARK "generates bench_tfqmrgpu for multiplication and full_solver performance tests" ON)
 
 if(HAS_BENCHMARK)
     add_executable(bench_tfqmrgpu source/bench_tfqmrgpu.cu)
+    set_property(TARGET bench_tfqmrgpu PROPERTY CUDA_ARCHITECTURES 70 80)
     target_link_libraries(bench_tfqmrgpu tfQMRgpu)
     set(tfqmrgpu_targets ${tfqmrgpu_targets} bench_tfqmrgpu)
 endif(HAS_BENCHMARK)

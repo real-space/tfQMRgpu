@@ -204,19 +204,19 @@ namespace tfqmrgpu_example_xml_reader {
               size_t const nnz = std::atoi(find_attribute(ColumnIndex, "nonzeros", "0", echo));
               bsr.ColInd = read_sequence<int>(ColumnIndex->value(), echo, nnz);
               bsr.nnzb = bsr.ColInd.size();
-              
+
               auto const highest_column_index = *std::max_element(bsr.ColInd.begin(), bsr.ColInd.end());
               auto const lowest_column_index  = *std::min_element(bsr.ColInd.begin(), bsr.ColInd.end());
               bsr.nCols = highest_column_index + 1 - lowest_column_index;
               if (echo > 4) std::printf("# number of columns in %s is %d\n", id, bsr.nCols);
               if (echo > 4) std::printf("# number of nonzeros in %s is %d\n", id, bsr.nnzb);
 
-              unsigned highest_index{bsr.nnzb - 1};
+              // int highest_index{int(bsr.nnzb) - 1};
               auto const Indirection = find_child(SparseMatrix, "Indirection", echo);
               if (Indirection) {
                   indirect[abx] = read_sequence<unsigned>(Indirection->value(), echo, bsr.nnzb);
                   assert(indirect[abx].size() == bsr.nnzb);
-                  highest_index = *std::max_element(indirect[abx].begin(), indirect[abx].end());
+                  // highest_index = *std::max_element(indirect[abx].begin(), indirect[abx].end());
               } else {
                   indirect[abx] = std::vector<unsigned>(bsr.nnzb);
                   // create a trivial indirection vector, i.e. 0,1,2,3,...
@@ -225,7 +225,7 @@ namespace tfqmrgpu_example_xml_reader {
               if (1) { // analyze the indirection table
                   std::vector<uint16_t> stats(bsr.nnzb, 0);
                   for (auto i : indirect[abx]) {
-                      assert(0 <= i); assert(i < bsr.nnzb);
+                      assert(i < bsr.nnzb);
                       ++stats[i];
                   } // i
                   std::vector<unsigned> occurence(96, 0);
@@ -266,13 +266,14 @@ namespace tfqmrgpu_example_xml_reader {
               auto const data = read_sequence<double>(DataTensor->value(), echo, source_size*r1c2);
               assert(data.size() == source_size*r1c2);
               bsr.mat = std::vector<double>(target_size*2, 0.0); // always complex (in RIRIRIRI data layout)
-              if (bsr.nnzb != dims[0]) {
-                  std::printf("# DataTensor[%d] dimension differs from SparseMatrix.nnz = %d of operator %s\n", dims[0], bsr.nnzb, id);
+              if (dims[0] < 1) {
+                  std::printf("# DataTensor[%d] has no elements for operator %s\n", dims[0], id);
               } else {
                   double const scale_factor = scale_values[abx];
                   auto const indirection = indirect[abx];
                   for (size_t inzb = 0; inzb < bsr.nnzb; ++inzb) {
                       auto const iblock = indirection[inzb];
+                      assert(iblock < dims[0]);
                       for (int ij = 0; ij < block2; ++ij) {
                           for (int ri = 0; ri < r1c2; ++ri) { // real [and imaginary] part
                               bsr.mat[(inzb*block2 + ij)*2 + ri] = data[(iblock*block2 + ij)*r1c2 + ri] * scale_factor;

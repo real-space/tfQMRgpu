@@ -1,12 +1,17 @@
 #pragma once
 
-#include "tfqmrgpu_util.hxx" // get_data_from_gpu, copy_data_to_gpu, FlopChar, take_gpu_memory
-#include "tfqmrgpu_linalg.hxx" // ... 
+// #define DEBUG
+// #define DEBUGGPU
+
+#include "tfqmrgpu_util.hxx" // ...
+        // get_data_from_gpu, copy_data_to_gpu, FlopChar, take_gpu_memory, print_array
+#include "tfqmrgpu_linalg.hxx" // ...
         // highestbit, ...
         // TFQMRGPU_MEMORY_ALIGNMENT, TFQMRGPU_STATUS_SUCCESS, ...
         // set_complex_value, clear_on_gpu, ...
         // dotp, nrm2, xpay, axpy, ...
-        // tfQMRdec*, add_RHS
+        // tfQMRdec*, add_RHS,
+        // debug_printf
 
 namespace tfqmrgpu {
 
@@ -46,12 +51,13 @@ namespace tfqmrgpu {
       auto const v9 = take_gpu_memory<real_t[2][LM][LM]>(buffer, nnzbX);
 //    auto const vP = take_gpu_memory<real_t[2][LM][LM]>(buffer, nnzbX*precond);
 
-      // random number vector
+      // random number vector, random values are generated outside of this routine
       auto const v3 = take_gpu_memory<float[2][LM][LM]>(buffer, nnzbX, &(p->vec3win), "v3"); // v3 is always of type float as this stores only random numbers
+      debug_printf("# v3 has address %s%p\n", buffer_start?"":"buffer + ", (void*)v3);
 
       // matrix B
       auto const v2 = take_gpu_memory<real_t[2][LM][LM]>(buffer, nnzbB, &(p->matBwin), "B"); // usually small
-      
+
       // complex scalars per RHS
       auto const rho  = take_gpu_memory<real_t[2][LM]>(buffer, nCols);
       auto const alfa = take_gpu_memory<real_t[2][LM]>(buffer, nCols);
@@ -68,12 +74,11 @@ namespace tfqmrgpu {
       auto const var  = take_gpu_memory<double[LM]>(buffer, nCols);
 
       assert(nCols <= (1ul << 16)); // working with uint16_t as column indices, we hay at most have 65,536 block columns
-      auto const colindx  = take_gpu_memory<uint16_t>(buffer, nnzbX, &(p->colindxwin), "colindx");
-      auto const subset   = take_gpu_memory<uint32_t>(buffer, nnzbB, &(p->subsetwin), "subset");
+      auto const colindx = take_gpu_memory<uint16_t>(buffer, nnzbX, &(p->colindxwin), "colindx");
+      auto const subset  = take_gpu_memory<uint32_t>(buffer, nnzbB, &(p->subsetwin), "subset");
+      auto const status  = take_gpu_memory<int8_t[LM]>(buffer, nCols);
 
-      auto const status   = take_gpu_memory<int[LM]>(buffer, nCols);
-
-      // transfer index lists into GPU memory, can be skipped if action_t uses UVM
+      // transfer index lists into GPU memory, can be skipped if action_t uses managed memory
       if (nullptr != gpu_memory_buffer) {
           action.transfer(gpu_memory_buffer, streamId);
       }
@@ -85,9 +90,10 @@ namespace tfqmrgpu {
           debug_printf("# GPU memory requirement = %.6f GByte\n", p->gpu_mem*1e-9);
           return TFQMRGPU_STATUS_SUCCESS; // return early as we only counted the device memory requirement
       } // memcount
-      
-      auto const status_h = new int[nCols][LM]; // tfQMR status on host
+
+      // host array allocations
       int const nRHSs = nCols*LM; // total number of right-hand sides
+      auto const status_h = new int8_t[nCols][LM]; // tfQMR status on host
       for(auto rhs = 0; rhs < nRHSs; ++rhs) { status_h[0][rhs] = 0; } // this needs to be done every time
       auto const resnrm2_h = new double[nCols][1][LM]; // residual norm squared on host
       auto const res_ub_h = new double[nCols][LM]; // residual upper bound squared on host
@@ -111,10 +117,10 @@ namespace tfqmrgpu {
 
       clear_on_gpu<real_t[2][LM][LM]>(v1, nnzbX, streamId); // deletes the content of v, ToDo: only if setMatrix('X') has not been called
       
-      clear_on_gpu<int[LM]>(status, nCols, streamId); // set status = 0
+      clear_on_gpu<int8_t[LM]>(status, nCols, streamId); // set status = 0
 
       double const tol2 = tolerance*tolerance; // internally, the squares of all norms and thresholds are used
-      double target_bound2{tol2 * (100*100)}; // init with test_factor=100
+      double target_bound2{tol2*(100*100)}; // init with test_factor=100
 
       double nFlop{0}; // counter for floating point multiplications
 #define DOTP(d,w,v) nFlop += dotp<real_t,LM>(d, v, w, colindx, nnzbX, nCols, l2nX, streamId)
@@ -126,7 +132,7 @@ namespace tfqmrgpu {
       // ToDo: move this part into the tail of setMatrix('B')
       // v5 == 0
 //    add_RHS<real_t,LM> <<< nnzbB, { LM, LM, 1 }, 0, streamId >>> (v5, v2, 1, subset, nnzbB); // v5 := v5 + v2
-      add_RHS<real_t,LM>(v5, v2, 1, subset, nnzbB); // v5 := v5 + v2
+      add_RHS<real_t,LM>(v5, v2, 1, subset, nnzbB, streamId); // v5 := v5 + v2
       NRM2(dvv, v5); // dvv := ||v5||
       cudaMemcpy(tau, dvv, nCols*LM*sizeof(double), cudaMemcpyDeviceToDevice);
       // if we always have unit matrices in B, these 3 steps can be avoided and tau := 1
@@ -138,21 +144,19 @@ namespace tfqmrgpu {
           invBn2_h[0][rhs] = 1./invBn2_h[0][rhs]; // invert in-place on the host
       } // rhs
 
-#ifdef DEBUGGPU    
-  //     print_array<real_t,LM> <<< 1, 1 >>> (v2[0][0], nnzbB*2*LM, 'B'); cudaDeviceSynchronize(); exit(42); // hardcore debugging
-#endif // DEBUGGPU
-      tfqmrgpuStatus_t return_status = TFQMRGPU_STATUS_MAX_ITERATIONS;
+      tfqmrgpuStatus_t return_status{TFQMRGPU_STATUS_MAX_ITERATIONS}; // preliminary result
       p->iterations_needed = MaxIterations; // preliminary, will be changed if it converges
       p->flops_performed = 0;
-
-      int iteration{0};
       
+      int iteration{0};
+
       POP_RANGE(); // end of NVTX range
       PUSH_RANGE("tfQMR iterations"); // NVTX
 
       while (iteration < MaxIterations) {
           ++iteration;
-          
+          debug_printf("# iteration %i of %d\n", iteration, MaxIterations);
+
           // =============================
           // tfQMR loop body:
           // first half-step
@@ -218,10 +222,10 @@ namespace tfqmrgpu {
               (status, 0x0, eta, var, tau, alfa, dvv, nCols);
 
           AXPY(v1, v7, eta); // v1 := eta*v7 + v1 // update solution vector
-          
+
           get_data_from_gpu<double[LM]>(res_ub_h, tau, nCols, streamId); // missing factor inverse_norm2_of_B
-          get_data_from_gpu<int[LM]>(status_h, status, nCols, streamId);
-  //      CCheck(cudaDeviceSynchronize()); // for debugging
+          get_data_from_gpu<int8_t[LM]>(status_h, status, nCols, streamId);
+          // CCheck(cudaDeviceSynchronize()); // necessary?
 
           double max_bound2{0};
           double min_bound2{9e99}; // debug
@@ -242,7 +246,8 @@ namespace tfqmrgpu {
           bool probe{(iteration >= MaxIterations || max_bound2 <= target_bound2)};
           if (nRHSs == breakdown5 + breakdown4) {
               debug_printf("# in iteration %d, all %d+%d of %d components broke down!\n", iteration, breakdown5, breakdown4, nRHSs);
-              iteration += MaxIterations;
+              iteration += MaxIterations; // stop the loop
+              return_status = TFQMRGPU_STATUS_BREAKDOWN;
               probe = false;
           } // stop now
 
@@ -251,12 +256,12 @@ namespace tfqmrgpu {
               MULT(v9, v1); // v9 := A*v1
 
 //            add_RHS<real_t,LM> <<< nnzbB, { LM, LM, 1 }, 0, streamId >>> (v9, v2, -1, subset, nnzbB); // v9 := v9 - v2
-              add_RHS<real_t,LM>(v9, v2, -1, subset, nnzbB); // v9 := v9 - v2
+              add_RHS<real_t,LM>(v9, v2, -1, subset, nnzbB, streamId); // v9 := v9 - v2
 
               NRM2(dvv, v9); // dvv := ||v9||
 
               get_data_from_gpu<double[1][LM]>(resnrm2_h, dvv, nCols, streamId, "resnrm2"); // missing factor inverse_norm2_of_B
-  //          CCheck(cudaDeviceSynchronize()); // for debugging
+              // CCheck(cudaDeviceSynchronize()); // necessary?
 
               double max_residual2{0}, min_residual2{9e99};
               bool isDone{true}, status_modified{false};
@@ -275,8 +280,9 @@ namespace tfqmrgpu {
               } // rhs
 
               target_bound2 = (max_bound2 / max_residual2) * tol2; // for the next iteration
-              debug_printf("# in iteration %d, max_res2 = %g, min_res2 = %g, new target_bound2 = %g\n", iteration, max_residual2, min_residual2, target_bound2);
-              
+              debug_printf("# in iteration %d, max_res2 = %g, min_res2 = %g, new target_bound2 = %g\n", 
+                                 iteration, max_residual2, min_residual2, target_bound2);
+
               if (isDone) {
                   p->iterations_needed = iteration;
                   iteration += 2*MaxIterations; // stop the iteration loop
@@ -284,7 +290,7 @@ namespace tfqmrgpu {
               } // isDone
 
               if (status_modified) {
-                  copy_data_to_gpu<int[LM]>(status, status_h, nCols, streamId, "status");
+                  copy_data_to_gpu<int8_t[LM]>(status, status_h, nCols, streamId, "status");
               } // status_modified
 
           } // probe

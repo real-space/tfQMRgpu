@@ -32,11 +32,11 @@ add_executable(generate_FD_example tfqmrgpu_generate_FD_example.cxx)
 
 add_executable(test_xml_reader tfqmrgpu_example_xml_reader.cxx)
 
-add_executable(test_legacy_reader  tfqmrgpu_example_reader.cxx)
+add_executable(test_legacy_reader tfqmrgpu_example_reader.cxx)
 
-#Link our tfQMRgpu library, also adds the include dir
+# link our tfQMRgpu library, also adds the include dir
 foreach(example generate_FD_example test_xml_reader test_legacy_reader)
-	target_link_libraries(${example} tfQMRgpu)
+    target_link_libraries(${example} tfQMRgpu)
 endforeach()
 
 

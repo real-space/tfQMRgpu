@@ -2,10 +2,12 @@
 #include <vector> // std::vector<T>
 #include <cassert> // assert
 
+// #define DEBUG
+
 #include "tfqmrgpu.hxx" // includes cuda.h and tfqmrgpu.h
 #include "tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
+#include "tfqmrgpu_blocksparse.hxx" // blocksparse_action_t
 
-#include "tfqmrgpu_blocksparse.hxx" // action_t
 
     template <typename real_t, int LM>
     tfqmrgpuStatus_t mysolve_real_LM (
@@ -15,7 +17,7 @@
         , int const MaxIterations
         , bool const memcount
     ) {
-        action_t<real_t, LM> action(p);
+        blocksparse_action_t<real_t, LM> action(p);
         return tfqmrgpu::solve(action, memcount ? nullptr : p->pBuffer, tolerance, MaxIterations, streamId);
     } // mysolve_real_LM
 
@@ -46,9 +48,11 @@
             case LM: return mysolve_LM<LM>(streamId, p, tolerance, MaxIterations, memcount)
 
             // here, add all the allowed block sizes
+            instance( 4);
             instance( 8);
             instance(16);
             instance(32);
+            instance(64);
 
 #undef      instance            
             default: return TFQMRGPU_BLOCKSIZE_MISSING + TFQMRGPU_CODE_LINE*p->LM; // also say which blocksize was requested
@@ -74,8 +78,9 @@
             case TFQMRGPU_STATUS_ALLOCATION_FAILED: std::printf("tfQMRgpu: Allocation failed!\n"); break;
             case TFQMRGPU_POINTER_INVALID:          std::printf("tfQMRgpu: Pointer invalid!\n");   break;
             case TFQMRGPU_STATUS_MAX_ITERATIONS:    std::printf("tfQMRgpu: Max number of iterations exceeded!\n");       break;
+            case TFQMRGPU_STATUS_BREAKDOWN:         std::printf("tfQMRgpu: All components have broken down!\n");         break;
             case TFQMRGPU_NO_IMPLEMENTATION:        std::printf("tfQMRgpu: Missing implementation at line %d!\n", line); break;
-            case TFQMRGPU_BLOCKSIZE_MISSING:        std::printf("tfQMRgpu: Missing blocksize %d!\n", line); break;
+            case TFQMRGPU_BLOCKSIZE_MISSING:        std::printf("tfQMRgpu: Missing blocksize %d!\n", line);              break;
             case TFQMRGPU_UNDOCUMENTED_ERROR:       std::printf("tfQMRgpu: Undocumented error at line %d!\n",     line); break;
             case TFQMRGPU_TANSPOSITION_UNKNOWN:     std::printf("tfQMRgpu: Unknown transposition '%c' at line %d!\n",  key, line); break;
             case TFQMRGPU_VARIABLENAME_UNKNOWN:     std::printf("tfQMRgpu: Unknown variable name '%c' at line %d!\n",  key, line); break;
@@ -312,7 +317,7 @@
 
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_bufferSize(
           tfqmrgpuHandle_t handle // in: opaque handle for the tfqmrgpu library.
-        , tfqmrgpuBsrsvPlan_t plan // inout: plan becomes enriched by block size information
+        , tfqmrgpuBsrsvPlan_t plan // inout: plan becomes enriched by LM and doublePrecision
         , int const ldA         // in: Leading dimension for blocks in matrix A.
         , int const blockDim    // in: Block dimension of matrix A, blocks in A are square blocks. blockDim <= ldA
         , int const ldB         // in: Leading dimension for blocks in matrix B or X.
@@ -328,11 +333,11 @@
 
         auto const p = (bsrsv_plan_t*)plan;
 
-        switch (doublePrecision) {
-            case 'c': case 'C': p->doublePrecision = 'C'; break; // single precision complex
-//          case 'm': case 'M': p->doublePrecision = 'M'; break; // mixed  precision complex, Warning, not fully implemented
-            case 'z': case 'Z': p->doublePrecision = 'Z'; break; // double precision complex
-            default:            p->doublePrecision = 'Z'; //default double precision complex
+        switch (doublePrecision | 32) {
+            case 'c': p->doublePrecision = 'c'; break;  // single precision complex
+//          case 'm': p->doublePrecision = 'm'; break;  // mixed  precision complex, Warning, not fully implemented
+            case 'z': p->doublePrecision = 'z'; break;  // double precision complex
+            default : p->doublePrecision = 'z'; // default double precision complex
         } // doublePrecision
 
         p->LM = LM; // store the block size and precision information in the plan
@@ -348,6 +353,8 @@
         auto const status = mysolve(streamId, p, 0.0, 0, memcount); // call the solver in memcount-mode
 
         *pBufferSizeInBytes = p->gpu_mem; // requested minimum number of Bytes in device memory
+        debug_printf("# plan for doublePrecision= %c and LM= %d needs %.3f MByte device memory\n", 
+                                     p->doublePrecision, p->LM, p->gpu_mem*1e-6);
         return status;
     } // bufferSize
 
@@ -363,14 +370,21 @@
         {   auto const stat = tfqmrgpuGetStream(handle, &streamId);
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         }
-        
+
         auto const p = (bsrsv_plan_t*) plan;
         p->pBuffer = (char*)pBuffer; // buffer setting
 
         { // random number generation scope
             auto const n_floats_in_v3 = p->vec3win.length/sizeof(float);
             auto const v3 = (float*)(p->pBuffer + p->vec3win.offset);
+            debug_printf("# v3 has address %p\n", (void*)v3);
             auto const stat = tfqmrgpu::create_random_numbers(v3, n_floats_in_v3, streamId);
+            {
+                float first{0}, flast{0};
+                get_data_from_gpu<float>(&first, v3, 1, 0, "first of v3");
+                get_data_from_gpu<float>(&flast, &v3[n_floats_in_v3 - 1], 1, 0, "last of v3");
+                debug_printf("# v3 has values %g ... %g\n", first, flast);
+            }
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         } // scope
 
@@ -451,8 +465,8 @@
           tfqmrgpuHandle_t handle // in: opaque handle for the tfqmrgpu library.
         , tfqmrgpuBsrsvPlan_t plan // inout: plan for bsrsv
         , char const var // in: selector which variable, only {'A', 'X', 'B'} allowed.
-        , void const *val // in: pointer to read-only values, pointer is casted to float* or double*
-        , char const doublePrecision // in: 'C':complex<float>, 'Z':complex<double>, 'S' and 'D' are not supported.
+        , void const *values // in: pointer to read-only values, pointer is casted to float* or double*
+        , char const doublePrecision // in: 'c':complex<float>, 'z':complex<double>, 's' and 'd' are not supported.
         , int const ld // in: leading dimension of blocks in array val.
         , char const trans // in: transposition of the input matrix blocks.
         , tfqmrgpuDataLayout_t const layout
@@ -480,19 +494,19 @@
               "'%c' to internal '%c' for operator '%c'\n", trans, Trans, var);
         } // only operator A
 
+        if ((doublePrecision | 32) != p->doublePrecision) {
+            std::printf("# mismatch: %c and plan says %c\n", doublePrecision, p->doublePrecision);
+            return TFQMRGPU_PRECISION_MISSMATCH + TFQMRGPU_CODE_CHAR*doublePrecision + TFQMRGPU_CODE_LINE*__LINE__;
+        }
+
         cudaStream_t streamId{0};
         {   auto const stat = tfqmrgpuGetStream(handle, &streamId);
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         }
 
-        if (doublePrecision != p->doublePrecision) {
-            return TFQMRGPU_PRECISION_MISSMATCH + TFQMRGPU_CODE_CHAR*doublePrecision + TFQMRGPU_CODE_LINE*__LINE__;
-        }
-
         debug_printf("start asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
-        copy_data_to_gpu<char>(ptr, (char*)val, size, streamId);
+        copy_data_to_gpu<char>(ptr, (char*)values, size, streamId);
         debug_printf(" done asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
-        
 
         // change data layout and (if necessary) transpose in-place on the GPU
         auto const l_in = TFQMRGPU_LAYOUT_RIRIRIRI,
@@ -521,7 +535,7 @@
         , tfqmrgpuBsrsvPlan_t plan // in: plan for bsrsv
         , char const var // in: selector which variable, only 'X' supported.
         , void      *val // out: pointer to writeable values, pointer is casted to float* or double*
-        , char const doublePrecision // in: 'C':complex<float>, 'Z':complex<double>, 'S' and 'D' are not supported.
+        , char const doublePrecision // in: 'c':complex<float>, 'z':complex<double>, 's' and 'd' are not supported.
         , int const ld // in: leading dimension of blocks in array val. -> See my comment above.
         , char const trans // in: transposition of the output matrix blocks.
         , tfqmrgpuDataLayout_t const layout
@@ -530,19 +544,19 @@
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         }
 
-        double scal_imag = 1;
+        double scal_imag{1};
         char Trans = trans; // non-const copy
         {   auto const stat = transposition_filter(Trans, scal_imag, __LINE__);
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         }
 
-        cudaStream_t streamId;
+        cudaStream_t streamId{0};
         {   auto const stat = tfqmrgpuGetStream(handle, &streamId);
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         }
 
         auto const p = (bsrsv_plan_t*) plan;
-        if (doublePrecision != p->doublePrecision) {
+        if ((doublePrecision | 32) != p->doublePrecision) {
             return TFQMRGPU_PRECISION_MISSMATCH + TFQMRGPU_CODE_CHAR*doublePrecision + TFQMRGPU_CODE_LINE*__LINE__;
         }
 
