@@ -1,6 +1,6 @@
 #pragma once
 
-// #define DEBUG
+// #define FULLDEBUG
 
 #include "tfqmrgpu_plan.hxx" // bsrsv_plan_t
 #include "tfqmrgpu_memWindow.h" // memWindow_t
@@ -80,7 +80,7 @@ class blocksparse_action_t {
 #ifndef HAS_NO_CUDA
 
         // CUDA version
-#ifdef  DEBUG
+#ifdef  FULLDEBUG
         bool constexpr show_A_X_and_Y = true;
         if (show_A_X_and_Y) {
             printf("\n\n# multiply:\n");
@@ -101,7 +101,7 @@ class blocksparse_action_t {
         dim3 constexpr threads(LM, TUNE, 1);
         gemmNxNf <real_t,LM,LM/TUNE> <<< nnzbY, threads, 0, streamId >>> (y, matA_d, x, pairs_d, starts_d);
 
-#ifdef  DEBUG
+#ifdef  FULLDEBUG
         cudaDeviceSynchronize(); // necessary?
         auto const err = cudaGetLastError();
         if (cudaSuccess != err) {
