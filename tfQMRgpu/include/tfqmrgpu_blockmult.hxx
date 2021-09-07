@@ -39,6 +39,7 @@
                 __syncthreads(); // all threads synchronize
 
                 // coalesced load from global memory into shared memory
+                // info: if blockdim.y > 2, this is done twice but does not introduce errors
                 A_sk[ri][jLM] = A[iAmat][ri][kLM][jLM]; 
                 X_sk[ri][jLM] = X[iXmat][ri][kLM][jLM];
 

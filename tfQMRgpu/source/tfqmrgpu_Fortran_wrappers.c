@@ -112,6 +112,9 @@ typedef tfqmrgpuDataLayout_t layout_t; //
   }
   
   void tfqmrgpucreateworkspace_(void* *pBuffer, size_t const *pBufferSizeInBytes, stat_t *stat) {
+#ifdef  DEBUGGPU
+      printf("# try to allocate %.6f MByte @device\n", 1e-6*(*pBufferSizeInBytes));
+#endif
       *stat = tfqmrgpuCreateWorkspace(pBuffer, *pBufferSizeInBytes, 'd'); // 'd':use device memory, 'm': use managed memory 
 #ifdef  DEBUGGPU
       printf("# allocate %.6f MByte at %p @device\n", 1e-6*(*pBufferSizeInBytes), *pBuffer);

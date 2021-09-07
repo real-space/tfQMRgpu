@@ -97,8 +97,8 @@ class blocksparse_action_t {
         } // show_A_X_and_Y
 #endif // DEBUG
 
-        int constexpr TUNE = 4;
-        dim3 const threads = { LM, TUNE, 1 };
+        int  constexpr TUNE = 4;
+        dim3 constexpr threads(LM, TUNE, 1);
         gemmNxNf <real_t,LM,LM/TUNE> <<< nnzbY, threads, 0, streamId >>> (y, matA_d, x, pairs_d, starts_d);
 
 #ifdef  DEBUG
