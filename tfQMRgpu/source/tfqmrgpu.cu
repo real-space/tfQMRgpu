@@ -620,18 +620,18 @@
     } // solve (wrapper)
 
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_getInfo(
-          tfqmrgpuHandle_t handle // in:
-        , tfqmrgpuBsrsvPlan_t plan // in:
-        , double * residuum_reached // out: residuum after iterations
-        , int *iterations_needed // out: number of iterations needed to converge
+          tfqmrgpuHandle_t handle // in: no function
+        , tfqmrgpuBsrsvPlan_t plan // in: contains state
+        , double *residuum_reached // out: residuum after iterations
+        , int    *iterations_needed // out: number of iterations needed to converge
         , double *flops_performed // out: number of floating pointer operations performed for the last run
         , double *flops_performed_all // out: number of floating pointer operations performed since createPlan
     ) {
         auto const p = (bsrsv_plan_t*) plan; // convert opaque plan object
 
-        if (nullptr != residuum_reached   ) { *residuum_reached    = p->residuum_reached;    }
-        if (nullptr != iterations_needed  ) { *iterations_needed   = p->iterations_needed;   }
-        if (nullptr != flops_performed    ) { *flops_performed     = p->flops_performed;     }
+        if (nullptr != residuum_reached   ) { *residuum_reached    = p->residuum_reached; }
+        if (nullptr != iterations_needed  ) { *iterations_needed   = p->iterations_needed; }
+        if (nullptr != flops_performed    ) { *flops_performed     = p->flops_performed;    }
         if (nullptr != flops_performed_all) { *flops_performed_all = p->flops_performed_all; }
 
         return TFQMRGPU_STATUS_SUCCESS;

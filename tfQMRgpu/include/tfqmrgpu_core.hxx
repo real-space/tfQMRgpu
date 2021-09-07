@@ -121,6 +121,7 @@ namespace tfqmrgpu {
 
       double const tol2 = tolerance*tolerance; // internally, the squares of all norms and thresholds are used
       double target_bound2{tol2*(100*100)}; // init with test_factor=100
+      double residual2_reached{1e300};
 
       double nFlop{0}; // counter for floating point multiplications
 #define DOTP(d,w,v) nFlop += dotp<real_t,LM>(d, v, w, colindx, nnzbX, nCols, l2nX, streamId)
@@ -278,7 +279,8 @@ namespace tfqmrgpu {
   //                  converged_at[0][rhs] = iteration; // store iteration in which this rhs-column converged
                   }
               } // rhs
-
+              residual2_reached = max_residual2;
+    
               target_bound2 = (max_bound2 / max_residual2) * tol2; // for the next iteration
               debug_printf("# in iteration %d, max_res2 = %g, min_res2 = %g, new target_bound2 = %g\n", 
                                  iteration, max_residual2, min_residual2, target_bound2);
@@ -314,6 +316,7 @@ namespace tfqmrgpu {
       // set the returned status according to converged due to residuum < threshold or iter > MaxIterations or breakdown
     
       p->flops_performed = nFlop;
+      p->residuum_reached = std::sqrt(residual2_reached);
 
       delete[] status_h; // tfQMR status on host
       delete[] resnrm2_h; // residual norm squared on host

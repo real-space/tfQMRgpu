@@ -33,8 +33,10 @@
 // #include <assert.h>
 #include <stddef.h> // for size_t
 
+// #define DEBUG
+
 #ifdef DEBUG
-	#include <stdio.h>
+	#include <stdio.h> // printf
 	#include <stdlib.h>
 #endif
 
@@ -86,7 +88,7 @@ typedef tfqmrgpuDataLayout_t layout_t; //
                "         bsrRowPtrB=%p, nnzbB=%d, bsrColIndB=%p, indexOffset=%d)\n",
                *handle, *plan, *mb,            bsrRowPtrA, *nnzbA, bsrColIndA, 
                bsrRowPtrX, *nnzbX, bsrColIndX, bsrRowPtrB, *nnzbB, bsrColIndB, FortranIndexOffset);
-#endif     
+#endif // DEBUG
       *stat = tfqmrgpu_bsrsv_createPlan(*handle, plan, *mb, // here, plan is passed by reference
                bsrRowPtrA, *nnzbA, bsrColIndA,
                bsrRowPtrX, *nnzbX, bsrColIndX,
@@ -95,7 +97,7 @@ typedef tfqmrgpuDataLayout_t layout_t; //
       if (TFQMRGPU_STATUS_SUCCESS != *stat) tfqmrgpuPrintError(*stat);
 #ifdef  DEBUG
       printf("done tfqmrgpu_bsrsv_createplan_(handle=%p, *plan=%p, ...)\n", *handle, *plan);      
-#endif
+#endif // DEBUG
   }
 
   void tfqmrgpu_bsrsv_destroyplan_(handle_t const *handle, plan_t *plan, stat_t *stat) {
@@ -114,11 +116,11 @@ typedef tfqmrgpuDataLayout_t layout_t; //
   void tfqmrgpucreateworkspace_(void* *pBuffer, size_t const *pBufferSizeInBytes, stat_t *stat) {
 #ifdef  DEBUGGPU
       printf("# try to allocate %.6f MByte @device\n", 1e-6*(*pBufferSizeInBytes));
-#endif
+#endif // DEBUGGPU
       *stat = tfqmrgpuCreateWorkspace(pBuffer, *pBufferSizeInBytes, 'd'); // 'd':use device memory, 'm': use managed memory 
 #ifdef  DEBUGGPU
       printf("# allocate %.6f MByte at %p @device\n", 1e-6*(*pBufferSizeInBytes), *pBuffer);
-#endif
+#endif // DEBUGGPU
   }
 
   void tfqmrgpudestroyworkspace_(void* *pBuffer, stat_t *stat) {
@@ -129,23 +131,23 @@ typedef tfqmrgpuDataLayout_t layout_t; //
               void* const *pBuffer, stat_t *stat) {
 #ifdef  DEBUG
       printf("# register device pointer %p @device in plan\n", *pBuffer);
-#endif
+#endif // DEBUG
       *stat = tfqmrgpu_bsrsv_setBuffer(*handle, *plan, *pBuffer);
 #ifdef  DEBUG
       if (TFQMRGPU_STATUS_SUCCESS != *stat) tfqmrgpuPrintError(*stat);
-#endif
+#endif // DEBUG
   }
 
   void tfqmrgpu_bsrsv_getbuffer_(handle_t const *handle, plan_t const *plan,
               void* *pBuffer, stat_t *stat) {
 #ifdef  DEBUG
       printf("# query device pointer registered in plan\n");
-#endif      
+#endif // DEBUG
       *stat = tfqmrgpu_bsrsv_getBuffer(*handle, *plan, pBuffer); // here, pBuffer is passed by reference
 #ifdef  DEBUG
       if (TFQMRGPU_STATUS_SUCCESS != *stat) tfqmrgpuPrintError(*stat);
       printf("# device pointer %p @device registered in plan\n", *pBuffer);
-#endif
+#endif // DEBUG
   }
 
   void tfqmrgpu_bsrsv_setmatrix_c_(handle_t const *handle, plan_t const *plan, char const *var, 
@@ -176,4 +178,7 @@ typedef tfqmrgpuDataLayout_t layout_t; //
   void tfqmrgpu_bsrsv_getinfo_(handle_t const *handle, plan_t const *plan, double *residuum_reached,
         int *iterations_needed, double *flops_performed, double *flops_performed_all, stat_t *stat) {
       *stat = tfqmrgpu_bsrsv_getInfo(*handle, *plan, residuum_reached, iterations_needed, flops_performed, flops_performed_all); // last 4 args by reference
+#ifdef  DEBUG
+      printf("# %s residuum_reached= %.1e  iterations_needed= %d\n", __func__, *residuum_reached, *iterations_needed);
+#endif // DEBUG
   }
