@@ -4,21 +4,26 @@ module tfqmrgpu
 implicit none
   private !! default visibility for this namespace
 
+  !! export these functions or interfaces
   public :: print_error
   public :: create, destroy, free
   public :: set, get
   public :: solve
   public :: tfqmrgpu_bsrsv_complete ! example will call this
 
+  !! include the Fortran header file
   include "tfqmrgpu_Fortran.h"
 
-  public :: TFQMRGPU_HANDLE_KIND, TFQMRGPU_PLAN_KIND, cuda_stream_kind
+  !! export these symbols from tfqmrgpu_Fortran.h
+  public :: TFQMRGPU_HANDLE_KIND
+  public :: TFQMRGPU_PLAN_KIND
+  public :: cuda_stream_kind
   public :: TFQMRGPU_LAYOUT_RIRIRIRI
-  
+
   interface create
     module procedure createHandle, bsrsv_createPlan, createWorkspace
   endinterface
-  
+
   interface destroy
     module procedure destroyHandle, bsrsv_destroyPlan
   endinterface
@@ -51,34 +56,39 @@ implicit none
   contains
 
   subroutine print_error(status, ierr)
-    integer, intent(out) :: ierr ! this is the return value in the C-API
-    integer, intent(in) :: status
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(in) :: status
+    external :: tfqmrgpuprinterror
     call tfqmrgpuprinterror(status, ierr)
   endsubroutine ! print_error
 
   subroutine createHandle(handle, ierr)
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(out) :: handle
+    external :: tfqmrgpucreatehandle
     call tfqmrgpucreatehandle(handle, ierr)
   endsubroutine ! create
 
   subroutine destroyHandle(handle, ierr)
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(inout) :: handle
+    external :: tfqmrgpudestroyhandle
     call tfqmrgpudestroyhandle(handle, ierr)
   endsubroutine ! destroy
 
   subroutine setStream(handle, streamId, ierr)
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=cuda_stream_kind), intent(in) :: streamId
-    call tfqmrgpusetstream(handle, streamId, ierr)    
+    external :: tfqmrgpusetstream
+    call tfqmrgpusetstream(handle, streamId, ierr)
   endsubroutine ! set
-    
+
   subroutine getStream(handle, streamId, ierr)
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=cuda_stream_kind), intent(out) :: streamId
+    external :: tfqmrgpugetstream
     call tfqmrgpugetstream(handle, streamId, ierr)    
   endsubroutine ! get
   
@@ -86,9 +96,10 @@ implicit none
 #define DevPtrType integer(kind=8)
   
   subroutine createWorkspace(pBuffer, pBufferSizeInBytes, ierr)
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     DevPtrType, intent(inout) :: pBuffer
     integer(kind=8), intent(in) :: pBufferSizeInBytes
+    external :: tfqmrgpucreateworkspace
     call tfqmrgpucreateworkspace(pBuffer, pBufferSizeInBytes, ierr)
 #ifdef  DEBUG
     write(*, '(a,":",i0,a,z0)') __FILE__,__LINE__," pBuffer = 0x",pBuffer
@@ -96,8 +107,9 @@ implicit none
   endsubroutine ! create
 
   subroutine destroyWorkspace(pBuffer, ierr)
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     DevPtrType, intent(inout) :: pBuffer
+    external :: tfqmrgpudestroyworkspace
     call tfqmrgpudestroyworkspace(pBuffer, ierr)
   endsubroutine ! free
 
@@ -111,30 +123,32 @@ implicit none
                   mb, bsrRowPtrA, nnzbA, bsrColIndA, &
                       bsrRowPtrX, nnzbX, bsrColIndX, &
                       bsrRowPtrB, nnzbB, bsrColIndB, ierr)
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=TFQMRGPU_PLAN_KIND), intent(out) :: plan
-    integer, intent(in) :: mb
-    integer, intent(in) :: bsrRowPtrA(*)
-    integer, intent(in) :: nnzbA
-    integer, intent(in) :: bsrColIndA(*)
-    integer, intent(in) :: bsrRowPtrX(*)
-    integer, intent(in) :: nnzbX
-    integer, intent(in) :: bsrColIndX(*)
-    integer, intent(in) :: bsrRowPtrB(*)
-    integer, intent(in) :: nnzbB
-    integer, intent(in) :: bsrColIndB(*)
-!   integer, parameter  :: indexOffset = 1 !! Fortran indices start from 1, this is fixed in the C-wrappers
+    integer(kind=4), intent(in) :: mb
+    integer(kind=4), intent(in) :: bsrRowPtrA(*)
+    integer(kind=4), intent(in) :: nnzbA
+    integer(kind=4), intent(in) :: bsrColIndA(*)
+    integer(kind=4), intent(in) :: bsrRowPtrX(*)
+    integer(kind=4), intent(in) :: nnzbX
+    integer(kind=4), intent(in) :: bsrColIndX(*)
+    integer(kind=4), intent(in) :: bsrRowPtrB(*)
+    integer(kind=4), intent(in) :: nnzbB
+    integer(kind=4), intent(in) :: bsrColIndB(*)
+!   integer, parameter :: indexOffset = 1 !! Fortran indices start from 1, this is fixed in the C-wrappers
+    external :: tfqmrgpu_bsrsv_createplan
     call tfqmrgpu_bsrsv_createplan(handle, plan, &
                   mb, bsrRowPtrA, nnzbA, bsrColIndA, &
                       bsrRowPtrX, nnzbX, bsrColIndX, &
                       bsrRowPtrB, nnzbB, bsrColIndB, ierr)
   endsubroutine ! create
-    
+
   subroutine bsrsv_destroyPlan(handle, plan, ierr)
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=TFQMRGPU_PLAN_KIND), intent(out) :: plan
+    external :: tfqmrgpu_bsrsv_destroyplan
     call tfqmrgpu_bsrsv_destroyplan(handle, plan, ierr)
   endsubroutine ! destroy
     
@@ -142,25 +156,27 @@ implicit none
                     ldA, blockDim, ldB, RhsBlockDim, &
                     doublePrecision, pBufferSizeInBytes, ierr)
     !! returns the computed size to be allocated by cudaMalloc
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=TFQMRGPU_PLAN_KIND), intent(inout) :: plan
-    integer, intent(in) :: ldA
-    integer, intent(in) :: blockDim
-    integer, intent(in) :: ldB
-    integer, intent(in) :: RhsBlockDim
-    character, intent(in) :: doublePrecision
+    integer(kind=4), intent(in) :: ldA
+    integer(kind=4), intent(in) :: blockDim
+    integer(kind=4), intent(in) :: ldB
+    integer(kind=4), intent(in) :: RhsBlockDim
+    character      , intent(in) :: doublePrecision
     integer(kind=8), intent(out) :: pBufferSizeInBytes
+    external :: tfqmrgpu_bsrsv_buffersize
     call tfqmrgpu_bsrsv_buffersize(handle, plan, ldA, blockDim, ldB, RhsBlockDim, &
                                     doublePrecision, pBufferSizeInBytes, ierr)
   endsubroutine ! get
-    
+
   subroutine bsrsv_setBuffer(handle, plan, pBuffer, ierr)
     !! registers the GPU memory buffer pointer in the plan.
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=TFQMRGPU_PLAN_KIND), intent(inout) :: plan
     DevPtrType, intent(in) :: pBuffer
+    external :: tfqmrgpu_bsrsv_setbuffer
 #ifdef  DEBUG
     write(*, '(a,":",i0,a,z0)') __FILE__,__LINE__," set pBuffer = 0x",pBuffer
 #endif
@@ -169,10 +185,11 @@ implicit none
 
   subroutine bsrsv_getBuffer(handle, plan, pBuffer, ierr)
     !! retrieves the GPU memory buffer registered in plan.
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=TFQMRGPU_PLAN_KIND), intent(in) :: plan
     DevPtrType, intent(inout) :: pBuffer
+    external :: tfqmrgpu_bsrsv_getbuffer
 #ifdef  DEBUG
     write(*, '(a,":",i0,9a)')   __FILE__,__LINE__," call tfqmrgpu_bsrsv_getbuffer_()"
 #endif
@@ -184,104 +201,109 @@ implicit none
 
   subroutine bsrsv_setMatrix_c(handle, plan, var, val, ld, trans, layout, ierr)
     !! retrieves the GPU memory buffer registered in plan.
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=TFQMRGPU_PLAN_KIND), intent(inout) :: plan
     character, intent(in) :: var
     complex(kind=4), intent(in) :: val(*)
-    integer, intent(in) :: ld
+    integer(kind=4), intent(in) :: ld
     character, intent(in) :: trans
-    integer, intent(in) :: layout
+    integer(kind=4), intent(in) :: layout
+    external :: tfqmrgpu_bsrsv_setmatrix_c
     call tfqmrgpu_bsrsv_setmatrix_c(handle, plan, var, val, ld, trans, layout, ierr)
   endsubroutine ! set
 
   subroutine bsrsv_setMatrix_z(handle, plan, var, val, ld, trans, layout, ierr)
     !! retrieves the GPU memory buffer registered in plan.
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=TFQMRGPU_PLAN_KIND), intent(inout) :: plan
     character, intent(in) :: var
     complex(kind=8), intent(in) :: val(*)
-    integer, intent(in) :: ld
+    integer(kind=4), intent(in) :: ld
     character, intent(in) :: trans
-    integer, intent(in) :: layout
+    integer(kind=4), intent(in) :: layout
+    external :: tfqmrgpu_bsrsv_setmatrix_z
     call tfqmrgpu_bsrsv_setmatrix_z(handle, plan, var, val, ld, trans, layout, ierr)
   endsubroutine ! set
     
   subroutine bsrsv_getMatrix_c(handle, plan, var, val, ld, trans, layout, ierr)
     !! retrieves the GPU memory buffer registered in plan.
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=TFQMRGPU_PLAN_KIND), intent(in) :: plan !! or is the plan modified?
     character, intent(in) :: var
     complex(kind=4), intent(out) :: val(*)
-    integer, intent(in) :: ld
+    integer(kind=4), intent(in) :: ld
     character, intent(in) :: trans
-    integer, intent(in) :: layout
+    integer(kind=4), intent(in) :: layout
+    external :: tfqmrgpu_bsrsv_getmatrix_c
     call tfqmrgpu_bsrsv_getmatrix_c(handle, plan, var, val, ld, trans, layout, ierr)
   endsubroutine ! get
 
   subroutine bsrsv_getMatrix_z(handle, plan, var, val, ld, trans, layout, ierr)
     !! retrieves the GPU memory buffer registered in plan.
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=TFQMRGPU_PLAN_KIND), intent(in) :: plan !! or is the plan modified?
     character, intent(in) :: var
     complex(kind=8), intent(out) :: val(*)
-    integer, intent(in) :: ld
+    integer(kind=4), intent(in) :: ld
     character, intent(in) :: trans
-    integer, intent(in) :: layout
+    integer(kind=4), intent(in) :: layout
+    external :: tfqmrgpu_bsrsv_getmatrix_z
     call tfqmrgpu_bsrsv_getmatrix_z(handle, plan, var, val, ld, trans, layout, ierr)
   endsubroutine ! get
-    
+
   subroutine bsrsv_solve(handle, plan, threshold, maxIterations, ierr)
     !! solves the problem prepared in plan
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=TFQMRGPU_PLAN_KIND), intent(inout) :: plan
-    double precision, intent(in) :: threshold
-    integer, intent(in) :: maxIterations
+    real(kind=8), intent(in) :: threshold
+    integer(kind=4), intent(in) :: maxIterations
+    external :: tfqmrgpu_bsrsv_solve
     call tfqmrgpu_bsrsv_solve(handle, plan, threshold, maxIterations, ierr)
   endsubroutine ! solve
 
-  subroutine bsrsv_getInfo(handle, plan, residuum_reached, iterations_needed, &
+  subroutine bsrsv_getInfo(handle, plan, residual_reached, iterations_needed, &
                             flops_performed, flops_performed_all, ierr)
     !! returns the computed size to be allocated by cudaMalloc
-    integer, intent(out) :: ierr ! this is the return value in the C-API
+    integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=TFQMRGPU_PLAN_KIND), intent(inout) :: plan
-    real(kind=8), intent(out) :: residuum_reached
-    integer,      intent(out) :: iterations_needed
-    real(kind=8), intent(out) :: flops_performed, flops_performed_all
-    call tfqmrgpu_bsrsv_getInfo(handle, plan, residuum_reached, iterations_needed, &
+    real   (kind=8), intent(out) :: residual_reached
+    integer(kind=4), intent(out) :: iterations_needed
+    real   (kind=8), intent(out) :: flops_performed
+    real   (kind=8), intent(out) :: flops_performed_all
+    external :: tfqmrgpu_bsrsv_getInfo
+    call tfqmrgpu_bsrsv_getInfo(handle, plan, residual_reached, iterations_needed, &
                                  flops_performed, flops_performed_all, ierr)
   endsubroutine ! get
 
   subroutine tfqmrgpu_bsrsv_complete(mb, ldA, &
     rowPtrA, colIndA, Amat, transA, &
     rowPtrX, colIndX, Xmat, transX, &
-    rowPtrB, colIndB, Bmat, transB, iterations, residuum, o, ierr)
+    rowPtrB, colIndB, Bmat, transB, iterations, residual, o, ierr)
   !! this routine is meant to test the usability of the tfqmrgpu bsrsv functionality
   !! without an often complicated integration of the library into the target application
   implicit none
-    integer, intent(in) :: mb ! the number of rows
-    integer, intent(in) :: ldA ! the block size and leading dimension, ldA must be precompiled
-    integer, intent(in) :: rowPtrA(:), rowPtrX(:), rowPtrB(:) ! BSR rowPtr#(mb+1)  where #=A,X,B
-    integer, intent(in) :: colIndA(:), colIndX(:), colIndB(:) ! BSR colInd#(nnzb#) where #=A,X,B
-    character, intent(in) :: transA, transX, transB ! transposition of blocks, allowed states are {'n','t'}
+    integer(kind=4), intent(in) :: mb ! the number of rows
+    integer(kind=4), intent(in) :: ldA ! the block size and leading dimension, ldA must be precompiled
+    integer(kind=4), intent(in) :: rowPtrA(:), rowPtrX(:), rowPtrB(:) ! BSR rowPtr#(mb+1)  where #=A,X,B
+    integer(kind=4), intent(in) :: colIndA(:), colIndX(:), colIndB(:) ! BSR colInd#(nnzb#) where #=A,X,B
+    character,       intent(in) :: transA, transX, transB ! transposition of blocks, allowed states are {'n','t'}
     complex(kind=8), intent(in)  :: Amat(ldA,ldA,*) ! dim(nnzbA) ! BSR non-zero block values of A
     complex(kind=8), intent(out) :: Xmat(ldA,ldA,*) ! dim(nnzbX) ! BSR non-zero block values of X, the result
     complex(kind=8), intent(in)  :: Bmat(ldA,ldA,*) ! dim(nnzbB) ! BSR non-zero block values of B (the RHSs)
-    integer,      intent(inout) :: iterations ! on entry: stop critertion against runtime explosion
-                                              ! on exit:  how many iterations did it run
-    real(kind=8), intent(inout) :: residuum   ! on entry: stop criterion for convergence
+    integer(kind=4), intent(inout) :: iterations ! on entry: stop critertion against runtime explosion
+                                                 ! on exit:  how many iterations did it run
+    real   (kind=8), intent(inout) :: residual   ! on entry: stop criterion for convergence
                                               ! on exit:  how far down did it converge
-    integer, intent(in) :: o ! I/O unit to write to, 6=stdout, 0=no write (mute)
+    integer(kind=4), intent(in) :: o ! I/O unit to write to, 6=stdout, 0=no write (mute)
                              ! other values <n> may end in files fort.<n> or file connected to this unit
-    integer, intent(inout) :: ierr ! if ierr /= o on entry, debugging is activated
+    integer(kind=4), intent(inout) :: ierr ! if ierr /= o on entry, debugging is activated
 
-    
-    
     ! local variables
     integer(kind=TFQMRGPU_HANDLE_KIND) :: handle
     integer(kind=TFQMRGPU_PLAN_KIND) :: plan
@@ -289,19 +311,21 @@ implicit none
     real(kind=8) :: resid, flops, flops_all ! numbers of performed floating point operations, last run and all runs
     DevPtrType :: memBuffer, memBufferCopy
     integer(kind=cuda_stream_kind) :: streamId = 0, streamIdCopy !! 0:default stream
-    integer :: ios, debug, maxit, u
-    integer, parameter :: layout = TFQMRGPU_LAYOUT_RIRIRIRI
+    integer(kind=4) :: maxit
+    integer(kind=4), parameter :: layout = TFQMRGPU_LAYOUT_RIRIRIRI
+    integer :: ios, debug, u
 
     debug = 0 ; if (0 /= ierr) debug = 1
     u = 0 ; if (debug > 0) u = o ! u is the debug unit
     maxit = iterations ! entry copy
-    resid = residuum   ! entry copy
+    resid = residual   ! entry copy
 
 #define  CheckError(ierr, message) call print_error(ierr, ios) ; if (0 /= ierr) stop message
 
     !! create a library handle
     call create(handle, ierr) 
     CheckError(ierr, "Failed to create tfqmrgpu library handle")
+
     !! set the CUDA stream to work on
     call set(handle, streamId, ierr) 
     CheckError(ierr, "Failed to set the CUDA stream")
@@ -326,15 +350,17 @@ implicit none
            rowPtrX, size(colIndX), colIndX, &
            rowPtrB, size(colIndB), colIndB, ierr) 
     CheckError(ierr, "Failed to create the bsrsv plan")
+
     !! compute the size of the required GPU memory buffer
-    !! 'Z' means solve in double precision.
-    !! The library will fail here, if the required block size has not been compiled
+    !! 'z' means solve in double precision.
+    !! The library will fail here, if the required block size ldA has not been compiled
     call get(handle, plan, ldA, ldA, ldA, ldA, 'z', memSize, ierr) 
     CheckError(ierr, "Failed to compute GPU memory requirement")
 
     !! allocate GPU memory
     call create(memBuffer, memSize, ierr)
     CheckError(ierr, "Failed to allocate GPU memory")
+
     !! register the memory buffer in the plan
     call set(handle, plan, memBuffer, ierr) 
     CheckError(ierr, "Failed to register GPU memory buffer")
@@ -344,27 +370,28 @@ implicit none
       call get(handle, plan, memBufferCopy, ierr)
       CheckError(ierr, "Failed to get the registered GPU memory buffer address")
       if (memBufferCopy /= memBuffer) then 
-        if(u>0) write(u, "(9(a,z0))") "memBuffer = 0x",memBuffer," but memBufferCopy = 0x",memBufferCopy  
+        write(*, "(9(a,z0))") "memBuffer = 0x",memBuffer," but memBufferCopy = 0x",memBufferCopy  
         stop "[DEBUG] Failed to verify the GPU memory buffer address"
       endif
 !-sanity-check
     endif ! debug
 
     if(u>0) write(u,*) "Upload Matrices A and B"
-    !! upload the nonzero blocks of the input arrays A and B
+    !! upload the nonzero blocks of the input array A
     call set(handle, plan, 'A', Amat(:,1,1), ldA, transA, layout, ierr) 
     CheckError(ierr, "Failed to upload matrix A")
-    !! for the test purpose, use the sparse structure of A and the blocks of A transposed as B
+
+    !! upload the nonzero blocks of the input array B
     call set(handle, plan, 'B', Bmat(:,1,1), ldA, transB, layout, ierr) 
     CheckError(ierr, "Failed to upload matrix B")
 
     if(u>0) write(u,*) "Solve A * X == B"
     !! solve A*X == B using the tfQMR algorithm on the GPU
-    call solve(handle, plan, residuum, iterations, ierr) 
+    call solve(handle, plan, residual, iterations, ierr) 
     CheckError(ierr, "Failed in solver")
 
     !! get the convergence info
-    call get(handle, plan, residuum, iterations, flops, flops_all, ierr) 
+    call get(handle, plan, residual, iterations, flops, flops_all, ierr) 
     CheckError(ierr, "Failed to get info")
 
     if(u>0) write(u,*) "Download Matrix X"
@@ -373,17 +400,17 @@ implicit none
     CheckError(ierr, "Failed to download matrix X")
 
     !! clean up
-    call free(memBuffer, ierr) 
-    CheckError(ierr, "Failed to free GPU memory") !! free GPU memory
-    call destroy(handle, plan, ierr) 
+    call free(memBuffer, ierr)
+    CheckError(ierr, "Failed to free GPU memory")
+    call destroy(handle, plan, ierr)
     CheckError(ierr, "Failed to destroy bsrsv plan")
-    call destroy(handle, ierr) 
+    call destroy(handle, ierr)
     CheckError(ierr, "Failed to destroy library handle")
 
 #undef  CheckError
 
-    if(o>0) write(o,"(2(a,es7.1),9(a,i0))") " tfqmrgpu_bsrsv converged to ",residuum, &
-             " (max ",resid,") in ",iterations," (max ",maxit,") iterations."
+    if(o>0) write(o,"(2(a,es8.1),9(a,i0))") " tfqmrgpu_bsrsv converged to",residual, &
+             " (max",resid,") in ",iterations," (max ",maxit,") iterations."
   endsubroutine ! tfqmrgpu_bsrsv_complete
 
 endmodule ! tfqmrgpu
@@ -391,6 +418,7 @@ endmodule ! tfqmrgpu
 
 #ifdef __MAIN__
 !+__main__
+
   program tfqmrgpu_run_example
   !! test driver to run the Fortran example delivered with the tfqmrgpu library
   use tfqmrgpu, only: tfqmrgpu_bsrsv_complete
@@ -437,12 +465,12 @@ endmodule ! tfqmrgpu
 #define DEBUG
 
   real(kind=8) function test(ldA, rowPtr, colInd) result(maxdev)
-    integer, intent(in) :: ldA ! block dimension
-    integer, intent(in) :: rowPtr(:)
-    integer, intent(in) :: colInd(:)
+    integer(kind=4), intent(in) :: ldA ! block dimension
+    integer(kind=4), intent(in) :: rowPtr(:)
+    integer(kind=4), intent(in) :: colInd(:)
 
-    integer :: mb, nnzb, N
-
+    ! local variables
+    integer(kind=4) :: mb, nnzb, N
     complex(kind=8), allocatable :: Amat(:,:,:)   ! Amat(ldA,ldA,nnzb) ! list of blocks of A, later used for B^T and X
     real(kind=8),    allocatable :: Amar(:,:,:,:) ! Amar(ldA,ldA,nnzb,2) ! temp as random_number() is only defined for reals
 
@@ -450,13 +478,13 @@ endmodule ! tfqmrgpu
     complex(kind=8), allocatable, dimension(:,:) :: Afull, Xfull, Bfull, Yfull
 #endif
 
-    integer :: iterations ! max number of iterations allowed
-    real(kind=8) :: residuum ! threshold for the requested residual
+    integer(kind=4) :: iterations ! max number of iterations allowed
+    real(kind=8) :: residual ! threshold for the requested residual
     integer, parameter :: o = 6 ! unit to log to
-    integer :: ierr
+    integer(kind=4) :: ierr
 
     iterations = 999
-    residuum = 1.d-9
+    residual = 1.d-9
     ierr = 1 ! 1: do also sanity checks
 
     mb = size(rowPtr) - 1
@@ -495,7 +523,7 @@ endmodule ! tfqmrgpu
         rowPtr, colInd, Amat, 'n', & !! A (in)
         rowPtr, colInd, Amat, 'n', & !! X (out)
         rowPtr, colInd, Amat, 't', & !! B (in)
-        iterations, residuum, o, ierr)
+        iterations, residual, o, ierr)
 
    maxdev = -1
 
@@ -521,8 +549,8 @@ endmodule ! tfqmrgpu
 
     subroutine convert_bsr_to_full(full, rowPtr, colInd, mat, trans)
       complex(kind=8), intent(out) :: full(:,:) ! mat(bd*nrow+,bd*nrow)
-      integer, intent(in) :: rowPtr(:) ! assume rowPtr(nrow+1)
-      integer, intent(in) :: colInd(:) ! assume colInd(nnzb)
+      integer(kind=4), intent(in) :: rowPtr(:) ! assume rowPtr(nrow+1)
+      integer(kind=4), intent(in) :: colInd(:) ! assume colInd(nnzb)
       complex(kind=8), intent(in) :: mat(:,:,:) ! mat(bd+,bd,nnzb)
       character, intent(in) :: trans ! block transposition
 
@@ -561,9 +589,9 @@ endmodule ! tfqmrgpu
     endsubroutine ! convert_bsr_to_full
 
     subroutine write_bsr_to_file(filename, comment, rowPtr, colInd, mat, trans)
-      character(len=*), intent(in) ::  filename, comment
-      integer, intent(in) :: rowPtr(:) ! assume rowPtr(nrow+1)
-      integer, intent(in) :: colInd(:) ! assume colInd(nnzb)
+      character(len=*), intent(in) :: filename, comment
+      integer(kind=4), intent(in) :: rowPtr(:) ! assume rowPtr(nrow+1)
+      integer(kind=4), intent(in) :: colInd(:) ! assume colInd(nnzb)
       complex(kind=8), intent(in) :: mat(:,:,:) ! mat(bd+,bd,nnzb)
       character, intent(in) :: trans ! block transposition
       
