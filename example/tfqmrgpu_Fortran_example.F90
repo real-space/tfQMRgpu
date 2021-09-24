@@ -1,3 +1,5 @@
+#define DEBUG
+
 !! The Fortran API is based on subroutines
 !! compared to the C-API, the status is returned in the appended ierr argument
 module tfqmrgpu
@@ -102,7 +104,8 @@ implicit none
     external :: tfqmrgpucreateworkspace
     call tfqmrgpucreateworkspace(pBuffer, pBufferSizeInBytes, ierr)
 #ifdef  DEBUG
-    write(*, '(a,":",i0,a,z0)') __FILE__,__LINE__," pBuffer = 0x",pBuffer
+    write(*, '(a,":",i0,a,z0)') __FILE__, & 
+        __LINE__," pBuffer = 0x",pBuffer
 #endif
   endsubroutine ! create
 
@@ -166,8 +169,8 @@ implicit none
     character      , intent(in) :: doublePrecision
     integer(kind=8), intent(out) :: pBufferSizeInBytes
     external :: tfqmrgpu_bsrsv_buffersize
-    call tfqmrgpu_bsrsv_buffersize(handle, plan, ldA, blockDim, ldB, RhsBlockDim, &
-                                    doublePrecision, pBufferSizeInBytes, ierr)
+    call tfqmrgpu_bsrsv_buffersize(handle, plan, ldA, blockDim, ldB, &
+            RhsBlockDim, doublePrecision, pBufferSizeInBytes, ierr)
   endsubroutine ! get
 
   subroutine bsrsv_setBuffer(handle, plan, pBuffer, ierr)
@@ -178,7 +181,8 @@ implicit none
     DevPtrType, intent(in) :: pBuffer
     external :: tfqmrgpu_bsrsv_setbuffer
 #ifdef  DEBUG
-    write(*, '(a,":",i0,a,z0)') __FILE__,__LINE__," set pBuffer = 0x",pBuffer
+    write(*, '(a,":",i0,a,z0)') __FILE__, &
+        __LINE__, " set pBuffer = 0x",pBuffer
 #endif
     call tfqmrgpu_bsrsv_setbuffer(handle, plan, pBuffer, ierr)
   endsubroutine ! set
@@ -191,11 +195,13 @@ implicit none
     DevPtrType, intent(inout) :: pBuffer
     external :: tfqmrgpu_bsrsv_getbuffer
 #ifdef  DEBUG
-    write(*, '(a,":",i0,9a)')   __FILE__,__LINE__," call tfqmrgpu_bsrsv_getbuffer_()"
+    write(*, '(a,":",i0,9a)')   __FILE__, &
+        __LINE__," call tfqmrgpu_bsrsv_getbuffer_()"
 #endif
     call tfqmrgpu_bsrsv_getbuffer(handle, plan, pBuffer, ierr)
 #ifdef  DEBUG
-    write(*, '(a,":",i0,a,z0)') __FILE__,__LINE__," got pBuffer = 0x",pBuffer
+    write(*, '(a,":",i0,a,z0)') __FILE__, &
+        __LINE__," got pBuffer = 0x",pBuffer
 #endif    
   endsubroutine ! get
 
@@ -336,7 +342,8 @@ implicit none
       call get(handle, streamIdCopy, ierr) 
       CheckError(ierr, "Failed to get the CUDA stream")
       if (streamIdCopy /= streamId) then 
-        if(u>0) write(u, "(9(a,i0))") "streamId = ",streamId," but streamIdCopy = ",streamIdCopy  
+        if(u>0) write(u, "(9(a,i0))") "streamId = ", &
+            streamId," but streamIdCopy = ",streamIdCopy  
         stop "[DEBUG] Failed to verify the CUDA stream in use"
       endif
 !-sanity-check
@@ -370,7 +377,8 @@ implicit none
       call get(handle, plan, memBufferCopy, ierr)
       CheckError(ierr, "Failed to get the registered GPU memory buffer address")
       if (memBufferCopy /= memBuffer) then 
-        write(*, "(9(a,z0))") "memBuffer = 0x",memBuffer," but memBufferCopy = 0x",memBufferCopy  
+        write(*, "(9(a,z0))") "memBuffer = 0x",memBuffer, &
+                         " but memBufferCopy = 0x",memBufferCopy  
         stop "[DEBUG] Failed to verify the GPU memory buffer address"
       endif
 !-sanity-check
@@ -409,8 +417,9 @@ implicit none
 
 #undef  CheckError
 
-    if(o>0) write(o,"(2(a,es8.1),9(a,i0))") " tfqmrgpu_bsrsv converged to",residual, &
-             " (max",resid,") in ",iterations," (max ",maxit,") iterations."
+    if(o>0) write(o,"(2(a,es8.1),9(a,i0))") &
+        " tfqmrgpu_bsrsv converged to",residual, &
+        " (max",resid,") in ",iterations," (max ",maxit,") iterations."
   endsubroutine ! tfqmrgpu_bsrsv_complete
 
 endmodule ! tfqmrgpu
