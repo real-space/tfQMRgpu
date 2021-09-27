@@ -119,7 +119,7 @@
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_createPlan(
           tfqmrgpuHandle_t handle // none: opaque handle for the tfqmrgpu library.
         , tfqmrgpuBsrsvPlan_t *plan // out: newly created plan
-        , int const mb // in: number of block rows in A, X and B == number of block columns in A
+        , int const mb          // in: number of block rows in A, X and B == number of block columns in A
         , int const *bsrRowPtrA // in: integer array of mb+1 elements that contains the start of every block row of A and the end of the last block row of A plus one.
         , int const nnzbA       // in: number of nonzero blocks of matrix A
         , int const *bsrColIndA // in: integer array of nnzbA ( = bsrRowPtrA[mb] - bsrRowPtrA[0] ) column indices of the nonzero blocks of matrix A.
@@ -140,9 +140,13 @@
 
         if (nullptr != *plan)   return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // requirement that *plan == nullptr on entry.
 
+        // compute Y = A*X, minimize |Y - B| to solve A*X == B
+        // nnzbY == nnzbX
+        
         // static plausibility checks
-        if (mb < 1)             return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // at least one row needs to be there
-        if (nnzbB > nnzbX)      return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // the non-zero pattern of B must be a true subset of that of X.
+        int const nnzbY = nnzbX; // copy number of non-zero elements
+        if (mb < 1)             return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // at least one row/column needs to be there
+        if (nnzbB > nnzbY)      return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // the non-zero pattern of B must be a true subset of that of X or Y.
         if (nnzbA > mb*mb)      return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // the operator A is assumed logically square, mb*mb is the upper bound.
         if (nnzbA != bsrRowPtrA[mb] - bsrRowPtrA[0])  return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // the operator A is not sane
         if (nnzbX != bsrRowPtrX[mb] - bsrRowPtrX[0])  return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // the operator X is not sane
@@ -161,11 +165,12 @@
         
             // the bsrY sparsity pattern is equal to the bsrX sparsity pattern
             auto const bsrRowPtrY = bsrRowPtrX; // copy pointer
-            int const nnzbY = nnzbX; // copy number of non-zero elements
             auto bsrColIndY = bsrColIndX; // copy pointer
 
             p->pairs.clear();
-            p->pairs.reserve((2 * nnzbY * nnzbA) / mb); // approximate number of block operations * 2 as we always save pairs
+            size_t const estimate_n_pairs = (nnzbY * nnzbA) / mb; // approximate number of block operations
+            debug_printf("tfqmrgpu_bsrsv_createPlan tries to reserve %ld pairs\n", estimate_n_pairs);
+            p->pairs.reserve(2 * estimate_n_pairs); // factor 2 as we always save pairs of indices
 
             p->starts.clear();
             p->starts.reserve(nnzbY + 1); // exact size
