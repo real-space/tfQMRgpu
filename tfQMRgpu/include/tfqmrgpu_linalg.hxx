@@ -16,7 +16,7 @@
 // #define DEBUG
 
 #ifdef DEBUG
-    #define debug_printf(...) std::printf(__VA_ARGS__)
+    #define debug_printf(...) std::printf(__VA_ARGS__); std::fflush(stdout)
 #else  // DEBUG
     #define debug_printf(...)
 #endif // DEBUG
