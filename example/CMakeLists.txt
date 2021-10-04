@@ -6,7 +6,7 @@ enable_language(Fortran)
 
 
 # set the project name and version
-add_executable(tfqmrgpu_Fortran_example tfqmrgpu_Fortran_example.F90)
+add_executable(tfqmrgpu_Fortran_example ../tfQMRgpu/include/tfqmrgpu_Fortran_module.F90 tfqmrgpu_Fortran_example.F90)
 
 # __MAIN__ must be defined otherwise an executable can't be generated
 target_compile_definitions(tfqmrgpu_Fortran_example PRIVATE -D__MAIN__)
