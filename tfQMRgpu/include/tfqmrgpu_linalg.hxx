@@ -13,6 +13,8 @@
 #include "tfqmrgpu_plan.hxx"      // bsrsv_plan_t
 #include "tfqmrgpu_handle.hxx"    // tfq_handle_t
 
+// #define DEBUG
+
 #ifdef DEBUG
     #define debug_printf(...) std::printf(__VA_ARGS__)
 #else  // DEBUG
@@ -53,6 +55,7 @@ namespace tfqmrgpu {
                     status[i][j] = -1; // severe breakdown in dec35
                     bet[i][0][j] = 0; bet[i][1][j] = 0; // beta := 0
                     rho[i][0][j] = 0; rho[i][1][j] = 0; // rho  := 0
+                    debug_printf("# tfQMRdec35 status[%i][%i] = -1, |z35|^2 = %.1e, |rho|^2 = %.1e\n", i, j, abs2z35, abs2rho);
                 } else {
                     double const rho_denom = 1./abs2rho;
                     // beta := z35 / rho, complex divison
@@ -89,11 +92,13 @@ namespace tfqmrgpu {
                 double const z34_Re = z34[i][0][j], z34_Im = z34[i][1][j]; // load z34
                 double const abs2z34 = abs2(z34_Re, z34_Im);
 
-                if ((abs2z34 < EPSILON) || (abs2rho < EPSILON)) { 
+                if ((abs2z34 < EPSILON) || (abs2rho < EPSILON)) {
                     status[i][j] = -2; // severe breakdown in dec34
                     alf[i][0][j] = 0; alf[i][1][j] = 0; // alfa := 0
                     c67[i][0][j] = 0; c67[i][1][j] = 0; // c67 := 0
+                    debug_printf("# tfQMRdec34 status[%i][%i] = -2, |z34|^2 = %.1e, |rho|^2 = %.1e\n", i, j, abs2z34, abs2rho);
                 } else {
+//                  debug_printf("# tfQMRdec34 status[%i][%i] = %i\n", i, j, status[i][j]);
                     double const eta_Re = double(eta[i][0][j]), eta_Im = double(eta[i][1][j]); // load eta
 
                     double const z34_denom = -1./abs2z34;
@@ -134,8 +139,8 @@ namespace tfqmrgpu {
         for (unsigned i = 0; i < nCols; ++i) {
             for (unsigned j = 0; j < LM; ++j) {
 #endif // HAS_CUDA
-                double cosi;
-                real_t r67;
+                double cosi{0};
+                real_t r67{1};
                 double const Tau = tau[i][j]; // load
                 if (std::abs(Tau) > EPSILON) {
                     double const D55 = d55[i][0][j]; // load
@@ -146,10 +151,8 @@ namespace tfqmrgpu {
                     r67 = real_t(Var * cosi);
                 } else {
                     status[i][j] = -3; // early convergence or breakdown(stagnation)
-                    cosi = 0;
                     var[i][j] = 0; // store
                     tau[i][j] = 0; // store
-                    r67 = 1;
                 }
 
                 if (status[i][j] < 0) { 
@@ -324,7 +327,7 @@ namespace tfqmrgpu {
 #ifndef HAS_NO_CUDA
     template <typename real_t, int LM>
     void __global__ add_RHS_kernel( // GPU kernel, must be launched with <<< {any}, { LM, LM, 1 } >>>
-          real_t       (*devPtr v)[2][LM][LM] // result, v[nnzv][2][LM][LM]
+          real_t       (*devPtr v)[2][LM][LM] // result, v[nnzv][Re:Im][LM][LM]
         , real_t const (*devPtr b)[2][LM][LM] // input,  b[nnzb][Re:Im][LM][LM]
         , real_t const scal // global scaling factor, no imaginary part
         , uint32_t const (*devPtr subset) // subset index list[nnzb]
@@ -351,7 +354,7 @@ namespace tfqmrgpu {
         , real_t const scal // global scaling factor, no imaginary part
         , uint32_t const (*devPtr subset) // subset index list[nnzb]
         , uint32_t const nnzb // number of nonzero blocks in B
-        , cudaStream_t const streamId=0
+        , cudaStream_t const streamId
     ) {
 #ifndef HAS_NO_CUDA
         add_RHS_kernel<real_t,LM> <<< nnzb, { LM, LM, 1 }, 0, streamId >>> (v, b, scal, subset, nnzb);
@@ -443,7 +446,7 @@ namespace tfqmrgpu {
         , uint32_t const nnz // number of nonzero blocks
         , uint32_t const nCols // number of columns
         , uint32_t const p2 // number of reduction levels
-        , cudaStream_t const streamId=0
+        , cudaStream_t const streamId
     ) {
         int constexpr D2 = 2;
 #ifndef HAS_NO_CUDA
@@ -479,7 +482,7 @@ namespace tfqmrgpu {
         , uint32_t const nnz // number of nonzero blocks
         , uint32_t const nCols // number of columns
         , uint32_t const p2 // number of reduction levels
-        , cudaStream_t const streamId=0
+        , cudaStream_t const streamId
     ) {
         int constexpr D2 = 1;
 #ifndef HAS_NO_CUDA
@@ -552,7 +555,7 @@ namespace tfqmrgpu {
         , real_t const (*devPtr a)[2][LM]     // input,  a[nCols][Re:Im]  [LM]
         , uint16_t const (*devPtr ColInd) // column index
         , uint32_t const nnz // number of nonzero blocks
-        , cudaStream_t const streamId=0
+        , cudaStream_t const streamId
     ) {
         col_axpay <real_t, LM, true >
 #ifndef HAS_NO_CUDA
@@ -570,7 +573,7 @@ namespace tfqmrgpu {
         , real_t const (*devPtr x)[2][LM][LM] // input,  x[nnz][Re:Im][LM][LM]
         , uint16_t const (*devPtr ColInd) // column index
         , uint32_t const nnz // number of nonzero blocks
-        , cudaStream_t const streamId=0
+        , cudaStream_t const streamId
     ) {
         col_axpay <real_t, LM, false>
 #ifndef HAS_NO_CUDA
@@ -618,9 +621,9 @@ namespace tfqmrgpu {
 
     inline tfqmrgpuStatus_t create_random_numbers(
           float (*devPtr v3)
-        , size_t length // number of floats in v3
-        , cudaStream_t const streamId=0
-        , unsigned long long seed=1234ull // random seed
+        , size_t const length // number of floats in v3
+        , cudaStream_t const streamId
+        , unsigned long long const seed=1234ull // random seed
     ) {
 #ifndef HAS_NO_CUDA
         tfqmrgpuStatus_t stat{0};
@@ -636,6 +639,7 @@ namespace tfqmrgpu {
         /* Cleanup */
         CURAND_CALL(curandDestroyGenerator(gen));
         #undef  CURAND_CALL
+        debug_printf("# generated %lld random floats using cuRAND\n", length);
 #else  // HAS_CUDA
         auto const denom = 1./float(RAND_MAX);
         for(size_t i = 0; i < length; ++i) {

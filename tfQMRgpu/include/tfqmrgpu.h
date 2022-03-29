@@ -111,10 +111,11 @@
     tfqmrgpuStatus_t const TFQMRGPU_STATUS_SUCCESS = 0;
 
     // error codes
-    tfqmrgpuStatus_t const TFQMRGPU_STATUS_MAX_ITERATIONS = 9; // ToDo: adjust value of this flag
+    tfqmrgpuStatus_t const TFQMRGPU_STATUS_MAX_ITERATIONS    = 9; // ToDo: adjust value of this flag
+    tfqmrgpuStatus_t const TFQMRGPU_STATUS_BREAKDOWN         = 6;
     tfqmrgpuStatus_t const TFQMRGPU_STATUS_ALLOCATION_FAILED = 4;
     tfqmrgpuStatus_t const TFQMRGPU_STATUS_RANDOM_GEN_FAILED = 5;
-    tfqmrgpuStatus_t const TFQMRGPU_POINTER_INVALID = 7;
+    tfqmrgpuStatus_t const TFQMRGPU_POINTER_INVALID          = 7;
     // for the following error codes, the throwing source line can be extracted from bit #8 on
     tfqmrgpuStatus_t const TFQMRGPU_CODE_LINE             = 1 << 8; // roughly 4 decimal digits
     tfqmrgpuStatus_t const TFQMRGPU_NO_IMPLEMENTATION     = 19; //

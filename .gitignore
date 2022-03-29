@@ -30,6 +30,10 @@
 *.exe
 *.out
 *.app
+bin/*
+
+# Compilation folder
+build/*
 
 CMakeLists.txt.user
 CMakeCache.txt

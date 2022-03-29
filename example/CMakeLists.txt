@@ -6,7 +6,7 @@ enable_language(Fortran)
 
 
 # set the project name and version
-add_executable(tfqmrgpu_Fortran_example tfqmrgpu_Fortran_example.F90)
+add_executable(tfqmrgpu_Fortran_example ../tfQMRgpu/include/tfqmrgpu_Fortran_module.F90 tfqmrgpu_Fortran_example.F90)
 
 # __MAIN__ must be defined otherwise an executable can't be generated
 target_compile_definitions(tfqmrgpu_Fortran_example PRIVATE -D__MAIN__)
@@ -32,11 +32,11 @@ add_executable(generate_FD_example tfqmrgpu_generate_FD_example.cxx)
 
 add_executable(test_xml_reader tfqmrgpu_example_xml_reader.cxx)
 
-add_executable(test_legacy_reader  tfqmrgpu_example_reader.cxx)
+add_executable(test_legacy_reader tfqmrgpu_example_reader.cxx)
 
-#Link our tfQMRgpu library, also adds the include dir
+# link our tfQMRgpu library, also adds the include dir
 foreach(example generate_FD_example test_xml_reader test_legacy_reader)
-	target_link_libraries(${example} tfQMRgpu)
+    target_link_libraries(${example} tfQMRgpu)
 endforeach()
 
 

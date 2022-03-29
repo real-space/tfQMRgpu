@@ -7,6 +7,8 @@
 #include <vector> // std::vector<T>
 #include <cassert> // assert
 
+// #define DEBUG
+
 #include "tfqmrgpu.hxx" // includes cuda.h (or tfqmrgpu_cudaStubs.hxx) and tfqmrgpu.h
 #include "bsr.hxx" // bsr_t block-sparse row matrices
 #include "tfqmrgpu_example_reader.hxx" // ::read_in()
@@ -14,7 +16,7 @@
 
 #include "tfqmrgpu_util.hxx" // FlopChar, CCheck, copy_data_to_gpu, get_data_from_gpu
 #ifndef HAS_NO_CUDA
-    #include "tfqmrgpu_blockmult.hxx" // gemmNxNf
+    #include "tfqmrgpu_blockmult.hxx" // gemmNxNf, gemmNxNf1
 #endif // HAS_CUDA
 
 #ifdef DEBUG
@@ -52,52 +54,48 @@ namespace GPUbench {
 
         // step 1: create a handle for the function call
         tfqmrgpuHandle_t handle{0};
-        callAndCheck(  tfqmrgpuCreateHandle(&handle)
-                    )
+        callAndCheck(  tfqmrgpuCreateHandle(&handle)  )
 
         // step 2: create a CUDA stream to work on
         cudaStream_t streamId{0};
-        {
+        if (1) {
             auto const cudaErr = cudaStreamCreate(&streamId);
             if (cudaSuccess != cudaErr) {
                 std::printf("[ERROR] CUDA call failed to create a stream in %s:%d\n", __FILE__, __LINE__);
                 return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__;
             }
-        }
+        } else  std::printf("# Warning! GPU works on default stream!\n");
 
         // step 3: register the CUDA stream in the handle
-        callAndCheck(  tfqmrgpuSetStream(handle, streamId)
-                    )
+        callAndCheck(  tfqmrgpuSetStream(handle, streamId)  )
 
         if (1) { // sanity check   
-            auto streamId_copy = streamId;
+            auto streamId_copy{streamId};
             callAndCheck(  tfqmrgpuGetStream(handle, &streamId_copy)  )
             assert(streamId == streamId_copy);
-        }
+        } // sanity check
 
         // step 4: analyse the blocks-sparse-row matrix patterns and create a bsrsv-plan
         tfqmrgpuBsrsvPlan_t plan{0};
-        std::printf("\n# nnzb for A=%d, X=%d, B=%d \n", A->nnzb, X->nnzb, B->nnzb);
+        std::printf("\n# nnzb for A=%d, X=%d, B=%d\n", A->nnzb, X->nnzb, B->nnzb);
         callAndCheck(  tfqmrgpu_bsrsv_createPlan(handle, &plan, 
            A->nRows, // the number of block rows in A, X and B, also the number of block columns in A
            A->RowPtr.data(), A->nnzb, A->ColInd.data(), // block-sparse-row structure for A
            X->RowPtr.data(), X->nnzb, X->ColInd.data(), // block-sparse-row structure for X
            B->RowPtr.data(), B->nnzb, B->ColInd.data(), // block-sparse-row structure for B
-           0) // indexOffset=0(C-style) or indexOffset=1(Fortran)
-                    )
+           0)  ) // indexOffset=0(C-style) or indexOffset=1(Fortran)
 
         // step 5: compute the GPU memory requirement based on block sizes
         int const blockDim = A->fastBlockDim;
         size_t pBufferSize{0}; // in Bytes
-        std::printf("# compute the GPU memory requirements for blockDim=%d \n", blockDim);
+        std::printf("# compute the GPU memory requirements for blockDim=%d\n", blockDim);
         callAndCheck(  tfqmrgpu_bsrsv_bufferSize(handle, plan, 
             blockDim, // Leading dimension for blocks in matrix A.
             blockDim, // Block dimension of matrix A, blocks in A are square blocks. blockDim <= ldA
             blockDim, // Leading dimension for blocks in matrix B or X.
             blockDim, // Fast block dimension of matrix B or X, RhsBlockDim <= ldB.
-            doublePrecision, // Solver precision 'C':complex<float>, 'Z':complex<double>
-            &pBufferSize)
-                    )
+            doublePrecision, // Solver precision 'c':complex<float>, 'z':complex<double>
+            &pBufferSize)  )
 
         // step 6: allocate the GPU memory
         void* pBuffer{nullptr};
@@ -111,38 +109,33 @@ namespace GPUbench {
                 std::printf("# use %.6f GByte GPU memory\n", pBufferSize*1e-9);
             }
         }
-        
+
         // step 7: register the GPU memory buffer in the bsrsv-plan
-        callAndCheck(  tfqmrgpu_bsrsv_setBuffer(handle, plan, pBuffer)
-                    )
+        callAndCheck(  tfqmrgpu_bsrsv_setBuffer(handle, plan, pBuffer)  )
 
         if (1) { // sanity check   
-            auto pBuffer_copy = pBuffer;
-            callAndCheck(  tfqmrgpu_bsrsv_getBuffer(handle, plan, &pBuffer_copy)
-                        )
+            auto pBuffer_copy{pBuffer};
+            callAndCheck(  tfqmrgpu_bsrsv_getBuffer(handle, plan, &pBuffer_copy)  )
             assert(pBuffer == pBuffer_copy);
-        }
+        } // sanity check
 
         // step 8a: upload the values for the matrix A
         // values come from Fortran, so they are in RIRIRIRI layout
         callAndCheck(  tfqmrgpu_bsrsv_setMatrix(handle, plan, 'A',
-            (char*)A->mat.data(), 'Z', blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)
-                    )
+            (char*)A->mat.data(), 'z', blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
 
         // step 8b: upload the values for the right-hand side vectors B
         // values come from Fortran, so we need to transpose the blocks of B
         callAndCheck(  tfqmrgpu_bsrsv_setMatrix(handle, plan, 'B',
-            (char*)B->mat.data(), 'Z', blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)
-                    )
+            (char*)B->mat.data(), 'z', blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
 
         // [optional ]step 8x: upload the values for the initial vectors X
 
         // step 9: envoke the transpose-free Quasi Minimal Residual solver
         double solver_time = - getTime(); // start timer
-        callAndCheck(  tfqmrgpu_bsrsv_solve(handle, plan, tolerance, maxIterations)
-                    )
+        callAndCheck(  tfqmrgpu_bsrsv_solve(handle, plan, tolerance, maxIterations)  )
         solver_time += getTime(); // stop timer
-        
+
         // step a: spare line
         // step b: spare line
         // step c: spare line
@@ -154,14 +147,13 @@ namespace GPUbench {
         // step d: retrieve the result vectors X 
         // convert the blocks into ColMajor and RIRIRIRI to match the Fortran data layout
         callAndCheck(  tfqmrgpu_bsrsv_getMatrix(handle, plan, 'X',
-            (char*)X->mat.data(), 'Z', blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)
-                    )
+            (char*)X->mat.data(), 'z', blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
 
         { // scope:
             PUSH_RANGE("compare@CPU");
             double alldev{0}, allval{0}, maxdev{0}, maxrel{0};
             for(auto cij = 0ull; cij < sizeX; ++cij) {
-                double const dev = fabs(X->mat[cij] - Xref[cij]);
+                double const dev = std::abs(X->mat[cij] - Xref[cij]);
                 maxdev = std::max(maxdev, dev);
                 if (0.0 != Xref[cij]) maxrel = std::max(maxrel, dev/Xref[cij]);
                 alldev += dev;
@@ -172,35 +164,33 @@ namespace GPUbench {
 
             if (maxdev < 1e-5) {
                 // seems correct, report performance
-                int iterations_needed;
-                double flops_performed = 0, residuum_reached = 1;
+                int iterations_needed{0};
+                double flops_performed{0}, residuum_reached{1};
                 callAndCheck(  tfqmrgpu_bsrsv_getInfo(handle, plan, &residuum_reached, 
                                             &iterations_needed, &flops_performed, 0x0)
                             )
                 std::printf("# GPU converged in %d iterations\n", iterations_needed);
-                char const fF = ('z' == doublePrecision)? 'F' : 'f'; // F:double, f:float
+                char const fF = ('z' == (doublePrecision | 32))? 'F' : 'f'; // F:double, f:float
                 double const TFlop = 1e-12*flops_performed;
                 double const performance = TFlop/std::max(solver_time, 1e-6);
                 std::printf("# GPU performed %.3f T%clop in %.3f seconds = %.3f T%clop/s\n", 
-                                       TFlop, fF, solver_time, performance,fF);
+                                       TFlop, fF, solver_time, performance, fF);
             } // maxdev
         } // scope
 
 
         // step e: destroy the plan
-        callAndCheck(  tfqmrgpu_bsrsv_destroyPlan(handle, plan)
-                    )
+        callAndCheck(  tfqmrgpu_bsrsv_destroyPlan(handle, plan)  )
         plan = 0;
 
         // step f: destroy the handle
-        callAndCheck(  tfqmrgpuDestroyHandle(handle)
-                    )
+        callAndCheck(  tfqmrgpuDestroyHandle(handle)  )
         handle = 0;
 
         // last step, free GPU memory
         CCheck(cudaFree(pBuffer));
 
-#undef  callAndCheck        
+#undef  callAndCheck
         POP_RANGE(); // end of NVTX range
         return TFQMRGPU_STATUS_SUCCESS;
     } // benchmark_tfQMRgpu_library
@@ -254,9 +244,9 @@ namespace GPUbench {
         get_data_from_gpu<T>(h, d, size, stream); // start copying from the GPU, async!
         return h;
     } // create_on_cpu
-    
+
 #ifndef HAS_NO_CUDA
-    template <typename real_t, int LM> // template
+    template <typename real_t, int LM>
     void __global__ // GPU kernel, must be launched with <<< {nmat, 1, 1}, {LM, any, 1} >>>
     fill_cos_sin(real_t (*devPtr c)[2][LM][LM]) {
         // fill GPU arrays with non-trivial but deterministic values
@@ -298,16 +288,19 @@ namespace GPUbench {
 #ifndef HAS_NO_CUDA
         fill_cos_sin<real_t,LM> <<< nnzbA, {LM, 1024/LM, 1} >>> (matA);
         fill_cos_sin<real_t,LM> <<< nnzbX, {LM, 1024/LM, 1} >>> (matX);
-        
-        constexpr int TUNE = 2;
+
+        int constexpr TUNE = 2;
+        // TUNE == 2 performance up to 3.8 TFlop/s for LM=32 on V100
+        // TUNE == 4 performance up to 4.3 TFlop/s for LM=32 on V100, does not work for LM=6
         dim3 const threads = { LM, TUNE, 1 };
-        std::printf("# CUDA Launch <<< %d, { %d, %d, %d } >>>\n", nnzbY, threads.x, threads.y, threads.z);
+        std::printf("# CUDA Launch <<< %d, { %d, %d, %d } >>>, TUNE = %d\n",
+                              nnzbY, threads.x, threads.y, threads.z, TUNE);
 #endif // HAS_CUDA
-        assert(nnzbX == nnzbY); // for a logically square operator A
+        assert(nnzbX == nnzbY); // operator A must be logically square
 
         double nFlop{0};
         double time_sum{0}, time_rms{0}; // timing stats
-        PUSH_RANGE("GPU benchmarks zgemmNxNf");
+        PUSH_RANGE("GPU benchmarks gemmNxNf");
         for(int sample = 0; sample < nSamples; ++sample) {
             double time{-getTime()}; // start
             for(int repetition = 0; repetition < nRepetitions; ++repetition) {
@@ -324,11 +317,11 @@ namespace GPUbench {
         POP_RANGE(); // end of NVTX range
 
         double const time_avg = time_sum / double(nSamples); // average
-        time_rms /= double(nSamples); 
-        time_rms = sqrt(std::max(0., time_rms - time_avg*time_avg)); // rms
-        std::printf("# GPU needed %.3f seconds, %.6f +/- %.6f sec per sample, %.1f %% dev\n",
+        time_rms = std::sqrt(std::max(0., time_rms/double(nSamples) - time_avg*time_avg)); // rms
+        std::printf("# GPU needed %.3f seconds, %.6f +/- %.6f sec per sample, %.1f%% dev\n",
                   time_sum, time_avg, time_rms, time_rms*100./time_avg);
 
+        bool correct{true};
 #ifdef  SKIP_CORRECTNESS_CHECK
         std::printf("# Warning! Correctness checks are deactivated with -D SKIP_CORRECTNESS_CHECK!\n");
 #else // SKIP_CORRECTNESS_CHECK
@@ -339,7 +332,7 @@ namespace GPUbench {
         int nthreads{1};
 #pragma omp parallel
         { nthreads = omp_get_num_threads(); }
-        std::printf("# %d threads check for correct results\n", nthreads);
+        std::printf("# CPU %d threads check for correct results\n", nthreads);
         { // correctness check scope
             auto const matY_h = create_on_cpu<real_t[2][LM][LM]>(matY, nnzbY);
             auto const matA_h = create_on_cpu<real_t[2][LM][LM]>(matA, nnzbA);
@@ -370,7 +363,7 @@ namespace GPUbench {
                 for(auto c = 0; c < 2; ++c) {
                     for(auto i = 0; i < LM; ++i) {
                         for(auto j = 0; j < LM; ++j) {
-                            double const dev = fabs(matY_r[c][i][j] - matY_h[iY][c][i][j]);
+                            double const dev = std::abs(matY_r[c][i][j] - matY_h[iY][c][i][j]);
                             maxdev = std::max(maxdev, dev);
                             alldev += dev;
                             allval += 1.0;
@@ -383,22 +376,23 @@ namespace GPUbench {
             delete[] matA_h;
             delete[] matX_h;
         } // scope
-        
+
         time_chk += getTime();
         POP_RANGE(); // end of NVTX range
 
         std::printf("# GPU maxdev %g avgdev %g\n", maxdev, alldev/allval);
         if (maxdev > 1e-4) {
-            std::printf("# GPU result has large deviations (%g) for dim=%d\n", maxdev, LM);
-        } else
+            std::printf("# Warning! GPU result has large deviations (%g) for blockDim=%d\n", maxdev, LM);
+            correct = false; // do not show the performance of wrong results
+        } else {
             std::printf("# CPU result checking with %d threads took %.3f sec\n", nthreads, time_chk);
+        }
 #endif // SKIP_CORRECTNESS_CHECK
 
-        { // print performance scope
-//          const char fF = (4 == sizeof(real_t))?'f':'F';
-            const char fF = FlopChar<real_t>();
+        if (correct) { // print performance scope
+            char const fF = FlopChar<real_t>();
             std::printf("# GPU performed %.3f T%clop in %.3f seconds, i.e. %.1f G%clop/sec\n", 
-                nFlop*1e-12, fF, time_sum, nFlop*1e-9/time_sum, fF);
+                                  nFlop*1e-12, fF, time_sum, nFlop*1e-9/time_sum, fF);
         } // scope
 
         std::printf("# %s: free GPU memory\n", __func__);
@@ -409,7 +403,7 @@ namespace GPUbench {
         free_gpu_memory(starts_d);
 
         std::printf("# %s: deviceSynchronize\n", __func__);
-        cudaDeviceSynchronize();
+        CCheck(cudaDeviceSynchronize());
         std::printf("# %s: done\n", __func__);
         return time_avg;
     } // bench_multi
@@ -499,7 +493,7 @@ namespace GPUbench {
             case  64:  decide_precision( 64); break; // Lmax=7
             case 128:  decide_precision(128); break; // Lmax=7, noco
 
-            // with single prime factor 3
+            // with a single prime factor 3
             case   6:  decide_precision(  6); break;
             case  12:  decide_precision( 12); break;
             case  24:  decide_precision( 24); break;
@@ -530,12 +524,12 @@ int main(int const argc, char const *const argv[]) {
     if ('m' == bench) return GPUbench::benchmark_blockMatrixMatrixMultiplication(argc, argv);
 
     char const *fnm    = (argc > 2)?           argv[2]  : "problem"; // inputfile
-    char const flouble = (argc > 3)?          *argv[3]  : 'z'; // z:double, c:float
-    int const nrep     = (argc > 4)? std::atoi(argv[4]) : 1; // number of repetitions
-    int const MaxIter  = (argc > 5)? std::atoi(argv[5]) : 2000; // max. number of iteration
+    char const flouble = (argc > 3)?        ((*argv[3]) | 32) : 'z'; // z:double, c:float
+    int  const nrep    = (argc > 4)? std::atoi(argv[4]) : 1; // number of repetitions
+    int  const MaxIter = (argc > 5)? std::atoi(argv[5]) : 2000; // max. number of iteration
 
     std::printf("\n# read file '%s' as input.\n", fnm);
-    bsr_t ABX[3];
+    bsr_t ABX[3]; // three block-sparse operators
     double tolerance{0};
     if (std::string(fnm).find("xml") != std::string::npos) {
         tolerance = tfqmrgpu_example_xml_reader::read_in(ABX, fnm);
@@ -544,8 +538,7 @@ int main(int const argc, char const *const argv[]) {
     }
     std::printf("# found tolerance %g\n", tolerance);
     std::printf("# Execute %d repetitions with max. %d iterations.\n", nrep, MaxIter);
-    int const lsmd = ABX[0].fastBlockDim;
-
-    std::printf("# requested precision = %c for LM = %d\n", flouble, lsmd);
+    std::printf("# requested precision = %c for LM = %d\n", flouble, ABX[0].fastBlockDim);
+    
     return GPUbench::benchmark_tfQMRgpu_library(ABX, tolerance, MaxIter, nrep, flouble);
 } // main
