@@ -28,7 +28,7 @@ namespace tfqmrgpu {
 
     template <typename real_t, int LM>
     void __global__ tfQMRdec35( // GPU kernel, must be launched with <<< nCols, LM >>>
-          int          (*devPtr status)[LM] // tfQMR status
+          int8_t       (*devPtr status)[LM] // tfQMR status
         , real_t       (*devPtr rho)[2][LM] // rho  (inout)
         , real_t       (*devPtr bet)[2][LM] // beta (out)
         , double const (*devPtr z35)[2][LM] // inner product v3.v5
@@ -48,7 +48,7 @@ namespace tfqmrgpu {
                 double const z35_Re = z35[i][0][j], 
                              z35_Im = z35[i][1][j]; // z35 == v3.v5
                 double const abs2z35 = abs2(z35_Re, z35_Im);
-                
+
                 if ((abs2z35 < EPSILON) || (abs2rho < EPSILON)) { 
                     status[i][j] = -1; // severe breakdown in dec35
                     bet[i][0][j] = 0; bet[i][1][j] = 0; // beta := 0
@@ -67,7 +67,7 @@ namespace tfqmrgpu {
 
     template <typename real_t, int LM>
     void __global__ tfQMRdec34( // GPU kernel, must be launched with <<< nCols, LM >>>
-          int          (*devPtr status)[LM] // tfQMR status
+          int8_t       (*devPtr status)[LM] // tfQMR status
         , real_t       (*devPtr c67)[2][LM] // c67  (out)
         , real_t       (*devPtr alf)[2][LM] // alfa (out)
         , real_t const (*devPtr rho)[2][LM] // rho
@@ -117,7 +117,7 @@ namespace tfqmrgpu {
     
     template <typename real_t, int LM>
     void __global__ tfQMRdecT( // GPU kernel, must be launched with <<< nCols, LM >>>
-          int          (*devPtr status)[LM] // tfQMR status
+          int8_t       (*devPtr status)[LM] // tfQMR status
         , real_t       (*devPtr c67)[2][LM] // c67 (optional out)
         , real_t       (*devPtr eta)[2][LM] // eta (out)
         , double       (*devPtr var)   [LM] // var (out)

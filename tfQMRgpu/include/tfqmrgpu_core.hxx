@@ -71,7 +71,7 @@ namespace tfqmrgpu {
       auto const colindx  = take_gpu_memory<uint16_t>(buffer, nnzbX, &(p->colindxwin), "colindx");
       auto const subset   = take_gpu_memory<uint32_t>(buffer, nnzbB, &(p->subsetwin), "subset");
 
-      auto const status   = take_gpu_memory<int[LM]>(buffer, nCols);
+      auto const status   = take_gpu_memory<int8_t[LM]>(buffer, nCols);
 
       // transfer index lists into GPU memory, can be skipped if action_t uses UVM
       if (nullptr != gpu_memory_buffer) {
@@ -86,7 +86,7 @@ namespace tfqmrgpu {
           return TFQMRGPU_STATUS_SUCCESS; // return early as we only counted the device memory requirement
       } // memcount
       
-      auto const status_h = new int[nCols][LM]; // tfQMR status on host
+      auto const status_h = new int8_t[nCols][LM]; // tfQMR status on host
       int const nRHSs = nCols*LM; // total number of right-hand sides
       for(auto rhs = 0; rhs < nRHSs; ++rhs) { status_h[0][rhs] = 0; } // this needs to be done every time
       auto const resnrm2_h = new double[nCols][1][LM]; // residual norm squared on host
@@ -220,7 +220,7 @@ namespace tfqmrgpu {
           AXPY(v1, v7, eta); // v1 := eta*v7 + v1 // update solution vector
           
           get_data_from_gpu<double[LM]>(res_ub_h, tau, nCols, streamId); // missing factor inverse_norm2_of_B
-          get_data_from_gpu<int[LM]>(status_h, status, nCols, streamId);
+          get_data_from_gpu<int8_t[LM]>(status_h, status, nCols, streamId);
   //      CCheck(cudaDeviceSynchronize()); // for debugging
 
           double max_bound2{0};
@@ -284,7 +284,7 @@ namespace tfqmrgpu {
               } // isDone
 
               if (status_modified) {
-                  copy_data_to_gpu<int[LM]>(status, status_h, nCols, streamId, "status");
+                  copy_data_to_gpu<int8_t[LM]>(status, status_h, nCols, streamId, "status");
               } // status_modified
 
           } // probe

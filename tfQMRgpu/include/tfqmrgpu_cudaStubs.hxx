@@ -55,7 +55,7 @@ inline cudaError cudaMemsetAsync(void* dest, int ch, std::size_t count, cudaStre
     return cudaMemset(dest, ch, count);
 } // cudaMemsetAsync
 
-inline void __syncthread(void) {}
+inline void __syncthreads(void) {}
 
 // NVTX markers
 inline void PUSH_RANGE(char const *name) {}

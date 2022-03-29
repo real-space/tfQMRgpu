@@ -56,7 +56,7 @@ Purpose
     `uint16_t`, i.e. there can be at most 65,536 block columns.
 
 ### How to get started with C or C++?
-    You need read access to the header file `tfQMRgpu/include/tfqmrgpu.h`.
+    You need read access to the C-header file `tfQMRgpu/include/tfqmrgpu.h`.
     The function `GPUbench::bench_tfQMRgpu_library` in `tfQMRgpu/source/bench_tfqmrgpu.cu`
     gives an example of how to use the library correctly.
 

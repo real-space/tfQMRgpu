@@ -2,6 +2,9 @@
 
 #include <vector> // std::vector<T>
 #include <string> // std::string // really needed?
+#ifdef  FULL_DEBUG
+  #include <cstdio> // std::printf
+#endif // FULL_DEBUG
 
 struct bsr_t {
     // sparse matrix structure
@@ -24,7 +27,7 @@ struct bsr_t {
     inline int find_in_array(int const begin, int const end, int const value,
                              int_t const *array, int const not_found=-1) {
 #ifdef  FULL_DEBUG
-        printf("find_in_array(begin=%d, end=%d, value=%d, array=%p)\n", begin, end, value, array);
+        std::printf("find_in_array(begin=%d, end=%d, value=%d, array=%p)\n", begin, end, value, array);
 #endif // FULL_DEBUG
 
         // ToDo: the ColInd list is sorted ascendingly, so bisection search will be faster
