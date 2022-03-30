@@ -129,9 +129,9 @@
     tfqmrgpuStatus_t const TFQMRGPU_PRECISION_MISSMATCH   = 16; //
 
     // block shape is assumed 2x2 for simplicity here. 0:real part, 1:imaginary part
-    tfqmrgpuDataLayout_t const TFQMRGPU_LAYOUT_RRRRIIII = 0b00001111; // native layout for the GPU version, real and imag part of each block are separated.
-    tfqmrgpuDataLayout_t const TFQMRGPU_LAYOUT_RRIIRRII = 0b00110011; // intermediate layout, ever used?
-    tfqmrgpuDataLayout_t const TFQMRGPU_LAYOUT_RIRIRIRI = 0b01010101; // default host layout, real and imag parts are interleaved.
+    tfqmrgpuDataLayout_t const TFQMRGPU_LAYOUT_RRRRIIII = 15; // 0b00001111; // native layout for the GPU version, real and imag part of each block are separated.
+    tfqmrgpuDataLayout_t const TFQMRGPU_LAYOUT_RRIIRRII = 51; // 0b00110011; // intermediate layout, ever used?
+    tfqmrgpuDataLayout_t const TFQMRGPU_LAYOUT_RIRIRIRI = 85; // 0b01010101; // default host layout, real and imag parts are interleaved.
 
 
     // tfqmrgpu configuration:

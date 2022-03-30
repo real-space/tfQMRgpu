@@ -10,17 +10,17 @@
 
     char constexpr IgnoreCase = 'a' - 'A'; // compare e.g. 'a' == (c | IgnoreCase)
 
-	// Helper /////////////////////////////////////////////////////////////////////
+    // Helper /////////////////////////////////////////////////////////////////////
 
     #define CCheck(err) __cudaSafeCall((err), __FILE__, __LINE__)
-	inline void __cudaSafeCall(cudaError const err, char const *const file, int const line) {
+    inline void __cudaSafeCall(cudaError const err, char const *const file, int const line) {
 #ifndef NDEBUG
-		if (cudaSuccess != err) {
-			printf("[ERROR] Cuda call in %s:%d failed, cudaErrorString= %s\n", file, line, cudaGetErrorString(err));
-			exit(0);
-		}
+        if (cudaSuccess != err) {
+            printf("[ERROR] CUDA call in %s:%d failed, cudaErrorString= %s\n", file, line, cudaGetErrorString(err));
+            exit(0);
+        }
 #endif // DEBUG
-	} // __cudaSafeCall
+    } // __cudaSafeCall
 
 #ifndef HAS_NO_CUDA
     inline void __device__ check_launch_params(dim3 const grid, dim3 const blk) {
@@ -35,22 +35,22 @@
     } // check_launch_params
 #endif // HAS_CUDA
 
-	// Memory management /////////////////////////////////////////////////////////
-	template <typename T>
-	void copy_data_to_gpu(T (*devPtr d), T const *const h, size_t const size=1, cudaStream_t const stream=0, char const *const name="") {
+    // Memory management /////////////////////////////////////////////////////////
+    template <typename T>
+    void copy_data_to_gpu(T (*devPtr d), T const *const h, size_t const size=1, cudaStream_t const stream=0, char const *const name="") {
 #ifdef DEBUGGPU
-		printf("# transfer %lu x %.3f kByte from %p @host to %p @device %s\n", size, 1e-3*sizeof(T), h, d, name);
+        printf("# transfer %lu x %.3f kByte from %p @host to %p @device %s\n", size, 1e-3*sizeof(T), (void*)h, (void*)d, name);
 #endif // DEBUGGPU
         CCheck(cudaMemcpyAsync(d, h, size*sizeof(T), cudaMemcpyHostToDevice, stream));
-	} // copy_data_to_gpu
+    } // copy_data_to_gpu
 
-	template <typename T>
-	void get_data_from_gpu(T *const h, T const (*devPtr d), size_t const size=1, cudaStream_t const stream=0, char const *const name="") {
+    template <typename T>
+    void get_data_from_gpu(T *const h, T const (*devPtr d), size_t const size=1, cudaStream_t const stream=0, char const *const name="") {
 #ifdef DEBUGGPU
-		printf("# transfer %lu x %.3f kByte from %p @device to %p @host %s\n", size, 1e-3*sizeof(T), d, h, name);
+        printf("# transfer %lu x %.3f kByte from %p @device to %p @host %s\n", size, 1e-3*sizeof(T), (void*)d, (void*)h, name);
 #endif // DEBUGGPU
-		CCheck(cudaMemcpyAsync(h, d, size*sizeof(T), cudaMemcpyDeviceToHost, stream));
-	} // get_data_from_gpu
+        CCheck(cudaMemcpyAsync(h, d, size*sizeof(T), cudaMemcpyDeviceToHost, stream));
+    } // get_data_from_gpu
 
     inline void tfqmrgpu_memAlign(char* &address) {
         size_t const a = size_t(address); // cast pointer into a size_t
@@ -75,7 +75,7 @@
             win->offset = size_t((char*)d);
             win->length = total_size_inByte;
 #ifdef DEBUGGPU
-            printf("%s:  new window [%p, %p) %s\n", __func__, (char*)win->offset, (char*)(win->offset + win->length), win_name);
+            printf("# %s: new window [%p, %p) %s\n", __func__, (void*)win->offset, (void*)(win->offset + win->length), win_name);
             fflush(stdout);
 #endif // DEBUGGPU
         } // win

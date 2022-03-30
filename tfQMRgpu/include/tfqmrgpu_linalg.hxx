@@ -15,7 +15,7 @@
 
 // #define DEBUG
 
-#ifdef DEBUG
+#ifdef  DEBUG
     #define debug_printf(...) std::printf(__VA_ARGS__)
 #else  // DEBUG
     #define debug_printf(...)
@@ -55,7 +55,9 @@ namespace tfqmrgpu {
                     status[i][j] = -1; // severe breakdown in dec35
                     bet[i][0][j] = 0; bet[i][1][j] = 0; // beta := 0
                     rho[i][0][j] = 0; rho[i][1][j] = 0; // rho  := 0
-                    debug_printf("# tfQMRdec35 status[%i][%i] = -1, |z35|^2 = %.1e, |rho|^2 = %.1e\n", i, j, abs2z35, abs2rho);
+                    #ifdef  FULLDEBUG
+                        debug_printf("# tfQMRdec35 status[%i][%i]= -1, |z35|^2= %.1e, |rho|^2= %.1e\n", i, j, abs2z35, abs2rho);
+                    #endif // FULLDEBUG
                 } else {
                     double const rho_denom = 1./abs2rho;
                     // beta := z35 / rho, complex divison
@@ -96,7 +98,9 @@ namespace tfqmrgpu {
                     status[i][j] = -2; // severe breakdown in dec34
                     alf[i][0][j] = 0; alf[i][1][j] = 0; // alfa := 0
                     c67[i][0][j] = 0; c67[i][1][j] = 0; // c67 := 0
-                    debug_printf("# tfQMRdec34 status[%i][%i] = -2, |z34|^2 = %.1e, |rho|^2 = %.1e\n", i, j, abs2z34, abs2rho);
+                    #ifdef  FULLDEBUG
+                        debug_printf("# tfQMRdec34 status[%i][%i]= -2, |z34|^2= %.1e, |rho|^2= %.1e\n", i, j, abs2z34, abs2rho);
+                    #endif // FULLDEBUG
                 } else {
 //                  debug_printf("# tfQMRdec34 status[%i][%i] = %i\n", i, j, status[i][j]);
                     double const eta_Re = double(eta[i][0][j]), eta_Im = double(eta[i][1][j]); // load eta
@@ -306,18 +310,20 @@ namespace tfqmrgpu {
         , char const Trans='n' // should be 'n' or 'N' or 't' or 'T'
         , cudaStream_t const streamId=0
     ) {
+        if (nnzb < 1) return;
+        assert(nRows*nCols <= 1024 && "maximum number of threads per block");
         if ('z' == (doublePrecision | IgnoreCase)) {
 //          assert(nnzb * 2 * nRows * nCols * sizeof(double) == size);
             transpose_blocks_kernel<double>
 #ifndef HAS_NO_CUDA
-                <<<nnzb, {nCols, nRows, 1}, 2*nRows*nCols*sizeof(double), streamId>>>
+                <<< nnzb, {nCols, nRows, 1}, 2*nRows*nCols*sizeof(double), streamId >>>
 #endif // HAS_CUDA
                 ((double*) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows);
         } else {
   //        assert(nnzb * 2 * nRows * nCols * sizeof(float)  == size);
             transpose_blocks_kernel<float>
 #ifndef HAS_NO_CUDA
-                <<<nnzb, {nCols, nRows, 1}, 2*nRows*nCols*sizeof(float) , streamId>>>
+                <<< nnzb, {nCols, nRows, 1}, 2*nRows*nCols*sizeof(float) , streamId >>>
 #endif // HAS_CUDA
                 ((float *) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows); 
         }
@@ -357,6 +363,8 @@ namespace tfqmrgpu {
         , cudaStream_t const streamId
     ) {
 #ifndef HAS_NO_CUDA
+        assert(LM*LM <= 1024 && "maximum number of threads per block");
+        if (nnzb > 0)
         add_RHS_kernel<real_t,LM> <<< nnzb, { LM, LM, 1 }, 0, streamId >>> (v, b, scal, subset, nnzb);
 #else  // HAS_CUDA
         for(uint32_t inzb = 0; inzb < nnzb; ++inzb) {
@@ -454,6 +462,7 @@ namespace tfqmrgpu {
         clear_on_gpu<double[D2][LM]>(a, np2*nCols, streamId);
         col_inner <real_t, LM, D2> <<< np2, LM, 0, streamId >>> (a, x, y, ColInd, nnz, nCols);
         for(uint32_t np = np2 >> 1; np > 0; np >>= 1) { // reduce from 2*np to np
+            if (nCols*np > 0)
             col_reduction <double,LM,D2> <<< { nCols, np, 1 }, { LM, 1, D2 }, 0, streamId >>> (a, nCols);
         } // level
 #else  // HAS_CUDA
@@ -490,6 +499,7 @@ namespace tfqmrgpu {
         clear_on_gpu<double[D2][LM]>(a, np2*nCols, streamId);
         col_inner <real_t, LM, D2> <<< np2, LM, 0, streamId >>> (a, x, 0x0, ColInd, nnz, nCols);
         for(unsigned np = np2 >> 1; np > 0; np >>= 1) { // reduce from 2*np to np
+            if (nCols*np > 0)
             col_reduction <double,LM,D2> <<< { nCols, np, 1 }, { LM, 1, D2 }, 0, streamId >>> (a, nCols);
         } // level
 #else  // HAS_CUDA
@@ -557,9 +567,10 @@ namespace tfqmrgpu {
         , uint32_t const nnz // number of nonzero blocks
         , cudaStream_t const streamId
     ) {
+        if (nnz > 0)
         col_axpay <real_t, LM, true >
 #ifndef HAS_NO_CUDA
-            <<<nnz, LM, 0, streamId>>>
+            <<< nnz, LM, 0, streamId >>>
 #endif // HAS_CUDA
             (y, x, a, ColInd, nnz);
 
@@ -575,9 +586,10 @@ namespace tfqmrgpu {
         , uint32_t const nnz // number of nonzero blocks
         , cudaStream_t const streamId
     ) {
+        if (nnz > 0)
         col_axpay <real_t, LM, false>
 #ifndef HAS_NO_CUDA
-            <<<nnz, LM, 0, streamId>>>
+            <<< nnz, LM, 0, streamId >>>
 #endif // HAS_CUDA
             (y, x, a, ColInd, nnz);
 
@@ -608,6 +620,7 @@ namespace tfqmrgpu {
         , cudaStream_t const streamId=0
     ) {
 #ifndef HAS_NO_CUDA
+        if (nblocks > 0)
         set_complex_value_kernel<real_t,LM> <<< nblocks, LM, 0, streamId >>> (array, re, im); // needs to run every time!
 #else  // HAS_CUDA
         for(uint32_t iblock = 0; iblock < nblocks; ++iblock) {
@@ -655,21 +668,9 @@ namespace tfqmrgpu {
           cudaStream_t const streamId
         , plan_t *p
     ) {
-        // here we transfer the integer vectors that are filled during the analysis step.
-        #define transfer(INTVEC) \
-                debug_printf(#INTVEC" has pointer %p @host\n", p->INTVEC.data()); \
-                debug_printf(#INTVEC" has offset %.3f kBytes from pBuffer %p @device\n", (p->INTVEC##win.offset)*.001, p->pBuffer); \
-                debug_printf(#INTVEC" transfer to %p @device\n", p->pBuffer + p->INTVEC##win.offset); \
-                assert(p->INTVEC.size()*sizeof(p->INTVEC.value_type) == p->INTVEC##win.length); \
-                copy_data_to_gpu<char>(p->pBuffer + p->INTVEC##win.offset, \
-                    (char*)p->INTVEC.data(), p->INTVEC##win.length, streamId)
-//         transfer(pairs);  // moved into action_t
-//         transfer(starts); // moved into action_t
-//         transfer(subset);
-//         transfer(colindx);
-        #undef  transfer
+        // here we transfer the integer vectors that are filled during the analysis step
         copy_data_to_gpu<char>(p->pBuffer + p->colindxwin.offset, (char*)p->colindx.data(), p->colindxwin.length, streamId, "colindx");
-        copy_data_to_gpu<char>(p->pBuffer + p->subsetwin.offset, (char*)p->subset.data(), p->subsetwin.length, streamId, "subset");
+        copy_data_to_gpu<char>(p->pBuffer + p->subsetwin.offset,  (char*)p->subset.data(),  p->subsetwin.length,  streamId, "subset");
     } // transfer_index_lists
 
 

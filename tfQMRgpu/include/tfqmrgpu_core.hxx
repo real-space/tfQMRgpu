@@ -113,7 +113,6 @@ namespace tfqmrgpu {
       clear_on_gpu<real_t[2][LM][LM]>(v9, nnzbX, streamId);
       
       clear_on_gpu<real_t[2][LM]>(eta, nCols, streamId); // eta = 0; // needs to run every time again?
-//    set_complex_value<real_t,LM> <<< nCols, LM, 0, streamId >>> (rho, 1., 0.); // needs to run every time!
       set_complex_value<real_t,LM>(rho, nCols, 1., 0., streamId); // needs to run every time!
       clear_on_gpu<double[LM]>(var, nCols, streamId); // var = 0; // needs to run every time!
 
@@ -134,7 +133,6 @@ namespace tfqmrgpu {
 
       // ToDo: move this part into the tail of setMatrix('B')
       // v5 == 0
-//    add_RHS<real_t,LM> <<< nnzbB, { LM, LM, 1 }, 0, streamId >>> (v5, v2, 1, subset, nnzbB); // v5 := v5 + v2
       add_RHS<real_t,LM>(v5, v2, 1, subset, nnzbB, streamId); // v5 := v5 + v2
       NRM2(dvv, v5); // dvv := ||v5||
       cudaMemcpy(tau, dvv, nCols*LM*sizeof(double), cudaMemcpyDeviceToDevice);
@@ -169,7 +167,7 @@ namespace tfqmrgpu {
           // decisions based on v3.v5 and rho
           tfQMRdec35<real_t,LM>
 #ifndef HAS_NO_CUDA
-              <<<nCols, LM, 0, streamId>>>
+              <<< nCols, LM, 0, streamId >>>
 #endif // HAS_CUDA
               (status, rho, beta, zvv, nCols);
 
@@ -186,7 +184,7 @@ namespace tfqmrgpu {
           // decisions based on v3.v4 and rho
           tfQMRdec34<real_t,LM>
 #ifndef HAS_NO_CUDA
-              <<<nCols, LM, 0, streamId>>>
+              <<< nCols, LM, 0, streamId >>>
 #endif // HAS_CUDA
               (status, c67, alfa, rho, eta, zvv, var, nCols);
 
@@ -199,7 +197,7 @@ namespace tfqmrgpu {
           // decisions based on tau
           tfQMRdecT<real_t,LM> 
 #ifndef HAS_NO_CUDA
-              <<<nCols, LM, 0, streamId>>>
+              <<< nCols, LM, 0, streamId >>>
 #endif // HAS_CUDA
               (status, c67, eta, var, tau, alfa, dvv, nCols);
       
@@ -220,7 +218,7 @@ namespace tfqmrgpu {
           // decisions based on tau
           tfQMRdecT<real_t,LM>
 #ifndef HAS_NO_CUDA
-              <<<nCols, LM, 0, streamId>>>
+              <<< nCols, LM, 0, streamId >>>
 #endif // HAS_CUDA
               (status, 0x0, eta, var, tau, alfa, dvv, nCols);
 

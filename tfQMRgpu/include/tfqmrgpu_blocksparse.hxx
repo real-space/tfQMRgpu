@@ -51,14 +51,14 @@ class blocksparse_action_t {
 
     void transfer(char* const buffer, cudaStream_t const streamId=0) {
         // transfer index lists to GPU memory, could be cached, i.e. stored in the plan if this transfer has already been done
-#ifdef DEBUG
-        printf("# p->pairs.data()  = %p\n", (char*)(p->pairs.data()));
-        printf("# p->starts.data() = %p\n", (char*)(p->starts.data()));
+    #ifdef  DEBUG
+        printf("# p->pairs.data()  = %p\n", (void*)(p->pairs.data()));
+        printf("# p->starts.data() = %p\n", (void*)(p->starts.data()));
         printf("# buffer = %p\n", buffer);
         printf("# buffer + startswin.offset = %p\n", buffer + p->startswin.offset);
         printf("# buffer +  pairswin.offset = %p\n", buffer + p-> pairswin.offset);
         fflush(stdout);
-#endif // DEBUG
+    #endif // DEBUG
         copy_data_to_gpu<char>(buffer + p->startswin.offset, (char*)(p->starts.data()), p->startswin.length, streamId, "starts");
         copy_data_to_gpu<char>(buffer + p-> pairswin.offset, (char*)(p-> pairs.data()), p-> pairswin.length, streamId,  "pairs");
     } // transfer
@@ -80,7 +80,7 @@ class blocksparse_action_t {
 #ifndef HAS_NO_CUDA
 
         // CUDA version
-#ifdef  FULLDEBUG
+    #ifdef  FULLDEBUG
         bool constexpr show_A_X_and_Y = true;
         if (show_A_X_and_Y) {
             printf("\n\n# multiply:\n");
@@ -95,13 +95,13 @@ class blocksparse_action_t {
             print_array<uint32_t,2> <<< 1, 1, 0, streamId >>> ((uint32_t(*)[2])pairs_d, p->starts[nnzbY], 'p', 'i');
             print_array<real_t, LM> <<< 1, 1, 0, streamId >>> (x[0][0], nnzbY*2*LM, 'x');
         } // show_A_X_and_Y
-#endif // DEBUG
+    #endif // FULLDEBUG
 
         int  constexpr TUNE = 4;
         dim3 constexpr threads(LM, TUNE, 1);
         gemmNxNf <real_t,LM,LM/TUNE> <<< nnzbY, threads, 0, streamId >>> (y, matA_d, x, pairs_d, starts_d);
 
-#ifdef  FULLDEBUG
+    #ifdef  FULLDEBUG
         cudaDeviceSynchronize(); // necessary?
         auto const err = cudaGetLastError();
         if (cudaSuccess != err) {
@@ -115,11 +115,7 @@ class blocksparse_action_t {
             cudaDeviceSynchronize(); // necessary?
             printf("\n");
         } // show_A_X_and_Y
-#endif // DEBUG
-
-
-
-
+    #endif // FULLDEBUG
 
 
 #else  // HAS_CUDA
@@ -140,7 +136,7 @@ class blocksparse_action_t {
             for(auto ipair = p->starts[iYmat]; ipair < p->starts[iYmat + 1]; ++ipair) { // contract over block elements
                 auto const iAmat = p->pairs[ipair*2 + 0];
                 auto const iXmat = p->pairs[ipair*2 + 1];
-#if 1
+    #if 1
                 for(int i = 0; i < LM; ++i) {
                     for(int j = 0; j < LM; ++j) {
                         real_t Yre{0}, Yim{0};
@@ -157,13 +153,13 @@ class blocksparse_action_t {
                         Yb[1][i][j] += Yim;
                     } // j
                 } // i
-#else  // 1
+    #else  // 1
                 dgemm_(&tA, &tx, &n, &n, &n, &alpha, A[iAmat][0], &n, x[iXmat][0], &n, &beta, yb[0], &n);
                 dgemm_(&tA, &tx, &n, &n, &n, &minus, A[iAmat][1], &n, x[iXmat][1], &n, &beta, yb[0], &n);
                 beta = 1;
                 dgemm_(&tA, &tx, &n, &n, &n, &alpha, A[iAmat][1], &n, x[iXmat][0], &n, &beta, yb[1], &n);
                 dgemm_(&tA, &tx, &n, &n, &n, &alpha, A[iAmat][0], &n, x[iXmat][1], &n, &beta, yb[1], &n);
-#endif // 1
+    #endif // 1
             } // ipair
 
             // copy block into result array
