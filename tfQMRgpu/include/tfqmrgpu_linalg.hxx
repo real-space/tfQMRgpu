@@ -698,7 +698,7 @@ namespace tfqmrgpu {
         #undef  CURAND_CALL
         debug_printf("# generated %lld random floats using cuRAND\n", length);
 #else  // HAS_CUDA
-        auto const denom = 1./float(RAND_MAX);
+        float const denom = 1./RAND_MAX;
         for(size_t i = 0; i < length; ++i) {
             v3[i] = rand()*denom;
         } // i

@@ -10,7 +10,8 @@
         // TFQMRGPU_MEMORY_ALIGNMENT, TFQMRGPU_STATUS_SUCCESS, ...
         // set_complex_value, clear_on_gpu, ...
         // dotp, nrm2, xpay, axpy, ...
-        // tfQMRdec*, add_RHS,
+        // tfQMRdec*, add_RHS, set_unit_blocks
+        // create_random_numbers
         // debug_printf
 
 namespace tfqmrgpu {
@@ -136,6 +137,8 @@ namespace tfqmrgpu {
           clear_on_gpu<real_t[2][LM][LM]>(v2, nnzbB, streamId);
           set_unit_blocks<real_t,LM>(v2, nnzbB, streamId,  1,0  );
           for(auto rhs = 0; rhs < nRHSs; ++rhs) invBn2_h[0][rhs] = 1;
+          // also, we probably called ::solve without much surrounding, so we need to regenerate the random numbers
+          create_random_numbers(v3[0][0][0], nnzbX*2*LM*LM, streamId);
       } else {
           // rhs is non-trivial
           // ToDo: move this part into the tail of setMatrix('B')
