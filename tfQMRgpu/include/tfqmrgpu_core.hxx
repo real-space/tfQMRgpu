@@ -22,7 +22,7 @@ namespace tfqmrgpu {
       , double const tolerance=1e-6
       , int const MaxIterations=999
       , cudaStream_t streamId=0
-      , bool const rhs_nontrivial=true // trivial: right hand side are columns of the unit matrix
+      , bool const rhs_trivial=false // trivial: right hand side are columns of the unit matrix
   ) {
       PUSH_RANGE("tfQMR preparation"); // NVTX
 
@@ -132,7 +132,12 @@ namespace tfqmrgpu {
 #define AXPY(y,x,a) nFlop += axpy<real_t,LM>(y, x, a, colindx, nnzbX, streamId)
 #define MULT(y,x)   nFlop += action.multiply(y, x,    colindx, nnzbX, nCols, l2nX, streamId)
 
-      if (rhs_nontrivial) {
+      if (rhs_trivial) {
+          clear_on_gpu<real_t[2][LM][LM]>(v2, nnzbB, streamId);
+          set_unit_blocks<real_t,LM>(v2, nnzbB, streamId,  1,0  );
+          for(auto rhs = 0; rhs < nRHSs; ++rhs) invBn2_h[0][rhs] = 1;
+      } else {
+          // rhs is non-trivial
           // ToDo: move this part into the tail of setMatrix('B')
           // v5 == 0
           add_RHS<real_t,LM>(v5, v2, 1, subset, nnzbB, streamId); // v5 := v5 + v2
@@ -144,11 +149,7 @@ namespace tfqmrgpu {
           // ToDo: split this part into two: allocation on CPU and transfer to the CPU, can be done when setMatrix('B')
           get_data_from_gpu<double[LM]>(invBn2_h, tau, nCols, streamId); // inverse_norm2_of_B
           for(auto rhs = 0; rhs < nRHSs; ++rhs) invBn2_h[0][rhs] = 1./invBn2_h[0][rhs]; // invert in-place on the host
-      } else { // rhs_nontrivial
-          clear_on_gpu<real_t[2][LM][LM]>(v2, nnzbB, streamId);
-          set_unit_blocks<real_t,LM>(v2, nnzbB, streamId,  1,0  );
-          for(auto rhs = 0; rhs < nRHSs; ++rhs) invBn2_h[0][rhs] = 1;
-      } // rhs_nontrivial
+      } // rhs_trivial
 
       tfqmrgpuStatus_t return_status{TFQMRGPU_STATUS_MAX_ITERATIONS}; // preliminary result
       p->iterations_needed = MaxIterations; // preliminary, will be changed if it converges
