@@ -332,23 +332,25 @@ namespace tfqmrgpu {
     
 #ifndef HAS_NO_CUDA
     template <typename real_t, int LM>
-    void __global__ add_RHS_kernel( // GPU kernel, must be launched with <<< {any}, { LM, LM, 1 } >>>
+    void __global__ add_RHS_kernel( // GPU kernel, must be launched with <<< { any, 1, 1 }, { LM, 1, 1 } >>>
           real_t       (*devPtr v)[2][LM][LM] // result, v[nnzv][Re:Im][LM][LM]
         , real_t const (*devPtr b)[2][LM][LM] // input,  b[nnzb][Re:Im][LM][LM]
         , real_t const scal // global scaling factor, no imaginary part
         , uint32_t const (*devPtr subset) // subset index list[nnzb]
         , uint32_t const nnzb // number of nonzero blocks in B
     ) {
-        check_launch_params( gridDim, { LM, LM, 1 } );
-        int const j = threadIdx.x, i = threadIdx.y;
+        check_launch_params( { gridDim.x, 1, 1 }, { LM, 1, 1 } );
+        int const j = threadIdx.x;
 
         __shared__ int inzv; // ToDo: check if we need it to be so complicated
         for(int inzb = blockIdx.x; inzb < nnzb; inzb += gridDim.x) { // grid stride loop over blocks
             __syncthreads();
-            if ((0 == j) && (0 == i)) inzv = subset[inzb]; // block master loads index
+            if (0 == j) inzv = subset[inzb]; // block master loads index
             __syncthreads();
-            v[inzv][0][i][j] += scal*b[inzb][0][i][j];
-            v[inzv][1][i][j] += scal*b[inzb][1][i][j];
+            for (int i = 0; i < LM; ++i) {
+                v[inzv][0][i][j] += scal*b[inzb][0][i][j];
+                v[inzv][1][i][j] += scal*b[inzb][1][i][j];
+            } // i
         } // inzb
     } // add_RHS_kernel
 #endif // HAS_CUDA
@@ -363,9 +365,9 @@ namespace tfqmrgpu {
         , cudaStream_t const streamId
     ) {
 #ifndef HAS_NO_CUDA
-        assert(LM*LM <= 1024 && "maximum number of threads per block");
+        assert(LM <= 1024 && "maximum number of threads per block");
         if (nnzb > 0)
-        add_RHS_kernel<real_t,LM> <<< nnzb, { LM, LM, 1 }, 0, streamId >>> (v, b, scal, subset, nnzb);
+        add_RHS_kernel<real_t,LM> <<< nnzb, LM, 0, streamId >>> (v, b, scal, subset, nnzb);
 #else  // HAS_CUDA
         for(uint32_t inzb = 0; inzb < nnzb; ++inzb) {
             auto const inzv = subset[inzb]; // load index
@@ -382,7 +384,7 @@ namespace tfqmrgpu {
 #ifndef HAS_NO_CUDA
 
     template <typename real_t, int LM, int D2>
-    void __global__ col_inner( // GPU kernel, must be launched with <<< {anypowerof2}, { LM, 1, 1 } >>>
+    void __global__ col_inner( // GPU kernel, must be launched with <<< { anypowerof2, 1, 1 }, { LM, 1, 1 } >>>
           double       (*devPtr dots)[D2][LM] // result, dots[2^p*nCols][D2][LM], D2 is 2==Re:Im for v*w and 1 for norm |v|^2
         , real_t const (*devPtr v)[2][LM][LM] // input, v[nnz][Re:Im][LM][LM]
         , float  const (*devPtr w)[2][LM][LM] // input, w[nnz][Re:Im][LM][LM], only read if D2==2, always float
@@ -390,7 +392,7 @@ namespace tfqmrgpu {
         , uint32_t const nnz // number of nonzero blocks
         , uint32_t const nCols // number of block columns
     ) {
-        check_launch_params( {gridDim.x, 1, 1}, { LM, 1, 1 } );
+        check_launch_params( { gridDim.x, 1, 1 }, { LM, 1, 1 } );
         int const j = threadIdx.x; // vectorization
         int const iput = blockIdx.x;
 
@@ -426,7 +428,7 @@ namespace tfqmrgpu {
     } // col_inner
 
     template <typename real_t, int LM, int D2>
-    void __global__ col_reduction( // GPU kernel, must be launched with <<< {nCols, 2^(p-1), 1}, { LM, 1, D2 } >>>
+    void __global__ col_reduction( // GPU kernel, must be launched with <<< { nCols, 2^(p-1), 1 }, { LM, 1, D2 } >>>
           double (*devPtr a)[D2][LM] // in/out, a[2^p*nCols][D2][LM], D2 is 2==Re:Im for v*w and 1 for norm |v|^2
         , uint32_t const nCols // number of block columns
     ) {
@@ -520,7 +522,7 @@ namespace tfqmrgpu {
 
 
     template <typename real_t, int LM, bool ScaleX>
-    void __global__ col_axpay( // GPU kernel, must be launched with <<< {any, 1, 1}, { LM, 1, 1 } >>>
+    void __global__ col_axpay( // GPU kernel, must be launched with <<< { any, 1, 1 }, { LM, 1, 1 } >>>
           real_t       (*devPtr y)[2][LM][LM] // in/out, y[nnz][Re:Im][LM][LM]
         , real_t const (*devPtr x)[2][LM][LM] // input,  x[nnz][Re:Im][LM][LM]
         , real_t const (*devPtr a)[2][LM]     // input,  a[nCols][Re:Im]  [LM]
