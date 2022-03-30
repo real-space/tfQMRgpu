@@ -149,11 +149,17 @@ namespace tfqmrgpu {
                 if (std::abs(Tau) > EPSILON) {
                     double const D55 = d55[i][0][j]; // load
                     double const Var = D55 / Tau;
+                    #ifdef  FULLDEBUG
+                        debug_printf("# component in block %i element %i has tau= %g, d55= %g, var= %g\n", i, j, Tau, D55, Var);
+                    #endif // FULLDEBUG
                     cosi = 1./(1. + Var);
                     var[i][j] = Var; // store
                     tau[i][j] = D55 * cosi; // store
                     r67 = real_t(Var * cosi);
                 } else {
+                    #ifdef  FULLDEBUG
+                        debug_printf("# component in block %i element %i has tau = 0\n", i, j);
+                    #endif // FULLDEBUG
                     status[i][j] = -3; // early convergence or breakdown(stagnation)
                     var[i][j] = 0; // store
                     tau[i][j] = 0; // store
@@ -474,7 +480,7 @@ namespace tfqmrgpu {
           double (*devPtr a)[D2][LM] // in/out, a[2^p*nCols][D2][LM], D2 is 2==Re:Im for v*w and 1 for norm |v|^2
         , uint32_t const nCols // number of block columns
     ) {
-        check_launch_params( {nCols, gridDim.y, 1}, { LM, 1, D2 } );
+        check_launch_params( { nCols, gridDim.y, 1 }, { LM, 1, D2 } );
 
         int const j = threadIdx.x; // vectorization
         int const ri = threadIdx.z; // real/imag part
@@ -647,11 +653,11 @@ namespace tfqmrgpu {
     template <typename real_t, int LM>
     void __global__ set_complex_value_kernel(
           real_t (*devPtr array)[2][LM] // 1D launch with correct size
-        , real_t const re
-        , real_t const im=0
+        , real_t const real_part
+        , real_t const imag_part=0
     ) {
-        array[blockIdx.x][0][threadIdx.x] = re;
-        array[blockIdx.x][1][threadIdx.x] = im;
+        array[blockIdx.x][0][threadIdx.x] = real_part;
+        array[blockIdx.x][1][threadIdx.x] = imag_part;
     } // set_complex_value_kernel
 #endif // HAS_CUDA
 
@@ -659,23 +665,55 @@ namespace tfqmrgpu {
     void __host__ set_complex_value(
           real_t (*devPtr array)[2][LM] // array[nblocks][2][LM]
         , uint32_t const nblocks
-        , real_t const re
-        , real_t const im=0
+        , real_t const real_part
+        , real_t const imag_part=0
         , cudaStream_t const streamId=0
     ) {
 #ifndef HAS_NO_CUDA
         if (nblocks > 0)
-        set_complex_value_kernel<real_t,LM> <<< nblocks, LM, 0, streamId >>> (array, re, im); // needs to run every time!
+        set_complex_value_kernel<real_t,LM> <<< nblocks, LM, 0, streamId >>> (array, real_part, imag_part);
 #else  // HAS_CUDA
         for(uint32_t iblock = 0; iblock < nblocks; ++iblock) {
             for(int j = 0; j < LM; ++j) {
-                array[iblock][0][j] = re;
-                array[iblock][1][j] = im;
+                array[iblock][0][j] = real_part;
+                array[iblock][1][j] = imag_part;
             } // j
         } // iblock
 #endif // HAS_CUDA
     } // set_complex_value
 
+    
+#ifndef HAS_NO_CUDA    
+    template <typename real_t, int LM>
+    void __global__ set_real_value_kernel(
+          real_t (*devPtr array)[LM] // 1D launch with correct size
+        , real_t const value
+    ) {
+        array[blockIdx.x][threadIdx.x] = value;
+    } // set_real_value_kernel
+#endif // HAS_CUDA
+
+    template <typename real_t, int LM>
+    void __host__ set_real_value(
+          real_t (*devPtr array)[LM] // array[nblocks][LM]
+        , uint32_t const nblocks
+        , real_t const value
+        , cudaStream_t const streamId=0
+    ) {
+#ifndef HAS_NO_CUDA
+        if (nblocks > 0)
+        set_real_value_kernel<real_t,LM> <<< nblocks, LM, 0, streamId >>> (array, value);
+#else  // HAS_CUDA
+        for(uint32_t iblock = 0; iblock < nblocks; ++iblock) {
+            for(int j = 0; j < LM; ++j) {
+                array[iblock][j] = value;
+//              printf("# set array[%i][%i] := %g\n", iblock, j, value);
+            } // j
+        } // iblock
+#endif // HAS_CUDA
+    } // set_real_value
+    
+    
     inline tfqmrgpuStatus_t create_random_numbers(
           float (*devPtr v3)
         , size_t const length // number of floats in v3
@@ -702,11 +740,12 @@ namespace tfqmrgpu {
         for(size_t i = 0; i < length; ++i) {
             v3[i] = rand()*denom;
         } // i
+        debug_printf("# generated %ld random floats\n", length);
 #endif // HAS_CUDA
-        return TFQMRGPU_STATUS_SUCCESS;    
+        return TFQMRGPU_STATUS_SUCCESS;
     } // create_random_numbers
 
-    
+
     template <typename plan_t>
     inline void transfer_index_lists(
           cudaStream_t const streamId

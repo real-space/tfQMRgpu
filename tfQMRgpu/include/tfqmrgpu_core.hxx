@@ -90,10 +90,10 @@ namespace tfqmrgpu {
 
       if (nullptr == gpu_memory_buffer) { // memcount-mode
           p->gpu_mem = buffer - buffer_start + (1ull << TFQMRGPU_MEMORY_ALIGNMENT); // add safety
-          debug_printf("# GPU memory requirement = %.6f GByte\n", p->gpu_mem*1e-9);
+          debug_printf("# GPU memory requirement = %.9f GByte\n", p->gpu_mem*1e-9);
           return TFQMRGPU_STATUS_SUCCESS; // return early as we only counted the device memory requirement
       } // memcount
-      
+
       // host array allocations
 
       int const nRHSs = nCols*LM; // total number of right-hand sides
@@ -106,24 +106,24 @@ namespace tfqmrgpu {
       ////////////////////////////////////////////////
       // no GPU kernels are called before this line //
       ////////////////////////////////////////////////
-      
+
       clear_on_gpu<real_t[2][LM][LM]>(v4, nnzbX, streamId);
       clear_on_gpu<real_t[2][LM][LM]>(v5, nnzbX, streamId);
       clear_on_gpu<real_t[2][LM][LM]>(v6, nnzbX, streamId);
       clear_on_gpu<real_t[2][LM][LM]>(v7, nnzbX, streamId);
       clear_on_gpu<real_t[2][LM][LM]>(v8, nnzbX, streamId);
       clear_on_gpu<real_t[2][LM][LM]>(v9, nnzbX, streamId);
-      
+
       clear_on_gpu<real_t[2][LM]>(eta, nCols, streamId); // eta = 0; // needs to run every time again?
       set_complex_value<real_t,LM>(rho, nCols, 1., 0., streamId); // needs to run every time!
       clear_on_gpu<double[LM]>(var, nCols, streamId); // var = 0; // needs to run every time!
 
       clear_on_gpu<real_t[2][LM][LM]>(v1, nnzbX, streamId); // deletes the content of v, ToDo: only if setMatrix('X') has not been called
-      
+
       clear_on_gpu<int8_t[LM]>(status, nCols, streamId); // set status = 0
 
-      double const tol2 = tolerance*tolerance; // internally, the squares of all norms and thresholds are used
-      double target_bound2{tol2*(100*100)}; // init with test_factor=100
+      double const tol2 = tolerance*tolerance; // internally the squares of all norms and thresholds are used
+      double target_bound2{tol2*100*100}; // init with test_factor=100
       double residual2_reached{1e300};
 
       double nFlop{0}; // counter for floating point multiplications
@@ -136,11 +136,13 @@ namespace tfqmrgpu {
       if (rhs_trivial) {
           clear_on_gpu<real_t[2][LM][LM]>(v2, nnzbB, streamId);
           set_unit_blocks<real_t,LM>(v2, nnzbB, streamId,  1,0  );
+          add_RHS<real_t,LM>(v5, v2, 1, subset, nnzbB, streamId); // v5 := v5 + v2
+          set_real_value<double,LM>(tau, nCols, 1., streamId);
           for(auto rhs = 0; rhs < nRHSs; ++rhs) invBn2_h[0][rhs] = 1;
           // also, we probably called ::solve without much surrounding, so we need to regenerate the random numbers
           create_random_numbers(v3[0][0][0], nnzbX*2*LM*LM, streamId);
       } else {
-          // rhs is non-trivial
+          // right hand side is non-trivial and should have been uploaded before
           // ToDo: move this part into the tail of setMatrix('B')
           // v5 == 0
           add_RHS<real_t,LM>(v5, v2, 1, subset, nnzbB, streamId); // v5 := v5 + v2
@@ -150,7 +152,7 @@ namespace tfqmrgpu {
           // ToDo: check if we can call nrm2<real_t,LM>(dvv, v2, ColIndOfB, nnzbB, nCols, l2nX)
 
           // ToDo: split this part into two: allocation on CPU and transfer to the CPU, can be done when setMatrix('B')
-          get_data_from_gpu<double[LM]>(invBn2_h, tau, nCols, streamId); // inverse_norm2_of_B
+          get_data_from_gpu<double[LM]>(invBn2_h, tau, nCols, streamId, "norm2_of_B"); // inverse_norm2_of_B
           for(auto rhs = 0; rhs < nRHSs; ++rhs) invBn2_h[0][rhs] = 1./invBn2_h[0][rhs]; // invert in-place on the host
       } // rhs_trivial
 
@@ -233,8 +235,8 @@ namespace tfqmrgpu {
 
           AXPY(v1, v7, eta); // v1 := eta*v7 + v1 // update solution vector
 
-          get_data_from_gpu<double[LM]>(res_ub_h, tau, nCols, streamId); // missing factor inverse_norm2_of_B
-          get_data_from_gpu<int8_t[LM]>(status_h, status, nCols, streamId);
+          get_data_from_gpu<double[LM]>(res_ub_h, tau, nCols, streamId, "tau"); // missing factor inverse_norm2_of_B
+          get_data_from_gpu<int8_t[LM]>(status_h, status, nCols, streamId, "status");
           // CCheck(cudaDeviceSynchronize()); // necessary?
 
           double max_bound2{0};
@@ -265,7 +267,6 @@ namespace tfqmrgpu {
           
               MULT(v9, v1); // v9 := A*v1
 
-//            add_RHS<real_t,LM> <<< nnzbB, { LM, LM, 1 }, 0, streamId >>> (v9, v2, -1, subset, nnzbB); // v9 := v9 - v2
               add_RHS<real_t,LM>(v9, v2, -1, subset, nnzbB, streamId); // v9 := v9 - v2
 
               NRM2(dvv, v9); // dvv := ||v9||
