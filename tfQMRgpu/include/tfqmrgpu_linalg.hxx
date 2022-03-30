@@ -7,7 +7,7 @@
 #include <cmath> // std::abs
 
 #include "tfqmrgpu.hxx"           // includes cuda.h and tfqmrgpu.h
-#include "tfqmrgpu_util.hxx"      // common utilities: FlopChar, copy_data_to_gpu, get_data_from_gpu, abs2
+#include "tfqmrgpu_util.hxx"      // common utilities: FlopChar, copy_data_to_gpu, get_data_from_gpu, abs2, clear_on_gpu
 #include "bsr.hxx"                // bsr_t, find_in_array
 #include "tfqmrgpu_memWindow.h"   // memWindow_t
 #include "tfqmrgpu_plan.hxx"      // bsrsv_plan_t
@@ -378,6 +378,48 @@ namespace tfqmrgpu {
 #endif // HAS_CUDA
     } // add_RHS
 
+    
+    
+#ifndef HAS_NO_CUDA
+    template <typename real_t, int LM>
+    void __global__ set_unit_blocks_kernel( // GPU kernel, must be launched with <<< { nnzb, 1, 1 }, { LM, 1, 1 } >>>
+          real_t       (*devPtr v)[2][LM][LM] // result, v[nnzb][Re:Im][LM][LM]
+        , real_t   const real_part
+        , real_t   const imag_part
+        , uint32_t const nnzb // number of nonzero blocks in B, needed for check
+    ) {
+        check_launch_params( { nnzb, 1, 1 }, { LM, 1, 1 } );
+        int const inzb = blockIdx.x;
+        int const j   = threadIdx.x;
+
+        v[inzb][0][j][j] = real_part;
+        v[inzb][1][j][j] = imag_part;
+
+    } // set_unit_blocks_kernel
+#endif // HAS_CUDA
+
+    template <typename real_t, int LM>
+    void __host__ set_unit_blocks(
+          real_t       (*devPtr v)[2][LM][LM] // result, v[nnzb][2][LM][LM]
+        , uint32_t const nnzb // number of nonzero blocks in B
+        , cudaStream_t const streamId
+        , real_t   const real_part=1
+        , real_t   const imag_part=0
+    ) {
+#ifndef HAS_NO_CUDA
+        if (nnzb > 0)
+        set_unit_blocks_kernel<real_t,LM> <<< nnzb, LM, 0, streamId >>> (v, real_part, imag_part, nnzb);
+#else  // HAS_CUDA
+        for(uint32_t inzb = 0; inzb < nnzb; ++inzb) {
+            for(int j = 0; j < LM; ++j) {
+                v[inzb][0][j][j] = real_part;
+                v[inzb][1][j][j] = imag_part;
+            } // j
+        } // inzb
+#endif // HAS_CUDA
+    } // set_unit_blocks
+    
+    
 
     // linear algebra functions ////////////////////////////////////////////////////////////////////////////////////////
 

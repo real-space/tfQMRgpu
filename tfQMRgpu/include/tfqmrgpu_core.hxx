@@ -22,6 +22,7 @@ namespace tfqmrgpu {
       , double const tolerance=1e-6
       , int const MaxIterations=999
       , cudaStream_t streamId=0
+      , bool const rhs_nontrivial=true // trivial: right hand side are columns of the unit matrix
   ) {
       PUSH_RANGE("tfQMR preparation"); // NVTX
 
@@ -131,19 +132,23 @@ namespace tfqmrgpu {
 #define AXPY(y,x,a) nFlop += axpy<real_t,LM>(y, x, a, colindx, nnzbX, streamId)
 #define MULT(y,x)   nFlop += action.multiply(y, x,    colindx, nnzbX, nCols, l2nX, streamId)
 
-      // ToDo: move this part into the tail of setMatrix('B')
-      // v5 == 0
-      add_RHS<real_t,LM>(v5, v2, 1, subset, nnzbB, streamId); // v5 := v5 + v2
-      NRM2(dvv, v5); // dvv := ||v5||
-      cudaMemcpy(tau, dvv, nCols*LM*sizeof(double), cudaMemcpyDeviceToDevice);
-      // if we always have unit matrices in B, these 3 steps can be avoided and tau := 1
-      // ToDo: check if we can call nrm2<real_t,LM>(dvv, v2, ColIndOfB, nnzbB, nCols, l2nX)
+      if (rhs_nontrivial) {
+          // ToDo: move this part into the tail of setMatrix('B')
+          // v5 == 0
+          add_RHS<real_t,LM>(v5, v2, 1, subset, nnzbB, streamId); // v5 := v5 + v2
+          NRM2(dvv, v5); // dvv := ||v5||
+          cudaMemcpy(tau, dvv, nCols*LM*sizeof(double), cudaMemcpyDeviceToDevice);
+          // if we always have unit matrices in B, these 3 steps can be avoided and tau := 1
+          // ToDo: check if we can call nrm2<real_t,LM>(dvv, v2, ColIndOfB, nnzbB, nCols, l2nX)
 
-      // ToDo: split this part into two: allocation on CPU and transfer to the CPU, can be done when setMatrix('B')
-      get_data_from_gpu<double[LM]>(invBn2_h, tau, nCols, streamId); // inverse_norm2_of_B
-      for(auto rhs = 0; rhs < nRHSs; ++rhs) {
-          invBn2_h[0][rhs] = 1./invBn2_h[0][rhs]; // invert in-place on the host
-      } // rhs
+          // ToDo: split this part into two: allocation on CPU and transfer to the CPU, can be done when setMatrix('B')
+          get_data_from_gpu<double[LM]>(invBn2_h, tau, nCols, streamId); // inverse_norm2_of_B
+          for(auto rhs = 0; rhs < nRHSs; ++rhs) invBn2_h[0][rhs] = 1./invBn2_h[0][rhs]; // invert in-place on the host
+      } else { // rhs_nontrivial
+          clear_on_gpu<real_t[2][LM][LM]>(v2, nnzbB, streamId);
+          set_unit_blocks<real_t,LM>(v2, nnzbB, streamId,  1,0  );
+          for(auto rhs = 0; rhs < nRHSs; ++rhs) invBn2_h[0][rhs] = 1;
+      } // rhs_nontrivial
 
       tfqmrgpuStatus_t return_status{TFQMRGPU_STATUS_MAX_ITERATIONS}; // preliminary result
       p->iterations_needed = MaxIterations; // preliminary, will be changed if it converges
@@ -264,7 +269,7 @@ namespace tfqmrgpu {
               get_data_from_gpu<double[1][LM]>(resnrm2_h, dvv, nCols, streamId, "resnrm2"); // missing factor inverse_norm2_of_B
               // CCheck(cudaDeviceSynchronize()); // necessary?
 
-              double max_residual2{0}, min_residual2{9e99};
+              double max_residual2{1e-99}, min_residual2{9e99};
               bool isDone{true}, status_modified{false};
               for(auto rhs = 0; rhs < nRHSs; ++rhs) {
                   resnrm2_h[0][0][rhs] *= invBn2_h[0][rhs]; // apply factor inverse_norm2_of_B
@@ -283,7 +288,7 @@ namespace tfqmrgpu {
     
               target_bound2 = (max_bound2 / max_residual2) * tol2; // for the next iteration
               debug_printf("# in iteration %d, max_res2 = %g, min_res2 = %g, new target_bound2 = %g\n", 
-                                 iteration, max_residual2, min_residual2, target_bound2);
+                                 iteration,    max_residual2, min_residual2,     target_bound2);
 
               if (isDone) {
                   p->iterations_needed = iteration;
@@ -299,7 +304,7 @@ namespace tfqmrgpu {
 
       } // while
 
-      // now, result can be retrived by get_data_from_gpu, see getMatrix('X')
+      // now, result can be retrieved by get_data_from_gpu, see getMatrix('X')
 
 #pragma omp single
       { // single
@@ -324,6 +329,7 @@ namespace tfqmrgpu {
       delete[] invBn2_h; // inverse_norm2_of_B on host
 
       POP_RANGE(); // end of NVTX range
+
       return return_status;
   } // solve
 
