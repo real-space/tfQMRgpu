@@ -43,6 +43,7 @@ Purpose
     in X but not vice versa.
 
 ### How to build, compile, install and test
+    compile tfQMRgpu with cuda-11.1, other versions may encounter template bugs
     tfQMRgpu uses CMake, it is recommended to create a build directory
     cd ~/tfQMRgpu
     mkdir build
