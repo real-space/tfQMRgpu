@@ -60,7 +60,7 @@ namespace tfqmrgpu_example_xml_reader {
         rapidxml::xml_node<> const *node
       , char const *const child_name
       , int const echo=0
-  ) { 
+  ) {
       if (nullptr != node) {
           for (auto child = node->first_node(); child; child = child->next_sibling()) {
               if (0 == std::strcmp(child_name, child->name())) {
@@ -117,7 +117,7 @@ namespace tfqmrgpu_example_xml_reader {
 
       // create the root node
       rapidxml::xml_document<> doc;
-      
+
       if (echo > 0) std::printf("# parse file content using rapidxml\n");
       doc.parse<0>(infile.data());
 
@@ -172,7 +172,7 @@ namespace tfqmrgpu_example_xml_reader {
                   std::printf("\n# Warning! Cannot find CompressedSparseRow in SparseMatrix\n\n");
                   return 0;
               } // no csr found
-              
+
               auto const nzpr = find_child(csr, "NonzerosPerRow", echo);
               if (nzpr) {
                   int const nrows = std::atoi(find_attribute(nzpr, "rows", "0", echo));
@@ -247,7 +247,7 @@ namespace tfqmrgpu_example_xml_reader {
           } else { // SparseMatrix
               std::printf("\n# Warning! Cannot find a SparseMatrix for operator %s\n\n", id);
           } // SparseMatrix
-          
+
           auto const DataTensor = find_child(BSM, "DataTensor", echo);
           if (DataTensor) {
               scale_values[abx] = std::atof(find_attribute(DataTensor, "scale", "1", echo));

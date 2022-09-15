@@ -16,7 +16,7 @@
 
 #include "tfqmrgpu_util.hxx" // FlopChar, CCheck, copy_data_to_gpu, get_data_from_gpu
 #ifndef HAS_NO_CUDA
-    #include "tfqmrgpu_blockmult.hxx" // gemmNxNf, gemmNxNf1
+    #include "tfqmrgpu_blockmult.hxx" // gemmNxNf
 #endif // HAS_CUDA
 
 #ifdef DEBUG
@@ -69,7 +69,7 @@ namespace GPUbench {
         // step 3: register the CUDA stream in the handle
         callAndCheck(  tfqmrgpuSetStream(handle, streamId)  )
 
-        if (1) { // sanity check   
+        if (1) { // sanity check
             auto streamId_copy{streamId};
             callAndCheck(  tfqmrgpuGetStream(handle, &streamId_copy)  )
             assert(streamId == streamId_copy);
@@ -113,7 +113,7 @@ namespace GPUbench {
         // step 7: register the GPU memory buffer in the bsrsv-plan
         callAndCheck(  tfqmrgpu_bsrsv_setBuffer(handle, plan, pBuffer)  )
 
-        if (1) { // sanity check   
+        if (1) { // sanity check
             auto pBuffer_copy{pBuffer};
             callAndCheck(  tfqmrgpu_bsrsv_getBuffer(handle, plan, &pBuffer_copy)  )
             assert(pBuffer == pBuffer_copy);
@@ -143,7 +143,7 @@ namespace GPUbench {
         // compare matX and matR (the reference matrix)
         auto const sizeX = X->mat.size(); 
         std::vector<double> Xref(X->mat); // copy constructor
-        
+
         // step d: retrieve the result vectors X 
         // convert the blocks into ColMajor and RIRIRIRI to match the Fortran data layout
         callAndCheck(  tfqmrgpu_bsrsv_getMatrix(handle, plan, 'X',
@@ -539,6 +539,6 @@ int main(int const argc, char const *const argv[]) {
     std::printf("# found tolerance %g\n", tolerance);
     std::printf("# Execute %d repetitions with max. %d iterations.\n", nrep, MaxIter);
     std::printf("# requested precision = %c for LM = %d\n", flouble, ABX[0].fastBlockDim);
-    
+
     return GPUbench::benchmark_tfQMRgpu_library(ABX, tolerance, MaxIter, nrep, flouble);
 } // main

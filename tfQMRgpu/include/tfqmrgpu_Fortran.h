@@ -20,7 +20,7 @@
       integer(kind=4), parameter :: TFQMRGPU_LAYOUT_RIRIRIRI = 85 !! default host layout, real and imag parts are interleaved.
       integer(kind=4), parameter :: TFQMRGPU_LAYOUT_DEFAULT  = 85 !! default Fortran data layout for complex and double complex
 
-!     !! pointer types require 64bit      
+!     !! pointer types require 64bit
       integer, parameter :: TFQMRGPU_HANDLE_KIND = 8 !! a pointer to an opaque handle
       integer, parameter :: TFQMRGPU_PLAN_KIND = 8 !! a pointer to an opaque plan object
       integer, parameter :: TFQMRGPU_PTR_KIND = 8 !! a pointer to data

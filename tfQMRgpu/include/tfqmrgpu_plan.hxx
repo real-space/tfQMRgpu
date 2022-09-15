@@ -5,7 +5,7 @@
 #include "tfqmrgpu_memWindow.h" // memWindow_t 
 
 struct bsrsv_plan_t {
-    
+
     char* pBuffer; // device memory buffer
 
     uint32_t nRows; // number of block rows

@@ -54,7 +54,7 @@ implicit none
     module procedure bsrsv_solve, &
           tfqmrgpu_bsrsv_complete
   endinterface
-  
+
   contains
 
   subroutine print_error(status, ierr)
@@ -93,10 +93,10 @@ implicit none
     external :: tfqmrgpugetstream
     call tfqmrgpugetstream(handle, streamId, ierr)    
   endsubroutine ! get
-  
+
 
 #define DevPtrType integer(kind=8)
-  
+
   subroutine createWorkspace(pBuffer, pBufferSizeInBytes, ierr)
     integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     DevPtrType, intent(inout) :: pBuffer
@@ -154,7 +154,7 @@ implicit none
     external :: tfqmrgpu_bsrsv_destroyplan
     call tfqmrgpu_bsrsv_destroyplan(handle, plan, ierr)
   endsubroutine ! destroy
-    
+
   subroutine bsrsv_bufferSize(handle, plan, &
                     ldA, blockDim, ldB, RhsBlockDim, &
                     doublePrecision, pBufferSizeInBytes, ierr)
@@ -202,7 +202,7 @@ implicit none
 #ifdef  DEBUG
     write(*, '(a,":",i0,a,z0)') __FILE__, &
         __LINE__," got pBuffer = 0x",pBuffer
-#endif    
+#endif
   endsubroutine ! get
 
   subroutine bsrsv_setMatrix_c(handle, plan, var, val, ld, trans, layout, ierr)
@@ -232,7 +232,7 @@ implicit none
     external :: tfqmrgpu_bsrsv_setmatrix_z
     call tfqmrgpu_bsrsv_setmatrix_z(handle, plan, var, val, ld, trans, layout, ierr)
   endsubroutine ! set
-    
+
   subroutine bsrsv_getMatrix_c(handle, plan, var, val, ld, trans, layout, ierr)
     !! retrieves the GPU memory buffer registered in plan.
     integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API

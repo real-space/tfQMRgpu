@@ -170,16 +170,16 @@ namespace tfqmrgpu_example_reader {
           std::cout << "# non-zeros " << avg_nzpr << " +/- " << dev_nzpr << " in " << nzpr0 << " of " << op->nRows << " rows" << std::endl;
           double dev_nzpc; double const avg_nzpc = average_and_deviation(nzpc0, nzpc1, nzpc2, &dev_nzpc);
           std::cout << "# non-zeros " << avg_nzpc << " +/- " << dev_nzpc << " in " << nzpc0 << " of " << op->nCols << " columns" << std::endl;
-          
+
           std::cout << std::endl;
       } // op
 
       auto const A = &(ABX[0]), B = &(ABX[1]), X = &(ABX[2]);
-      
+
       assert(B->nCols == nCols); // number of right hand sides
       assert(X->nCols == nCols); // number of right hand sides, redundant info, sorry
       assert(X->nRows == A->nCols); // multiplication of A*X must be well-defined
-      
+
       assert(A->nRows == A->nCols); // A is assmed to be a square operator here
       assert(A->fastBlockDim == A->slowBlockDim); // A is assmed to be a square operator here
 
@@ -208,9 +208,9 @@ namespace tfqmrgpu_example_reader {
               }
               std::cout << std::endl;
           } // 0
-          
+
       } // elongate the B operator
-      
+
       return tolerance;
   } // read_in
 

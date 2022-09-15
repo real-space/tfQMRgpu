@@ -119,6 +119,6 @@
             } // i
         } // master
     } // print_array
-    
+
     // absolute square of a complex number computed in double
     inline __host__ __device__ double abs2(double const zRe, double const zIm) { return zRe*zRe + zIm*zIm; }
