@@ -5,22 +5,22 @@
 #define devPtr const __restrict__
 
     /* GPU kernel that accepts real and imaginary part split --> coalesced loads possible, uses shared memory */
-    template <typename real_t, int LM, int NA> // NA=number of accumulators
-    void __global__ gemmNxNf( // GPU kernel, must be launched with <<< {nnzbY, 1, 1}, { LM, LM/NA, 1 } >>>
-          real_t         (*devPtr Y)[2][LM][LM] // result, real and imaginary parts are split
+    template <typename real_t, int LM, int LN, int NA> // NA=number of accumulators
+    void __global__ gemmNxNf( // GPU kernel, must be launched with <<< {nnzbY, 1, 1}, { LN, LM/NA, 1 } >>>
+          real_t         (*devPtr Y)[2][LM][LN] // result, real and imaginary parts are split
         , real_t   const (*devPtr A)[2][LM][LM] // scalar argument, conjugated (A^t)
-        , real_t   const (*devPtr X)[2][LM][LM] // vectorized argument (X)
+        , real_t   const (*devPtr X)[2][LM][LN] // vectorized argument (X)
         , uint32_t const (*devPtr pairs) // pairs[nPairs*2]
         , uint32_t const (*devPtr start) // start[nnzbY + 1] indices s into pairs[s*2]
     ) {
-        check_launch_params({gridDim.x, 1, 1}, {LM, LM/NA, 1}); // warning: gridDim.x == nnzbY is not checked!
-        int const jLM = threadIdx.x;
+        check_launch_params({gridDim.x, 1, 1}, {LN, LM/NA, 1}); // warning: gridDim.x == nnzbY is not checked!
+        int const jLN = threadIdx.x;
         int const iLM = threadIdx.y;
         int const ri = iLM & 0x1; // 0: real, 1: imaginary part (relevant only during the pre-loading)
 
-//      full_debug_printf("# %s start with block=%i threads=%i %i\n", __func__, blockIdx.x, iLM, jLM);
+//      full_debug_printf("# %s start with block=%i threads=%i %i\n", __func__, blockIdx.x, iLM, jLN);
 
-        __shared__ real_t A_sk[2][LM], X_sk[2][LM]; // for real_t=double, LM=32 this are 1024 Byte static shared memory 
+        __shared__ real_t X_sk[2][LN], A_sk[2][LM]; // for real_t=double, LM=LN=32 this are 1024 Byte static shared memory 
 
         real_t Yre[NA], Yim[NA]; // accumulators
         UNROLL
@@ -40,14 +40,15 @@
 
                 // coalesced load from global memory into shared memory
                 // info: if blockdim.y > 2, this is done twice but does not introduce errors
-                A_sk[ri][jLM] = A[iAmat][ri][kLM][jLM]; 
-                X_sk[ri][jLM] = X[iXmat][ri][kLM][jLM];
+                if (jLN < LM)
+                A_sk[ri][jLN] = A[iAmat][ri][kLM][jLN];
+                X_sk[ri][jLN] = X[iXmat][ri][kLM][jLN];
 
                 __syncthreads(); // wait until shared memory is filled
 
                 // load vectorized matrix element X_{kj} from shared memory into registers
-                real_t const Xre_j = X_sk[0][jLM];
-                real_t const Xim_j = X_sk[1][jLM];
+                real_t const Xre_j = X_sk[0][jLN];
+                real_t const Xim_j = X_sk[1][jLN];
 
                 UNROLL
                 for(int ii = 0; ii < NA; ++ii) {
@@ -55,7 +56,7 @@
                     real_t const Are_i = A_sk[0][iLM*NA + ii];
                     real_t const Aim_i = A_sk[1][iLM*NA + ii];
  
-//                  full_debug_printf("# %s block=%i threads=%i %i adds %g * %g for k=%i\n", __func__, blockIdx.x, iLM, jLM, Are_i, Xre_j, kLM);
+//                  full_debug_printf("# %s block=%i threads=%i %i adds %g * %g for k=%i\n", __func__, blockIdx.x, iLM, jLN, Are_i, Xre_j, kLM);
 
                     // complex multiplication, 8 Flop
                     Yre[ii] += Are_i * Xre_j - Aim_i * Xim_j; // Real part
@@ -69,8 +70,8 @@
         // store result to global memory
         UNROLL
         for(int ii = 0; ii < NA; ++ii) {
-            Y[iYmat][0][iLM*NA + ii][jLM] = Yre[ii];
-            Y[iYmat][1][iLM*NA + ii][jLM] = Yim[ii];
+            Y[iYmat][0][iLM*NA + ii][jLN] = Yre[ii];
+            Y[iYmat][1][iLM*NA + ii][jLN] = Yim[ii];
         } // ii
 
     } // gemmNxNf

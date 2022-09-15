@@ -9,21 +9,21 @@
 #include "tfqmrgpu_blocksparse.hxx" // blocksparse_action_t
 
 
-    template <typename real_t, int LM>
-    tfqmrgpuStatus_t mysolve_real_LM (
+    template <typename real_t, int LM, int LN=LM>
+    tfqmrgpuStatus_t mysolve_real_LM_LN (
           cudaStream_t streamId // stream
         , bsrsv_plan_t* p // plan
         , double const tolerance
         , int const MaxIterations
         , bool const memcount
     ) {
-        blocksparse_action_t<real_t, LM> action(p);
+        blocksparse_action_t<real_t,LM> action(p);
         return tfqmrgpu::solve(action, memcount ? nullptr : p->pBuffer, tolerance, MaxIterations, streamId);
-    } // mysolve_real_LM
+    } // mysolve_real_LM_LN
 
 
-    template <int LM>
-    tfqmrgpuStatus_t mysolve_LM (
+    template <int LM, int LN=LM>
+    tfqmrgpuStatus_t mysolve_LM_LN (
           cudaStream_t streamId // stream
         , bsrsv_plan_t* p // plan
         , double const tolerance
@@ -31,9 +31,9 @@
         , bool const memcount
     ) {
         return ('z' == (p->doublePrecision | IgnoreCase)) ?
-            mysolve_real_LM<double,LM>(streamId, p, tolerance, MaxIterations, memcount):
-            mysolve_real_LM<float ,LM>(streamId, p, tolerance, MaxIterations, memcount);
-    } // mysolve_LM
+            mysolve_real_LM_LN<double,LM,LN>(streamId, p, tolerance, MaxIterations, memcount):
+            mysolve_real_LM_LN<float ,LM,LN>(streamId, p, tolerance, MaxIterations, memcount);
+    } // mysolve_LM_LN
 
 
     tfqmrgpuStatus_t mysolve (
@@ -43,16 +43,17 @@
         , int const MaxIterations
         , bool const memcount=false
     ) {
-        switch (p->LM) {
-#define     instance(LM) \
-            case LM: return mysolve_LM<LM>(streamId, p, tolerance, MaxIterations, memcount)
+        switch (p->LM*10000 + p->LN) {
+#define     instance(LM,LN) \
+            case   LM*10000 + LN: return mysolve_LM_LN<LM,LN>(streamId, p, tolerance, MaxIterations, memcount)
 
             // here, add all the allowed block sizes
-            instance( 4);
-            instance( 8);
-            instance(16);
-            instance(32);
-            instance(64);
+            instance( 4,32); // blocks in X and B are rectangular
+            instance( 4, 4);
+            instance( 8, 8);
+            instance(16,16);
+            instance(32,32);
+            instance(64,64);
 
 #undef      instance
             default: return TFQMRGPU_BLOCKSIZE_MISSING + TFQMRGPU_CODE_LINE*p->LM; // also say which blocksize was requested

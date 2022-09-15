@@ -11,7 +11,8 @@ struct bsrsv_plan_t {
     uint32_t nRows; // number of block rows
     uint32_t nCols; // number of block columns
 
-    uint16_t LM; // block size
+    uint16_t LM; // rows in each block 
+    uint16_t LN; // columns in each block
     char doublePrecision; // solve in 'C', 'Z' or 'M' (single, double or mixed precision)
 
     // for the matrix-matrix addition:
