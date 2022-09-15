@@ -137,7 +137,7 @@ namespace tfqmrgpu {
 
       if (rhs_trivial) {
           clear_on_gpu<real_t[2][LM][LN]>(v2, nnzbB, streamId);
-          set_unit_blocks<real_t,LN>(v2, nnzbB, streamId,  1,0  );
+          set_unit_blocks<real_t,LM,LN>(v2, nnzbB, streamId,  1,0  );
           add_RHS<real_t,LM,LN>(v5, v2, 1, subset, nnzbB, streamId); // v5 := v5 + v2
           set_real_value<double,LN>(tau, nCols, 1., streamId);
           for(auto rhs = 0; rhs < nRHSs; ++rhs) invBn2_h[0][rhs] = 1;
