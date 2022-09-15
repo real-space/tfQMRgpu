@@ -1,4 +1,4 @@
-! include "tfqmrgpu_Fortran_module.F90"
+!! include "../tfQMRgpu/include/tfqmrgpu_Fortran_module.F90"
 
 #define DEBUG
 
