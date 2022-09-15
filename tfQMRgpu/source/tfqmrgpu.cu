@@ -17,7 +17,7 @@
         , int const MaxIterations
         , bool const memcount
     ) {
-        blocksparse_action_t<real_t,LM> action(p);
+        blocksparse_action_t<real_t,LM,LN> action(p);
         return tfqmrgpu::solve(action, memcount ? nullptr : p->pBuffer, tolerance, MaxIterations, streamId);
     } // mysolve_real_LM_LN
 
@@ -334,8 +334,9 @@
     ) {
         // query the necessary GPU memory buffer size
         int const LM = ldA;
+        int const LN = ldB;
         if (LM != blockDim)     return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // so far, this library is not that flexible
-        if (LM != ldB)          return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // so far, this library is not that flexible
+        if (LM > LN)            return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // so far, this library is not that flexible
         if (LM != RhsBlockDim)  return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // so far, this library is not that flexible
 
         auto const p = (bsrsv_plan_t*)plan;
@@ -348,6 +349,7 @@
         } // doublePrecision
 
         p->LM = LM; // store the block size and precision information in the plan
+        p->LN = LN; // store the number of columns in each block of X or B
 
         cudaStream_t streamId;
         {   auto const stat = tfqmrgpuGetStream(handle, &streamId);

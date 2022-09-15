@@ -246,21 +246,21 @@ namespace GPUbench {
     } // create_on_cpu
 
 #ifndef HAS_NO_CUDA
-    template <typename real_t, int LM>
-    void __global__ // GPU kernel, must be launched with <<< {nmat, 1, 1}, {LM, any, 1} >>>
-    fill_cos_sin(real_t (*devPtr c)[2][LM][LM]) {
+    template <typename real_t, int LM, int LN>
+    void __global__ // GPU kernel, must be launched with <<< {nmat, 1, 1}, {LN, any, 1} >>>
+    fill_cos_sin(real_t (*devPtr c)[2][LM][LN]) {
         // fill GPU arrays with non-trivial but deterministic values
         int const m = blockIdx.x;
         int const j = threadIdx.x;
         for(int i = threadIdx.y; i < LM; i += blockDim.y) { // grid stride loop
-            auto const arg = double(j + LM*(i + LM*m));
+            auto const arg = double((m*LM + i)*LN + j);
             c[m][0][i][j] = std::cos(arg);
             c[m][1][i][j] = std::sin(arg);
         } // i
     } // fill_cos_sin
 #endif // HAS_CUDA
 
-    template <typename real_t, int LM>
+    template <typename real_t, int LM, int LN=LM>
     double bench_multi( // returns the average time needed per kernel call
           unsigned const nnzbY
         , uint32_t const (*const starts_h)
@@ -276,23 +276,23 @@ namespace GPUbench {
         std::printf("# Execute %d repetitions, sample %d times.\n", nRepetitions, nSamples);
 
         int const mem = nnzbY + nnzbA + nnzbX;
-        std::printf("# Try to allocate %.3f GByte for %d * 2 real matrices of dim=%d\n", 
-                       1e-9*sizeof(real_t[2][LM][LM])*mem, mem, LM);
-        auto matY = get_gpu_memory<real_t[2][LM][LM]>(nnzbY);
-        auto matA = get_gpu_memory<real_t[2][LM][LM]>(nnzbA);
-        auto matX = get_gpu_memory<real_t[2][LM][LM]>(nnzbX);
+        std::printf("# Try to allocate %.3f GByte for %d * 2 real matrices of dim=%d x %d\n", 
+                       1e-9*sizeof(real_t[2][LM][LN])*mem, mem, LM, LN);
+        auto matY = get_gpu_memory<real_t[2][LM][LN]>(nnzbY);
+        auto matA = get_gpu_memory<real_t[2][LM][LN]>(nnzbA);
+        auto matX = get_gpu_memory<real_t[2][LM][LN]>(nnzbX);
 
         auto starts_d = create_on_gpu<uint32_t>(starts_h, nnzbY + 1);
         auto pairs_d  = create_on_gpu<uint32_t>(pairs_h, nPairs*2);
 
 #ifndef HAS_NO_CUDA
-        fill_cos_sin<real_t,LM> <<< nnzbA, {LM, 1024/LM, 1} >>> (matA);
-        fill_cos_sin<real_t,LM> <<< nnzbX, {LM, 1024/LM, 1} >>> (matX);
+        fill_cos_sin<real_t,LM,LN> <<< nnzbA, {LN, 1024/LM, 1} >>> (matA);
+        fill_cos_sin<real_t,LM,LN> <<< nnzbX, {LN, 1024/LM, 1} >>> (matX);
 
         int constexpr TUNE = 2;
         // TUNE == 2 performance up to 3.8 TFlop/s for LM=32 on V100
         // TUNE == 4 performance up to 4.3 TFlop/s for LM=32 on V100, does not work for LM=6
-        dim3 const threads = { LM, TUNE, 1 };
+        dim3 const threads = { LN, TUNE, 1 };
         std::printf("# CUDA Launch <<< %d, { %d, %d, %d } >>>, TUNE = %d\n",
                               nnzbY, threads.x, threads.y, threads.z, TUNE);
 #endif // HAS_CUDA
@@ -306,8 +306,8 @@ namespace GPUbench {
             for(int repetition = 0; repetition < nRepetitions; ++repetition) {
                 // test the small matrix-matrix multiplications
 #ifndef HAS_NO_CUDA
-                gemmNxNf<real_t,LM,LM/TUNE> <<< nnzbY, threads >>> (matY, matA, matX, pairs_d, starts_d);
-                nFlop += nPairs*(8.*LM)*(LM*LM);
+                gemmNxNf<real_t,LM,LN,LM/TUNE> <<< nnzbY, threads >>> (matY, matA, matX, pairs_d, starts_d);
+                nFlop += nPairs*(8.*LM)*(LM*LN);
 #endif // HAS_CUDA
             } // repetition
             CCheck(cudaDeviceSynchronize());
@@ -334,21 +334,21 @@ namespace GPUbench {
         { nthreads = omp_get_num_threads(); }
         std::printf("# CPU %d threads check for correct results\n", nthreads);
         { // correctness check scope
-            auto const matY_h = create_on_cpu<real_t[2][LM][LM]>(matY, nnzbY);
-            auto const matA_h = create_on_cpu<real_t[2][LM][LM]>(matA, nnzbA);
-            auto const matX_h = create_on_cpu<real_t[2][LM][LM]>(matX, nnzbX);
+            auto const matY_h = create_on_cpu<real_t[2][LM][LN]>(matY, nnzbY);
+            auto const matA_h = create_on_cpu<real_t[2][LM][LN]>(matA, nnzbA);
+            auto const matX_h = create_on_cpu<real_t[2][LM][LN]>(matX, nnzbX);
 #pragma omp parallel for reduction(+:alldev,allval) reduction(max:maxdev)
             for(auto iY = 0u; iY < nnzbY; ++iY) {
-                auto matY_r = new real_t[2][LM][LM]; // thread-private reference result
+                auto matY_r = new real_t[2][LM][LN]; // thread-private reference result
                 for(auto i = 0; i < LM; ++i) {
-                    for(auto j = 0; j < LM; ++j) {
+                    for(auto j = 0; j < LN; ++j) {
                         matY_r[0][i][j] = 0; matY_r[1][i][j] = 0; // clear real and imaginary part
                     } // j
                 } // i
                 for(auto ipair = starts_h[iY]; ipair < starts_h[iY + 1]; ++ipair) {
                     auto const iA = pairs_h[ipair*2 + 0], iX = pairs_h[ipair*2 + 1];
                     for(auto i = 0; i < LM; ++i) {
-                        for(auto j = 0; j < LM; ++j) {
+                        for(auto j = 0; j < LN; ++j) {
                             real_t cr{0}, ci{0};
                             for(auto k = 0; k < LM; ++k) {
                                 real_t const srei = matA_h[iA][0][k][i], simi = matA_h[iA][1][k][i];
@@ -362,7 +362,7 @@ namespace GPUbench {
                 } // ipair
                 for(auto c = 0; c < 2; ++c) {
                     for(auto i = 0; i < LM; ++i) {
-                        for(auto j = 0; j < LM; ++j) {
+                        for(auto j = 0; j < LN; ++j) {
                             double const dev = std::abs(matY_r[c][i][j] - matY_h[iY][c][i][j]);
                             maxdev = std::max(maxdev, dev);
                             alldev += dev;
@@ -382,7 +382,7 @@ namespace GPUbench {
 
         std::printf("# GPU maxdev %g avgdev %g\n", maxdev, alldev/allval);
         if (maxdev > 1e-4) {
-            std::printf("# Warning! GPU result has large deviations (%g) for blockDim=%d\n", maxdev, LM);
+            std::printf("# Warning! GPU result has large deviations (%g) for blockDim=%d x %d\n", maxdev, LM, LN);
             correct = false; // do not show the performance of wrong results
         } else {
             std::printf("# CPU result checking with %d threads took %.3f sec\n", nthreads, time_chk);
