@@ -35,7 +35,7 @@
             mysolve_real_LM<float ,LM>(streamId, p, tolerance, MaxIterations, memcount);
     } // mysolve_LM
 
-    
+
     tfqmrgpuStatus_t mysolve (
           cudaStream_t streamId
         , bsrsv_plan_t* p // plan
@@ -54,7 +54,7 @@
             instance(32);
             instance(64);
 
-#undef      instance            
+#undef      instance
             default: return TFQMRGPU_BLOCKSIZE_MISSING + TFQMRGPU_CODE_LINE*p->LM; // also say which blocksize was requested
         } // switch LM
     } // mysolve
@@ -143,7 +143,7 @@
 
         // compute Y = A*X, minimize |Y - B| to solve A*X == B
         // nnzbY == nnzbX
-        
+
         // static plausibility checks
         int const nnzbY = nnzbX; // copy number of non-zero elements
         if (mb < 1)             return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // at least one row/column needs to be there
@@ -160,10 +160,10 @@
         p->nRows = mb;
         p->nnzbA = nnzbA;
 
-        int const C0F1 = indexOffset; // abbreviate C/C++:0, Fortran:1
-      
+        int const C0F1 = indexOffset; // abbreviate start index C/C++:0, Fortran:1
+
         { // in this scope we compute the multiplication index pair list for Y = A * X
-        
+
             // the bsrY sparsity pattern is equal to the bsrX sparsity pattern
             auto const bsrRowPtrY = bsrRowPtrX; // copy pointer
             auto bsrColIndY = bsrColIndX; // copy pointer
@@ -230,10 +230,10 @@
                     p->subset.push_back(inzx); // store the block index into the value array of X at which B is also non-zero.
                 } // inzb
             } // irow
-            
+
             p->cpu_mem += p->subset.size() * sizeof(int); // register host memory usage in Byte
         } // scope
-        
+
 
         int nb{0}; // number of block columns
 
@@ -278,7 +278,7 @@
 
             p->colindx.clear();
             p->colindx.resize(nnzbX); // exact size
-            
+
             p->original_bsrColIndX.clear();
             p->original_bsrColIndX.resize(nb); // exact size
 
@@ -296,11 +296,11 @@
         p->nCols = nb; // store number of block columns
 
         p->pBuffer = nullptr; // init pointer copy to device memory (which will be allocated by the user)
-        
+
         p->flops_performed_all = 0; // init
-        p->flops_performed = -1; // init impossible
+        p->flops_performed   = -1; // init impossible
         p->iterations_needed = -1; // init impossible
-        
+
         debug_printf("# found %ld non-zero entries in X\n", p->colindx.size());
         assert(p->colindx.size() == nnzbX);
 
@@ -364,7 +364,7 @@
         return status;
     } // bufferSize
 
-    
+
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_setBuffer(
           tfqmrgpuHandle_t handle // in: opaque handle for the tfqmrgpu library.
         , tfqmrgpuBsrsvPlan_t plan // inout: set the plan-internal buffer variable
@@ -413,7 +413,7 @@
         return TFQMRGPU_STATUS_SUCCESS;
     } // getBuffer
 
-    
+
     tfqmrgpuStatus_t varname_selector(
           char const var
         , bsrsv_plan_t* p
@@ -608,7 +608,7 @@
         return TFQMRGPU_STATUS_SUCCESS;
     } // getMatrix
 
-    
+
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_solve(
           tfqmrgpuHandle_t handle // in: opaque handle for the tfqmrgpu library.
         , tfqmrgpuBsrsvPlan_t plan // inout: plan for bsrsv

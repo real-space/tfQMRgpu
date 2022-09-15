@@ -5,7 +5,7 @@
  *      so they can be called from Fortran like subroutines.
  * The right hand side are C-interfaced functions 
  *      that return a status (int) as defined in "tfqmrgpu.h".
- *  
+ *
  * tfqmrgpucreatehandle_        --> tfqmrgpuCreateHandle
  * tfqmrgpusetstream_           --> tfqmrgpuSetStream
  * tfqmrgpugetstream_           --> tfqmrgpuGetStream

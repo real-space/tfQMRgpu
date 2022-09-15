@@ -22,9 +22,9 @@
 #endif // DEBUG
 
 namespace tfqmrgpu {
-   
+
     // tfQMR decision sections ////////////////////////////////////////////////////////////////////////
-    
+
 #define EPSILON 2.5e-308
 
 
@@ -36,7 +36,7 @@ namespace tfqmrgpu {
         , double const (*devPtr z35)[2][LM] // inner product v3.v5
         , uint32_t const nCols
     ) {
-#ifndef HAS_NO_CUDA      
+#ifndef HAS_NO_CUDA
         check_launch_params( { nCols, 1, 1 }, { LM, 1, 1 } );
         { int const i = blockIdx.x;
             { int const j = threadIdx.x;
@@ -81,7 +81,7 @@ namespace tfqmrgpu {
         , double const (*devPtr var)[LM] // var
         , uint32_t const nCols
     ) {
-#ifndef HAS_NO_CUDA      
+#ifndef HAS_NO_CUDA
         check_launch_params( { nCols, 1, 1 }, { LM, 1, 1 } );
         { int const i = blockIdx.x;
             { int const j = threadIdx.x;
@@ -122,8 +122,8 @@ namespace tfqmrgpu {
             } // threads j
         } // blocks i 
     } // dec34
-    
-    
+
+
     template <typename real_t, int LM>
     void __global__ tfQMRdecT( // GPU kernel, must be launched with <<< nCols, LM >>>
           int8_t       (*devPtr status)[LM] // tfQMR status
@@ -177,11 +177,11 @@ namespace tfqmrgpu {
         } // blocks i 
     } // decT
 
-    
-    
+
+
     // basis linear algebra kernels ////////////////////////////////////////////////////////////////////////
 
-    
+
     template <typename real_in_t, typename real_out_t>
     void __global__ convert_precision( // GPU kernel, must be launched with <<< { any, 1, 1 }, { any, 1, 1 } >>>
           real_out_t      (*devPtr out) // result, out
@@ -335,7 +335,7 @@ namespace tfqmrgpu {
         }
     } // transpose_blocks
 
-    
+
 #ifndef HAS_NO_CUDA
     template <typename real_t, int LM>
     void __global__ add_RHS_kernel( // GPU kernel, must be launched with <<< { any, 1, 1 }, { LM, 1, 1 } >>>
@@ -384,8 +384,8 @@ namespace tfqmrgpu {
 #endif // HAS_CUDA
     } // add_RHS
 
-    
-    
+
+
 #ifndef HAS_NO_CUDA
     template <typename real_t, int LM>
     void __global__ set_unit_blocks_kernel( // GPU kernel, must be launched with <<< { nnzb, 1, 1 }, { LM, 1, 1 } >>>
@@ -424,8 +424,8 @@ namespace tfqmrgpu {
         } // inzb
 #endif // HAS_CUDA
     } // set_unit_blocks
-    
-    
+
+
 
     // linear algebra functions ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -470,7 +470,7 @@ namespace tfqmrgpu {
             if (2 == D2) {
                 dots[iput*nCols + icol][1][j] = di; // no race condition here
             } // D2
-           
+
         } // inz
 
     } // col_inner
@@ -648,8 +648,8 @@ namespace tfqmrgpu {
 
 
     // basis linear algebra level 3 kernels ////////////////////////////////////////////////////////////////////////
-    
-#ifndef HAS_NO_CUDA    
+
+#ifndef HAS_NO_CUDA
     template <typename real_t, int LM>
     void __global__ set_complex_value_kernel(
           real_t (*devPtr array)[2][LM] // 1D launch with correct size
@@ -682,8 +682,8 @@ namespace tfqmrgpu {
 #endif // HAS_CUDA
     } // set_complex_value
 
-    
-#ifndef HAS_NO_CUDA    
+
+#ifndef HAS_NO_CUDA
     template <typename real_t, int LM>
     void __global__ set_real_value_kernel(
           real_t (*devPtr array)[LM] // 1D launch with correct size
@@ -712,8 +712,8 @@ namespace tfqmrgpu {
         } // iblock
 #endif // HAS_CUDA
     } // set_real_value
-    
-    
+
+
     inline tfqmrgpuStatus_t create_random_numbers(
           float (*devPtr v3)
         , size_t const length // number of floats in v3
