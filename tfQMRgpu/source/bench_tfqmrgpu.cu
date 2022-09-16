@@ -275,11 +275,11 @@ namespace GPUbench {
 
         std::printf("# Execute %d repetitions, sample %d times.\n", nRepetitions, nSamples);
 
-        int const mem = nnzbY + nnzbA + nnzbX;
-        std::printf("# Try to allocate %.3f GByte for %d * 2 real matrices of dim=%d x %d\n", 
-                       1e-9*sizeof(real_t[2][LM][LN])*mem, mem, LM, LN);
+        size_t const mem = (nnzbY + nnzbX)*sizeof(real_t[2][LM][LN]) + nnzbA*sizeof(real_t[2][LM][LM]);
+        std::printf("# Try to allocate %.3f GByte for %d + %d complex matrices of dim=%d x %d and "
+                    "%d complex matrices of dim=%d x %d\n", mem*1e-9, nnzbY, nnzbX, LM, LN, nnzbA, LM, LM);
         auto matY = get_gpu_memory<real_t[2][LM][LN]>(nnzbY);
-        auto matA = get_gpu_memory<real_t[2][LM][LN]>(nnzbA);
+        auto matA = get_gpu_memory<real_t[2][LM][LM]>(nnzbA);
         auto matX = get_gpu_memory<real_t[2][LM][LN]>(nnzbX);
 
         auto starts_d = create_on_gpu<uint32_t>(starts_h, nnzbY + 1);
