@@ -286,7 +286,7 @@ namespace GPUbench {
         auto pairs_d  = create_on_gpu<uint32_t>(pairs_h, nPairs*2);
 
 #ifndef HAS_NO_CUDA
-        fill_cos_sin<real_t,LM,LN> <<< nnzbA, {LN, 1024/LM, 1} >>> (matA);
+        fill_cos_sin<real_t,LM,LM> <<< nnzbA, {LM, 1024/LM, 1} >>> (matA);
         fill_cos_sin<real_t,LM,LN> <<< nnzbX, {LN, 1024/LM, 1} >>> (matX);
 
         int constexpr TUNE = 2;
@@ -335,7 +335,7 @@ namespace GPUbench {
         std::printf("# CPU %d threads check for correct results\n", nthreads);
         { // correctness check scope
             auto const matY_h = create_on_cpu<real_t[2][LM][LN]>(matY, nnzbY);
-            auto const matA_h = create_on_cpu<real_t[2][LM][LN]>(matA, nnzbA);
+            auto const matA_h = create_on_cpu<real_t[2][LM][LM]>(matA, nnzbA);
             auto const matX_h = create_on_cpu<real_t[2][LM][LN]>(matX, nnzbX);
 #pragma omp parallel for reduction(+:alldev,allval) reduction(max:maxdev)
             for(auto iY = 0u; iY < nnzbY; ++iY) {
