@@ -10,16 +10,16 @@
  */
 
 #include <cstdio> // std::printf
-#include <cstdio> // std::fBSMen, std::fprintf, std::fclose
+#include <cstdio> // std::fBSMen, ::fprintf, ::fclose
 #include <cassert> // assert
 #include <complex> // std::complex<T>
 #include <vector> // std::vector<T>
 #include <cerrno> // errno, ERANGE
 #include <numeric> // std::iota
-#include <algorithm> // std::max_element, std::min_element
+#include <algorithm> // std::max_element, ::min_element
 
 #ifndef HAS_NO_RAPIDXML
-  #include <cstdlib> // std::atof, std::strtod
+  #include <cstdlib> // std::atof, ::strtod
   #include <cstring> // std::strcmp
 
   // git clone https://github.com/dwd/rapidxml
@@ -147,6 +147,8 @@ namespace tfqmrgpu_example_xml_reader {
 //         </ColumnIndex>
 //       </CompressedSparseRow>
 //     </SparseMatrix>
+//   </BlockSparseMatrix>
+// </LinearProblem>
 
       double scale_values[] = {1, 1, 1};
       std::vector<unsigned> indirect[3];
