@@ -29,11 +29,11 @@ implicit none
   interface destroy
     module procedure destroyHandle, bsrsv_destroyPlan
   endinterface
-  
+
   interface free
     module procedure destroyWorkspace
   endinterface
-  
+
   interface set
     module procedure setStream, &
       bsrsv_setBuffer, &

@@ -48,10 +48,12 @@
             case   LM*10000 + LN: return mysolve_LM_LN<LM,LN>(streamId, p, tolerance, MaxIterations, memcount)
 
             // here, add all the allowed block sizes
-            instance( 4,32); // blocks in X and B are rectangular
             instance( 4, 4);
+            instance( 4,32); // blocks in X and B are rectangular
             instance( 8, 8);
+            instance( 8,32); // blocks in X and B are rectangular
             instance(16,16);
+            instance(16,32); // blocks in X and B are rectangular
             instance(32,32);
             instance(64,64);
 

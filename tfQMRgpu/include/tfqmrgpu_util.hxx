@@ -98,10 +98,10 @@
     /////////////////////////////////////// debug helpers //////////////////////////////////
     template <typename T, int Dim>
     void __global__ print_array( // GPU kernel, must be launched with <<< 1, 1 >>>
-          T const (*devPtr array)[Dim] // any array[][Dim]
-        , int const num
-        , char const name // only a single character!
-        , char const format='f'
+          T const (*devPtr array)[Dim] // any array[num][Dim]
+        , size_t const num
+        , char const name // only a single character for the array name!
+        , char const format='f' // only a single character for the format!
     ) {
 #ifndef HAS_NO_CUDA
         if (0 == threadIdx.x)
@@ -110,9 +110,9 @@
             char fmt[4] = " %f"; fmt[2] = format;
             printf("\n# print array \'%c\' in format \"%s\" with %d rows of %d elements\n",
                                       name,           fmt,       num,       Dim); 
-            for(auto i = 0; i < num; ++i) {
+            for(size_t i = 0; i < num; ++i) {
                 printf("# %c[%d] ", name, i); 
-                for(auto d = 0; d < Dim; ++d) {
+                for(int d = 0; d < Dim; ++d) {
                     printf(fmt, array[i][d]); 
                 } // d
                 printf(" \n"); 

@@ -415,7 +415,8 @@ namespace GPUbench {
         char const fF    = (argc > 3)?          *argv[3]  : 'f'; // {f,F,c,C, d,D,z,Z} = float or double
         int const nrep   = (argc > 4)? std::atoi(argv[4]) : 1; // number or repetitions
         int const nsamp  = (argc > 5)? std::atoi(argv[5]) : 1; // number of sampling
-        int const lsmd   = (argc > 6)? std::atoi(argv[6]) : 16; // block size
+        int const lsmd   = (argc > 6)? std::atoi(argv[6]) : 16; // block rows
+        int       lsnd   = (argc > 7)? std::atoi(argv[7]) : 0; //  block cols
 
         bool const doublePrecision = (('d' == (fF | 32)) || ('z' == (fF | 32)));
 
@@ -483,26 +484,31 @@ namespace GPUbench {
             std::cout << std::endl;
 #endif // FULLDEBUG
 
-        switch (lsmd) { // blocksize
-#define call_it(REAL_t,LSMd) bench_multi<REAL_t, LSMd>(nnzY, starts.data(), nPairs, pairs.data(), nnzA, nnzX, nrep, nsamp)
-#define decide_precision(LSMd) if (doublePrecision) { call_it(double,LSMd); } else { call_it(float,LSMd); }
-            case   4:  decide_precision(  4); break; // Lmax=1
-            case   8:  decide_precision(  8); break; // Lmax=1, noco
-            case  16:  decide_precision( 16); break; // Lmax=3
-            case  32:  decide_precision( 32); break; // Lmax=3, noco
-            case  64:  decide_precision( 64); break; // Lmax=7
-            case 128:  decide_precision(128); break; // Lmax=7, noco
+        switch (lsnd*1000 + lsmd) { // blocksize
+#define call_it(REAL_t,LSMd,LSNd) bench_multi<REAL_t,LSMd,LSNd>(nnzY, starts.data(), nPairs, pairs.data(), nnzA, nnzX, nrep, nsamp)
+#define decide_precision(LSMd,LSNd) if (doublePrecision) { call_it(double,LSMd,LSNd); } else { call_it(float,LSMd,LSNd); }
+            case   4:  decide_precision(  4,  4); break; // Lmax=1
+            case   8:  decide_precision(  8,  8); break; // Lmax=1, noco
+            case  16:  decide_precision( 16, 16); break; // Lmax=3
+            case  32:  decide_precision( 32, 32); break; // Lmax=3, noco
+            case  64:  decide_precision( 64, 64); break; // Lmax=7
+            case 128:  decide_precision(128,128); break; // Lmax=7, noco
 
             // with a single prime factor 3
-            case   6:  decide_precision(  6); break;
-            case  12:  decide_precision( 12); break;
-            case  24:  decide_precision( 24); break;
-            case  48:  decide_precision( 48); break;
-            case  96:  decide_precision( 96); break;
+            case   6:  decide_precision(  6,  6); break;
+            case  12:  decide_precision( 12, 12); break;
+            case  24:  decide_precision( 24, 24); break;
+            case  48:  decide_precision( 48, 48); break;
+            case  96:  decide_precision( 96, 96); break;
+
+            // rectangular cases
+            case 32004:  decide_precision(  4, 32); break;
+            case 32008:  decide_precision(  8, 32); break;
+            case 32016:  decide_precision( 16, 32); break;
 
 #undef  decide_precision
 #undef  call_it
-            default : std::cout << "ERROR: Case not implemented lsmd = " << lsmd << std::endl; return 1; 
+            default : std::cout << "ERROR: Case not implemented lsmd = " << lsmd << " lsnd = " << std::max(lsmd,lsnd) << std::endl; return 1; 
         } // switch lsmd
 
         std::cout << "# done " << __func__ << std::endl;
