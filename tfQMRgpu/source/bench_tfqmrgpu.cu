@@ -266,7 +266,7 @@ namespace GPUbench {
     } // fill_cos_sin
 #endif // HAS_CUDA
 
-    template <typename real_t, int LM, int LN=LM>
+    template <typename real_t, int LM, int LN=LM, typename double_t=real_t, int TUNE=2>
     double bench_multi( // returns the average time needed per kernel call
           unsigned const nnzbY
         , uint32_t const (*const starts_h)
@@ -295,7 +295,6 @@ namespace GPUbench {
         fill_cos_sin<real_t,LM,LM> <<< nnzbA, {LM, 1024/LM, 1} >>> (matA);
         fill_cos_sin<real_t,LM,LN> <<< nnzbX, {LN, 1024/LM, 1} >>> (matX);
 
-        int constexpr TUNE = 2;
         // TUNE == 2 performance up to 3.8 TFlop/s for LM=32 on V100
         // TUNE == 4 performance up to 4.3 TFlop/s for LM=32 on V100, does not work for LM=6
         dim3 const threads = { LN, TUNE, 1 };
@@ -312,7 +311,7 @@ namespace GPUbench {
             for(int repetition = 0; repetition < nRepetitions; ++repetition) {
                 // test the small matrix-matrix multiplications
 #ifndef HAS_NO_CUDA
-                gemmNxNf<real_t,LM,LN,LM/TUNE> <<< nnzbY, threads >>> (matY, matA, matX, pairs_d, starts_d);
+                gemmNxNf<real_t,LM,LN,LM/TUNE,double_t> <<< nnzbY, threads >>> (matY, matA, matX, pairs_d, starts_d);
                 nFlop += nPairs*(8.*LM)*(LM*LN);
 #endif // HAS_CUDA
             } // repetition
@@ -419,13 +418,14 @@ namespace GPUbench {
         // ToDo: use control::get environment
                                  assert( 'm' == *argv[1] ); // 'multiplication' task
         char const *fnm  = (argc > 2)?           argv[2]  : "plan"; // inputfile
-        char const fF    = (argc > 3)?          *argv[3]  : 'f'; // {f,F,c,C, d,D,z,Z} = float or double
+        char const fF    = (argc > 3)?          *argv[3]  : 'f'; // {f,F,c,C, d,D,z,Z, m,M} = float or double or mixed
         int const nrep   = (argc > 4)? std::atoi(argv[4]) : 1; // number or repetitions
         int const nsamp  = (argc > 5)? std::atoi(argv[5]) : 1; // number of sampling
         int const lm     = (argc > 6)? std::atoi(argv[6]) : 16; // block rows
         int const ln     = (argc > 7)? std::atoi(argv[7]) : lm; // block cols
 
-        bool const doublePrecision = (('d' == (fF | IgnoreCase)) || ('z' == (fF | IgnoreCase)));
+        char const doublePrecision = (('d' == (fF | IgnoreCase)) || ('z' == (fF | IgnoreCase))) ? 'z' 
+                                   : (('m' == (fF | IgnoreCase)) ? 'm' : 'c');
 
         // read multiplication plan from input file
         std::ifstream input(fnm, std::ifstream::in);
@@ -491,9 +491,14 @@ namespace GPUbench {
             std::cout << std::endl;
 #endif // FULLDEBUG
 
+        int constexpr tune = 2;
         switch (lm*1000 + ln) { // blocksize
-#define call_it(REAL_t,LM,LN) bench_multi<REAL_t,LM,LN>(nnzY, starts.data(), nPairs, pairs.data(), nnzA, nnzX, nrep, nsamp)
-#define decide_precision(LM,LN) if (doublePrecision) { call_it(double,LM,LN); } else { call_it(float,LM,LN); }
+#define call_it(REAL_t,LM,LN,DOUBLE_t,TUNE) bench_multi<REAL_t,LM,LN,DOUBLE_t,TUNE>(nnzY, starts.data(), nPairs, pairs.data(), nnzA, nnzX, nrep, nsamp)
+#define decide_precision(LM,LN) \
+            if ('z' == doublePrecision) { call_it(double,LM,LN,double,tune); } else \
+            if ('m' == doublePrecision) { call_it(float, LM,LN,double,tune); } else \
+                                        { call_it(float, LM,LN,float ,tune); }
+
             case   4004:  decide_precision(  4,  4); break; // Lmax=1
             case   8008:  decide_precision(  8,  8); break; // Lmax=1, noco
             case  16016:  decide_precision( 16, 16); break; // Lmax=3
@@ -508,7 +513,7 @@ namespace GPUbench {
             case  48048:  decide_precision( 48, 48); break;
             case  96096:  decide_precision( 96, 96); break;
 
-            // rectangular cases
+            // rectangular cases with CUDA warp size 32
             case   4032:  decide_precision(  4, 32); break;
             case   8032:  decide_precision(  8, 32); break;
             case  16032:  decide_precision( 16, 32); break;

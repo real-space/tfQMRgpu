@@ -10,7 +10,7 @@
 #include "tfqmrgpu_util.hxx" // IgnoreCase
 
 
-    template <typename real_t, int LM, int LN=LM>
+    template <typename real_t, int LM, int LN=LM, typename double_t=real_t>
     tfqmrgpuStatus_t mysolve_real_LM_LN (
           cudaStream_t streamId // stream
         , bsrsv_plan_t* p // plan
@@ -18,7 +18,7 @@
         , int const MaxIterations
         , bool const memcount
     ) {
-        blocksparse_action_t<real_t,LM,LN> action(p);
+        blocksparse_action_t<real_t,LM,LN,double_t> action(p);
         return tfqmrgpu::solve(action, memcount ? nullptr : p->pBuffer, tolerance, MaxIterations, streamId);
     } // mysolve_real_LM_LN
 
@@ -31,9 +31,11 @@
         , int const MaxIterations
         , bool const memcount
     ) {
-        return ('z' == (p->doublePrecision | IgnoreCase)) ?
-            mysolve_real_LM_LN<double,LM,LN>(streamId, p, tolerance, MaxIterations, memcount):
-            mysolve_real_LM_LN<float ,LM,LN>(streamId, p, tolerance, MaxIterations, memcount);
+        switch (p->doublePrecision | IgnoreCase) {
+          case 'z': return mysolve_real_LM_LN<double,LM,LN>(streamId, p, tolerance, MaxIterations, memcount);
+          case 'm': return mysolve_real_LM_LN<float,LM,LN,double>(streamId, p, tolerance, MaxIterations, memcount); // mixed precision: load float, multipy-accumulate double, store float
+          default : return mysolve_real_LM_LN<float,LM,LN>(streamId, p, tolerance, MaxIterations, memcount);
+        }
     } // mysolve_LM_LN
 
 
@@ -347,7 +349,7 @@
 
         switch (doublePrecision | IgnoreCase) {
             case 'c': p->doublePrecision = 'c'; break;  // single precision complex
-//          case 'm': p->doublePrecision = 'm'; break;  // mixed  precision complex, Warning, not fully implemented
+            case 'm': p->doublePrecision = 'm'; break;  // mixed  precision complex, ToDo: test
             case 'z': p->doublePrecision = 'z'; break;  // double precision complex
             default : p->doublePrecision = 'z'; // default double precision complex
         } // doublePrecision
