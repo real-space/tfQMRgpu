@@ -1,6 +1,6 @@
 #include <cstdio> // std::printf
 #include <cstdlib> // std::atoi
-#include <iostream> // std::cout, std::endl
+#include <iostream> // std::cout, ::endl
 #include <fstream> // std::ifstream
 #include <algorithm> // std::max
 #include <cmath> // std::sqrt
@@ -122,12 +122,12 @@ namespace GPUbench {
         // step 8a: upload the values for the matrix A
         // values come from Fortran, so they are in RIRIRIRI layout
         callAndCheck(  tfqmrgpu_bsrsv_setMatrix(handle, plan, 'A',
-            (char*)A->mat.data(), 'z', blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
+            (char*)A->mat.data(), 'z', blockDim, blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
 
         // step 8b: upload the values for the right-hand side vectors B
         // values come from Fortran, so we need to transpose the blocks of B
         callAndCheck(  tfqmrgpu_bsrsv_setMatrix(handle, plan, 'B',
-            (char*)B->mat.data(), 'z', blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
+            (char*)B->mat.data(), 'z', blockDim, blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
 
         // [optional ]step 8x: upload the values for the initial vectors X
 
@@ -147,7 +147,7 @@ namespace GPUbench {
         // step d: retrieve the result vectors X 
         // convert the blocks into ColMajor and RIRIRIRI to match the Fortran data layout
         callAndCheck(  tfqmrgpu_bsrsv_getMatrix(handle, plan, 'X',
-            (char*)X->mat.data(), 'z', blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
+            (char*)X->mat.data(), 'z', blockDim, blockDim, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
 
         { // scope:
             PUSH_RANGE("compare@CPU");
@@ -271,7 +271,7 @@ namespace GPUbench {
         , int const nRepetitions=1 // Number of iterations of the same procedure
         , int const nSamples=1 // Number of samples taken for timings
     ) {
-        std::printf("\n# %s<%d> on GPU !!!!\n", __func__, LM);
+        std::printf("\n# %s<%d,%d> on GPU !!!!\n", __func__, LM, LN);
 
         std::printf("# Execute %d repetitions, sample %d times.\n", nRepetitions, nSamples);
 
