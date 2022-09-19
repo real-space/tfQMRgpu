@@ -97,7 +97,7 @@ class blocksparse_action_t {
         } // show_A_X_and_Y
     #endif // FULLDEBUG
 
-        int  constexpr TUNE = 4;
+        int  constexpr TUNE = 4; // TUNE = 4 does not work for LM==6
         dim3 constexpr threads(LN, TUNE, 1);
         gemmNxNf <real_t,LM,LN,LM/TUNE> <<< nnzbY, threads, 0, streamId >>> (y, matA_d, x, pairs_d, starts_d);
 
@@ -111,7 +111,7 @@ class blocksparse_action_t {
 
         if (show_A_X_and_Y) {
             cudaDeviceSynchronize(); // necessary?
-            print_array<real_t,LN> <<< 1, 1, 0, streamId >>> (y[0][0], nnzbY*2*LM, 'y');
+            print_array<real_t, LN> <<< 1, 1, 0, streamId >>> (y[0][0], nnzbY*2*LM, 'y');
             cudaDeviceSynchronize(); // necessary?
             printf("\n");
         } // show_A_X_and_Y

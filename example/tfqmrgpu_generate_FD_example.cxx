@@ -57,7 +57,7 @@
  *  Due to the stencil structure of the differential operator, 
  *  data blocks of A use an indirection list to avoid storing 
  *  duplicates of the stencil blocks.
- *  
+ *
  *  Similarly, an indirection list is used for the unit entries in B.
  *  The generator code could be extended to also use indirection for 
  *  the reference solution X.
@@ -145,12 +145,12 @@ extern "C" {
       char id[2] = {'?', '\0'};
   }; // BlockSparseOperator
 
-  
+
   template <typename complex_t> inline char const * complex_name()     { return "real"; }
   template <> inline char const * complex_name<std::complex<double>>() { return "complex64"; }
   template <> inline char const * complex_name<std::complex<float >>() { return "complex32"; }
 
-  
+
   void xml_export_bsr(
         FILE* f
       , bsr_t const & bsr
@@ -177,7 +177,7 @@ extern "C" {
       std::fprintf(f, "\n%s    </ColumnIndex>\n", spaces);
 
       std::fprintf(f, "%s  </CompressedSparseRow>\n", spaces);
-      
+
       if (indirection) {
           std::fprintf(f, "%s  <Indirection nonzeros=\"%ld\">", spaces, bsr.ColInd.size());
           for (size_t i = 0; i < bsr.ColInd.size(); ++i) {
@@ -189,8 +189,8 @@ extern "C" {
 
       std::fprintf(f, "%s</SparseMatrix>\n", spaces);
   } // xml_export_bsr
-  
-  
+
+
   template <class operator_t>
   void xml_export_operator(
         FILE* f
@@ -231,7 +231,7 @@ extern "C" {
       std::fprintf(f, "  </BlockSparseMatrix>\n");
   } // xml_export_operator
 
-  
+
   union index4_t {
       // Beware, this is a union, not a struct,
       // so the following 4 lines refer to the same 4 Byte in memory
@@ -297,7 +297,7 @@ extern "C" {
       return nblocks;
   } // create_cluster
 
-  
+
   template <int BlockEdge, int Dimension=3>
   int generate(
         float const rsb
@@ -436,11 +436,11 @@ extern "C" {
                   Stencil[job].data[ib][ib] -= sub_diagonal_term;
               } // ib
           } // scope
-          
+
       }}} // x y z
       delete[] origin_block_index;
 
-      
+
       // create a cluster of source blocks (Right Hand Sides)
       if (echo > 4) std::cout << "# radius_source_blocks= " << rsb << std::endl;
       std::vector<uint32_t> source_block_index;
@@ -480,7 +480,7 @@ extern "C" {
       } // i
       auto const nrows = row_coord.size();
       if (echo > 3) std::cout << "# " << nrows << " nonzero rows" << std::endl;
-      
+
       auto const average_target_blocks_per_row = n_all_targets/double(nrows);
 
       // translate the data from target_block_index[isrc][jtrg] --> X_column_index[irow][jnz] using row_index[][][]
@@ -512,7 +512,7 @@ extern "C" {
       X.bsr.RowPtr.resize(X.bsr.nRows + 1, 0);
       X.bsr.ColInd.resize(X.bsr.nnzb);
 
-  
+
       // fill the bsr structures with data
       size_t n_all_targets_prefix{0};
       for (uint32_t irow = 0; irow < nrows; ++irow) {
@@ -536,14 +536,14 @@ extern "C" {
 
 
       // ========= construct sparsity pattern for B
-      
+
       // create the BSR structure for B (identity operator)
       B.bsr.nRows = nrows;
       B.bsr.nCols = n_sources;
       B.bsr.nnzb  = n_sources; // identity operator has exactly one nonzero block per row
       B.bsr.RowPtr.resize(B.bsr.nRows + 1, 0);
       B.bsr.ColInd.resize(B.bsr.nnzb);
-      
+
       // translate the data from source_block_index[isrc] --> row_index
       std::vector<int32_t> isource_row(nrows, -1);
       for (int32_t isrc = 0; isrc < n_sources; ++isrc) {
@@ -595,14 +595,14 @@ extern "C" {
           if (echo > 0) std::cout << "# data blocks of B are simple unit matrices" << std::endl;
       } // fill_B_with_data
 
-      
-      
-      
-      
+
+
+
+
       // now construct the A operator
 
       // ========= construct sparsity pattern for A
-      
+
       // create the BSR structure for A (block sparse action)
       A.bsr.nRows = nrows;
       A.bsr.nCols = nrows; // A must be a logically square operator
@@ -660,8 +660,8 @@ extern "C" {
           } // echo and histogram nonzero
       } // h
 
-      
-      
+
+
       // reference solution
       std::vector<std::vector<DenseBlock<BS, float>>> X_data(n_sources);
       if ('n' != (ref | 32)) {
@@ -804,7 +804,7 @@ extern "C" {
       if (nullptr != filename) {
           auto const f = std::fopen(filename, "w");
           assert(nullptr != f && "failed to open existing file for writing!");
-        
+
           std::fprintf(f, "<?xml version=\"%.1f\"?>\n", 1.0);
           std::fprintf(f, "<LinearProblem problem_kind=\"A*X==B\"\n"
                           "               generator_version=\"%.1f\" tolerance=\"%.3e\">\n", 0.0, tolerance);
@@ -821,7 +821,7 @@ extern "C" {
 
           std::fprintf(f, "</LinearProblem>\n");
           std::fclose(f);
-          
+
           if (echo > 1) std::cout << "# file \"" << filename << "\" written" << std::endl;
       } else {
           if (echo > 1) std::cout << "# filename empty, no file written" << std::endl;
@@ -890,7 +890,8 @@ extern "C" {
         case  2: return generate<2>(BlockEdge, rsb, rtb, energy, ref, echo);
         case  3: return generate<3>(BlockEdge, rsb, rtb, energy, ref, echo);
         default: std::cout << "Error, dimension must be in {1,2,3}!" << std::endl;
-      }
+      } // dimension
+
       return 0;
   } // main
 #endif // __MAIN__
