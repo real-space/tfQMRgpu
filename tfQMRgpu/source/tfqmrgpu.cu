@@ -587,7 +587,7 @@
             // would first modify the value of the operator A in-place on the GPU, so
             // solving again, e.g. with a modified right hand side B might lead to unexpected results
             // therefore, we do not allow downloading of operator A
-            // simliarly, B, so we only allow to download operator X
+            // similarly, B, so we only allow to download operator X
             return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_CHAR*var + TFQMRGPU_CODE_LINE*__LINE__;
         } // only operator A
 
@@ -724,13 +724,15 @@
         stat = tfqmrgpu_bsrsv_setMatrix(handle, plan, 'B', Bmat, 'z', ldB, ldA, 'n', TFQMRGPU_LAYOUT_RIRIRIRI);
         if (stat) return stat;
 
-        stat = tfqmrgpu_bsrsv_solve(handle, plan, *residual, *iterations);
+        double residuum{*residual};
+        stat = tfqmrgpu_bsrsv_solve(handle, plan, residuum, *iterations);
         if (stat) return stat;
 
         double flops{0}, flops_all{0};
-        stat = tfqmrgpu_bsrsv_getInfo(handle, plan, residual, iterations, &flops, &flops_all);
+        stat = tfqmrgpu_bsrsv_getInfo(handle, plan, &residuum, iterations, &flops, &flops_all);
         if (stat) return stat;
-        if (echo > 1) std::printf("# tfQMRgpu needed %d iterations to converge to %.1e using %g GFlop\n", iterations, residual, flops*1e-9);
+        *residual = residuum;
+        if (echo > 1) std::printf("# tfQMRgpu needed %d iterations to converge to %.1e using %g GFlop\n", iterations, residuum, flops*1e-9);
 
         stat = tfqmrgpu_bsrsv_getMatrix(handle, plan, 'X', Xmat, 'z', ldB, ldA, 'n', TFQMRGPU_LAYOUT_RIRIRIRI);
         if (stat) return stat;
