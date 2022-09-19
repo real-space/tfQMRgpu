@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector> // std::vector<T>
-#include <string> // std::string // really needed?
+#include <string> // std::string
 #ifdef  FULL_DEBUG
   #include <cstdio> // std::printf
 #endif // FULL_DEBUG
@@ -15,8 +15,8 @@ struct bsr_t {
     std::vector<int> ColInd; // [nnzb]
 
     // block sparse matrix values
-    unsigned fastBlockDim;
-    unsigned slowBlockDim;
+    unsigned fastBlockDim; // number of columns per block
+    unsigned slowBlockDim; // number of rows per block
     std::vector<double> mat;
 
     std::string name;

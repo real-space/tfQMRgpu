@@ -80,6 +80,7 @@
         void const *val, // in: pointer to read-only values, pointer is casted to double* if 'Z'==doublePrecision or to float* if 'C'==doublePrecision
         char const doublePrecision, // in: 'C':complex<float>, 'Z':complex<double>, 'S' and 'D' are not supported.
         int const ld, // in: leading dimension of blocks in array val.
+        int const d2, // in:  second dimension of blocks in array val.
         char const trans, // in: transposition of the input matrix blocks.
         tfqmrgpuDataLayout_t const layout); // in: input data layout {RIRIRIRI(Fortran), RRRRIIII(native)}
 
@@ -88,7 +89,8 @@
         char const var, // in: selector which variable, only 'X' supported.
         void       *val, // in: pointer to values to be written, pointer is casted to double* if 'Z'==doublePrecision or to float* if 'C'==doublePrecision
         char const doublePrecision, // in: 'C':complex<float>, 'Z':complex<double>, 'S' and 'D' are not supported.
-        int const ld, // in: leading dimension of blocks in array val. -> See my comment above.
+        int const ld, // in: leading dimension of blocks in array val.
+        int const d2, // in:  second dimension of blocks in array val.
         char const trans, // in: transposition of the output matrix blocks.
         tfqmrgpuDataLayout_t const layout); // in: output data layout {RIRIRIRI(Fortran), RRRRIIII(native)}
 
@@ -104,6 +106,13 @@
         double *flops_performed, // out: number of floating pointer operations performed for the last run
         double *flops_performed_all); // out: number of floating pointer operations performed since createPlan
 
+
+    // maybe similar to tfqmrgpu_bsrsv_rectangular in the Fortran_module.F90 offer the easy-to-integrate C function
+    tfqmrgpuStatus_t tfqmrgpu_bsrsv_z(int mb, int ldA, int ldB,
+       int32_t const* rowPtrA, int nnzbA, int32_t const* colIndA, double const* Amat, char transA, // assumed data layout double A[nnzbA][ldA][ldA][2]
+       int32_t const* rowPtrX, int nnzbX, int32_t const* colIndX, double      * Xmat, char transX, // assumed data layout double X[nnzbX][ldA][ldB][2]
+       int32_t const* rowPtrB, int nnzbB, int32_t const* colIndB, double const* Bmat, char transB, // assumed data layout double B[nnzbB][ldA][ldB][2]
+       int32_t *iterations, float *residual, int echo);
 
 
     // tfqmrgpu CONSTANTS
