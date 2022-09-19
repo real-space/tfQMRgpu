@@ -10,7 +10,7 @@
     #include "tfqmrgpu_blockmult.hxx" // gemmNxNf
 #endif // HAS_CUDA
 
-template <typename floating_point_t, int block_rows, int block_cols>
+template <typename floating_point_t, int block_rows, int block_cols, typename double_t=floating_point_t>
 class blocksparse_action_t {
   public:
       typedef floating_point_t real_t;
@@ -99,7 +99,7 @@ class blocksparse_action_t {
 
         int  constexpr TUNE = 4; // TUNE = 4 does not work for LM==6
         dim3 constexpr threads(LN, TUNE, 1);
-        gemmNxNf <real_t,LM,LN,LM/TUNE> <<< nnzbY, threads, 0, streamId >>> (y, matA_d, x, pairs_d, starts_d);
+        gemmNxNf <real_t,LM,LN,LM/TUNE,double_t> <<< nnzbY, threads, 0, streamId >>> (y, matA_d, x, pairs_d, starts_d);
 
     #ifdef  FULLDEBUG
         cudaDeviceSynchronize(); // necessary?
