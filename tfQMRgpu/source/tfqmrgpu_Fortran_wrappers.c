@@ -152,23 +152,23 @@ typedef tfqmrgpuDataLayout_t layout_t; //
   }
 
   void tfqmrgpu_bsrsv_setmatrix_c_(handle_t const *handle, plan_t const *plan, char const *var, 
-          float const*  val, int32_t const *ld, char const *trans, layout_t const *layout, stat_t *stat) {
-      *stat = tfqmrgpu_bsrsv_setMatrix(*handle, *plan, *var, (void*) val, 'C', *ld, *trans, *layout);
+          float const*  val, int32_t const *ld, int32_t const *d2, char const *trans, layout_t const *layout, stat_t *stat) {
+      *stat = tfqmrgpu_bsrsv_setMatrix(*handle, *plan, *var, (void*) val, 'C', *ld, *d2, *trans, *layout);
   }
 
   void tfqmrgpu_bsrsv_setmatrix_z_(handle_t const *handle, plan_t const *plan, char const *var, 
-          double const* val, int32_t const *ld, char const *trans, layout_t const *layout, stat_t *stat) {
-      *stat = tfqmrgpu_bsrsv_setMatrix(*handle, *plan, *var, (void*) val, 'Z', *ld, *trans, *layout);
+          double const* val, int32_t const *ld, int32_t const *d2, char const *trans, layout_t const *layout, stat_t *stat) {
+      *stat = tfqmrgpu_bsrsv_setMatrix(*handle, *plan, *var, (void*) val, 'Z', *ld, *d2, *trans, *layout);
   }
 
   void tfqmrgpu_bsrsv_getmatrix_c_(handle_t const *handle, plan_t const *plan, char const *var,
-          float*  val, int32_t const *ld, char const *trans, layout_t const *layout, stat_t *stat) {
-      *stat = tfqmrgpu_bsrsv_getMatrix(*handle, *plan, *var, (void*) val, 'C', *ld, *trans, *layout);
+          float*  val, int32_t const *ld, int32_t const *d2, char const *trans, layout_t const *layout, stat_t *stat) {
+      *stat = tfqmrgpu_bsrsv_getMatrix(*handle, *plan, *var, (void*) val, 'C', *ld, *d2, *trans, *layout);
   }
 
   void tfqmrgpu_bsrsv_getmatrix_z_(handle_t const *handle, plan_t const *plan, char const *var,
-          double* val, int32_t const *ld, char const *trans, layout_t const *layout, stat_t *stat) {
-      *stat = tfqmrgpu_bsrsv_getMatrix(*handle, *plan, *var, (void*) val, 'Z', *ld, *trans, *layout);
+          double* val, int32_t const *ld, int32_t const *d2, char const *trans, layout_t const *layout, stat_t *stat) {
+      *stat = tfqmrgpu_bsrsv_getMatrix(*handle, *plan, *var, (void*) val, 'Z', *ld, *d2, *trans, *layout);
   }
 
   void tfqmrgpu_bsrsv_solve_(handle_t const *handle, plan_t const *plan,

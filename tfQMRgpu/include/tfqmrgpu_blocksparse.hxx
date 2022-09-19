@@ -27,9 +27,6 @@ class blocksparse_action_t {
   private: // private members
 
     bsrsv_plan_t* p; // ToDo: would it be better to have a reference here?
-//  std::vector<uint32_t> p->pairs; // [nPairs*2], each pair is one block-times-block multiplication
-//  std::vector<uint32_t> p->starts; // [nnzbX + 1] number of target elements plus one
-//  uint32_t p->nnzbA; // number of non-zero block in block-sparse operator A
 
     real_t (* matA_d)[2][LM][LM]; // matrix data in GPU memory
     // ToDo: try how fast it is with pairs and starts in managed memory (UVM)
@@ -176,12 +173,6 @@ class blocksparse_action_t {
         // end of CPU version
 
 #endif // HAS_CUDA
-
-
-
-
-
-
 
 
         return p->pairs.size()*.5*LM*8.*LM*LN; // returns the number of Flops: 8 per complex
