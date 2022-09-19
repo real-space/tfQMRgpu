@@ -7,6 +7,7 @@
 #include "tfqmrgpu.hxx" // includes cuda.h and tfqmrgpu.h
 #include "tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
 #include "tfqmrgpu_blocksparse.hxx" // blocksparse_action_t
+#include "tfqmrgpu_util.hxx" // IgnoreCase
 
 
     template <typename real_t, int LM, int LN=LM>
@@ -302,8 +303,8 @@
         p->pBuffer = nullptr; // init pointer copy to device memory (which will be allocated by the user)
 
         p->flops_performed_all = 0; // init
-        p->flops_performed   = -1; // init impossible
-        p->iterations_needed = -1; // init impossible
+        p->flops_performed    = -1; // init impossible
+        p->iterations_needed  = -1; // init impossible
 
         debug_printf("# found %ld non-zero entries in X\n", p->colindx.size());
         assert(p->colindx.size() == nnzbX);

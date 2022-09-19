@@ -5,7 +5,7 @@
 #define devPtr const __restrict__
 
     /* GPU kernel that accepts real and imaginary part split --> coalesced loads possible, uses shared memory */
-    template <typename real_t, int LM, int LN, int NA> // NA=number of accumulators
+    template <typename real_t, int LM, int LN, int NA, typename double_t=real_t> // NA=number of accumulators
     void __global__ gemmNxNf( // GPU kernel, must be launched with <<< {nnzbY, 1, 1}, { LN, LM/NA, 1 } >>>
           real_t         (*devPtr Y)[2][LM][LN] // result, real and imaginary parts are split
         , real_t   const (*devPtr A)[2][LM][LM] // scalar argument, conjugated (A^t)
@@ -14,25 +14,28 @@
         , uint32_t const (*devPtr start) // start[nnzbY + 1] indices s into pairs[s*2]
     ) {
         check_launch_params({gridDim.x, 1, 1}, {LN, LM/NA, 1}); // warning: gridDim.x == nnzbY is not checked!
-        int const jLN = threadIdx.x;
+        int const jLN = threadIdx.x; // vectorization of X and Y
         int const iLM = threadIdx.y;
         int const ri = iLM & 0x1; // 0: real, 1: imaginary part (relevant only during the pre-loading)
 
 //      full_debug_printf("# %s start with block=%i threads=%i %i\n", __func__, blockIdx.x, iLM, jLN);
 
-        __shared__ real_t X_sk[2][LN], A_sk[2][LM]; // for real_t=double, LM=LN=32 this are 1024 Byte static shared memory 
+        __shared__ real_t X_sk[2][LN], A_sk[2][LM]; // for real_t=double, LM=LN=32 this is 1 kiByte static shared memory
 
-        real_t Yre[NA], Yim[NA]; // accumulators
+//      typedef double double_t; // we can perform the computation in double even if real_t==float
+//      typedef real_t double_t; // default behaviour
+
+        double_t Yre[NA], Yim[NA]; // accumulators
         UNROLL
         for(int ii = 0; ii < NA; ++ii) {
             Yre[ii] = 0;
             Yim[ii] = 0;
         } // ii
 
-        int const iYmat = blockIdx.x;
+        auto const iYmat = blockIdx.x;
         for(int ipair = start[iYmat]; ipair < start[iYmat + 1]; ++ipair) { // BSR-type loop
-            int const iAmat = pairs[ipair*2 + 0];
-            int const iXmat = pairs[ipair*2 + 1];
+            auto const iAmat = pairs[ipair*2 + 0];
+            auto const iXmat = pairs[ipair*2 + 1];
 
             for(int kLM = 0; kLM < LM; ++kLM) {
 
@@ -40,21 +43,23 @@
 
                 // coalesced load from global memory into shared memory
                 // info: if blockdim.y > 2, this is done twice but does not introduce errors
-                if (jLN < LM)
-                A_sk[ri][jLN] = A[iAmat][ri][kLM][jLN];
-                X_sk[ri][jLN] = X[iXmat][ri][kLM][jLN];
+                if (iLM < 2) {
+                    if (jLN < LM)
+                    A_sk[ri][jLN] = A[iAmat][ri][kLM][jLN];
+                    X_sk[ri][jLN] = X[iXmat][ri][kLM][jLN];
+                }
 
                 __syncthreads(); // wait until shared memory is filled
 
                 // load vectorized matrix element X_{kj} from shared memory into registers
-                real_t const Xre_j = X_sk[0][jLN];
-                real_t const Xim_j = X_sk[1][jLN];
+                double_t const Xre_j = X_sk[0][jLN];
+                double_t const Xim_j = X_sk[1][jLN];
 
                 UNROLL
                 for(int ii = 0; ii < NA; ++ii) {
                     // load scalar matrix element A_{ki} from shared memory into registers
-                    real_t const Are_i = A_sk[0][iLM*NA + ii];
-                    real_t const Aim_i = A_sk[1][iLM*NA + ii];
+                    double_t const Are_i = A_sk[0][iLM*NA + ii];
+                    double_t const Aim_i = A_sk[1][iLM*NA + ii];
  
 //                  full_debug_printf("# %s block=%i threads=%i %i adds %g * %g for k=%i\n", __func__, blockIdx.x, iLM, jLN, Are_i, Xre_j, kLM);
 
