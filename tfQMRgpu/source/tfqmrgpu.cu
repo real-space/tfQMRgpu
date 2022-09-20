@@ -5,7 +5,8 @@
 // #define DEBUG
 
 #include "tfqmrgpu.hxx" // includes cuda.h and tfqmrgpu.h
-#include "tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
+#include "tfqmrgpu_linalg.hxx" // tfqmrgpu::transpose_blocks_kernel
+#include "tfqmrgpu_core.hxx"   // tfqmrgpu::solve<action_t>
 #include "tfqmrgpu_blocksparse.hxx" // blocksparse_action_t
 #include "tfqmrgpu_util.hxx" // IgnoreCase
 
@@ -335,8 +336,8 @@
         , int const blockDim    // in: Block dimension of matrix A, blocks in A are square blocks. blockDim <= ldA
         , int const ldB         // in: Leading dimension for blocks in matrix B or X.
         , int const RhsBlockDim // in: Fast block dimension of matrix B or X
-        , char const doublePrecision // in: Solver precision 'C':complex<float>, 'Z':complex<double>, 'M':start with float and converge double.
-        , size_t *pBufferSizeInBytes // out: number of bytes of the buffer used in the setMatrix, getMatrix and solve.    
+        , char const doublePrecision // in: Solver precision 'C':complex<float>, 'Z':complex<double>, 'M':load float and compute double.
+        , size_t *pBufferSizeInBytes // out: number of bytes of the buffer used in the setMatrix, getMatrix and solve.
     ) {
         // query the necessary GPU memory buffer size
         int const LM = ldA;
@@ -348,8 +349,10 @@
         auto const p = (bsrsv_plan_t*)plan;
 
         switch (doublePrecision | IgnoreCase) {
+            case 'f':
             case 'c': p->doublePrecision = 'c'; break;  // single precision complex
             case 'm': p->doublePrecision = 'm'; break;  // mixed  precision complex, ToDo: test
+            case 'd':
             case 'z': p->doublePrecision = 'z'; break;  // double precision complex
             default : p->doublePrecision = 'z'; // default double precision complex
         } // doublePrecision
@@ -469,7 +472,7 @@
             case 'n': break; // non-transpose
             case 't': break; // transpose
             case '*': sign_imag = -1; trans = 'n'; break; //        only conjugate
-            case 'c': sign_imag = -1; trans = 't'; break; // transpose + conjugate // LAPACK uses 'c' for the Hermitian adjoint 
+            case 'c': sign_imag = -1; trans = 't'; break; // transpose + conjugate // LAPACK uses 'c' for the Hermitian adjoint
             default: return TFQMRGPU_TANSPOSITION_UNKNOWN + TFQMRGPU_CODE_CHAR*trans + TFQMRGPU_CODE_LINE*line;
         } // switch trans
         return TFQMRGPU_STATUS_SUCCESS;
@@ -510,8 +513,8 @@
               "'%c' to internal '%c' for operator '%c'\n", trans, Trans, var);
         } // only operator A
 
-        if ((doublePrecision | IgnoreCase) != p->doublePrecision) {
-            std::printf("# mismatch: %c and plan says %c\n", doublePrecision, p->doublePrecision);
+        if (('z' == (doublePrecision | IgnoreCase)) != ('z' == p->doublePrecision)) {
+            std::printf("# mismatch: \'%c\' and plan says \'%c\'\n", doublePrecision, p->doublePrecision);
             return TFQMRGPU_PRECISION_MISSMATCH + TFQMRGPU_CODE_CHAR*doublePrecision + TFQMRGPU_CODE_LINE*__LINE__;
         }
 
@@ -527,18 +530,18 @@
         // change data layout and (if necessary) transpose in-place on the GPU
         auto const l_in = TFQMRGPU_LAYOUT_RIRIRIRI,
                   l_out = TFQMRGPU_LAYOUT_RRRRIIII;
-        if ('z' == (doublePrecision | IgnoreCase)) {
-            assert(nnzb * 2 * nRows * nCols * sizeof(double) == size);
+        if ('z' == p->doublePrecision) {
+            assert(nnzb*2*nRows*nCols*sizeof(double) == size);
             tfqmrgpu::transpose_blocks_kernel<double>
 #ifndef HAS_NO_CUDA
-                <<<nnzb, {nCols,nRows,1}, 2*nRows*nCols*sizeof(double), streamId>>>
+                <<< nnzb, {nCols,nRows,1}, 2*nRows*nCols*sizeof(double), streamId >>>
 #endif // HAS_CUDA
                 ((double*) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows);
         } else {
-            assert(nnzb * 2 * nRows * nCols * sizeof(float)  == size);
+            assert(nnzb*2*nRows*nCols*sizeof(float)  == size);
             tfqmrgpu::transpose_blocks_kernel<float>
 #ifndef HAS_NO_CUDA
-                <<<nnzb, {nCols,nRows,1}, 2*nRows*nCols*sizeof(float) , streamId>>>
+                <<< nnzb, {nCols,nRows,1}, 2*nRows*nCols*sizeof(float) , streamId >>>
 #endif // HAS_CUDA
                 ((float *) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows); 
         }
@@ -573,7 +576,8 @@
         }
 
         auto const p = (bsrsv_plan_t*) plan;
-        if ((doublePrecision | IgnoreCase) != p->doublePrecision) {
+        if (('z' == (doublePrecision | IgnoreCase)) != ('z' == p->doublePrecision)) {
+            std::printf("# mismatch: \'%c\' and plan says \'%c\'\n", doublePrecision, p->doublePrecision);
             return TFQMRGPU_PRECISION_MISSMATCH + TFQMRGPU_CODE_CHAR*doublePrecision + TFQMRGPU_CODE_LINE*__LINE__;
         }
 
@@ -597,18 +601,18 @@
         // change data layout and (if necessary) transpose in-place on the GPU
         auto const l_in = TFQMRGPU_LAYOUT_RRRRIIII,
                   l_out = TFQMRGPU_LAYOUT_RIRIRIRI;
-        if ('z' == (doublePrecision | IgnoreCase)) {
-            assert(nnzb * 2 * nRows * nCols * sizeof(double) == size);
+        if ('z' == p->doublePrecision) {
+            assert(nnzb*2*nRows*nCols*sizeof(double) == size);
             tfqmrgpu::transpose_blocks_kernel<double>
 #ifndef HAS_NO_CUDA
-                <<<nnzb, {nCols,nRows,1}, 2*nRows*nCols*sizeof(double), streamId>>>
+                <<< nnzb, {nCols,nRows,1}, 2*nRows*nCols*sizeof(double), streamId >>>
 #endif // HAS_CUDA
                 ((double*) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows);
         } else {
-            assert(nnzb * 2 * nRows * nCols * sizeof(float)  == size);
+            assert(nnzb*2*nRows*nCols*sizeof(float)  == size);
             tfqmrgpu::transpose_blocks_kernel<float>
 #ifndef HAS_NO_CUDA
-                <<<nnzb, {nCols,nRows,1}, 2*nRows*nCols*sizeof(float) , streamId>>>
+                <<< nnzb, {nCols,nRows,1}, 2*nRows*nCols*sizeof(float) , streamId >>>
 #endif // HAS_CUDA
                 ((float *) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows); 
         }
