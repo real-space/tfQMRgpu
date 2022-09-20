@@ -14,9 +14,9 @@
         , uint32_t const (*devPtr start) // start[nnzbY + 1] indices s into pairs[s*2]
     ) {
         check_launch_params({gridDim.x, 1, 1}, {LN, LM/NA, 1}); // warning: gridDim.x == nnzbY is not checked!
-        int const jLN = threadIdx.x; // vectorization of X and Y
+        int const jLN = threadIdx.x; // vectorization of X and Y over LN
         int const iLM = threadIdx.y;
-        int const ri = iLM & 0x1; // 0: real, 1: imaginary part (relevant only during the pre-loading)
+//      int const ri = iLM & 0x1; // 0: real, 1: imaginary part (relevant only during the pre-loading)
 
 //      full_debug_printf("# %s start with block=%i threads=%i %i\n", __func__, blockIdx.x, iLM, jLN);
 
@@ -42,11 +42,14 @@
                 __syncthreads(); // all threads synchronize
 
                 // coalesced load from global memory into shared memory
-                if (iLM < 2) {
-                    if (jLN < LM)
-                    A_sk[ri][jLN] = A[iAmat][ri][kLM][jLN];
-                    X_sk[ri][jLN] = X[iXmat][ri][kLM][jLN];
-                }
+                if (0 == iLM) {
+                    UNROLL
+                    for (int ri = 0; ri < 2; ++ri) {
+                        if (jLN < LM)
+                        A_sk[ri][jLN] = A[iAmat][ri][kLM][jLN];
+                        X_sk[ri][jLN] = X[iXmat][ri][kLM][jLN];
+                    } // ri
+                } // 0 == threadIdx.y
 
                 __syncthreads(); // wait until shared memory is filled
 

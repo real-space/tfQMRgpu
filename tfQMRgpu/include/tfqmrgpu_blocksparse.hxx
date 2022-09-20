@@ -59,6 +59,7 @@ class blocksparse_action_t {
         printf("# buffer +  pairswin.offset = %p\n", buffer + p-> pairswin.offset);
         fflush(stdout);
     #endif // DEBUG
+        // matA_d is filled during setMatrix operation
         copy_data_to_gpu<char>(buffer + p->startswin.offset, (char*)(p->starts.data()), p->startswin.length, streamId, "starts");
         copy_data_to_gpu<char>(buffer + p-> pairswin.offset, (char*)(p-> pairs.data()), p-> pairswin.length, streamId,  "pairs");
     } // transfer
@@ -97,7 +98,7 @@ class blocksparse_action_t {
         } // show_A_X_and_Y
     #endif // FULLDEBUG
 
-        int  constexpr TUNE = 4; // TUNE = 4 does not work for LM==6
+        int  constexpr TUNE = 2; // TUNE = 4 does not work for LM==6
         dim3 constexpr threads(LN, TUNE, 1);
         gemmNxNf <real_t,LM,LN,LM/TUNE,double_t> <<< nnzbY, threads, 0, streamId >>> (y, matA_d, x, pairs_d, starts_d);
 
