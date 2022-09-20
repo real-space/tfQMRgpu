@@ -35,7 +35,7 @@ namespace GPUbench {
         , double const tolerance=1.0e-6
         , int const maxIterations=999
         , int const nRepetitions=1
-        , char const doublePrecision='z' // beware: 'c' is not fully implemented!
+        , char const doublePrecision='z' // {'c', 'm', 'z'}
     ) {
 
         PUSH_RANGE(__func__); // NVTX range markers for nvvp
@@ -100,7 +100,7 @@ namespace GPUbench {
             lm, // Block dimension of matrix A, blocks in A are square blocks. lm <= ldA
             ln, // Leading dimension for blocks in matrix B or X.
             ln, // Fast block dimension of matrix B or X, RhsBlockDim <= ldB.
-            doublePrecision, // Solver precision 'c':complex<float>, 'z':complex<double>
+            doublePrecision, // Solver precision 'c':complex<float>, 'z':complex<double>, 'm':mixed
             &pBufferSize)  )
 
         // step 6: allocate the GPU memory
@@ -401,8 +401,9 @@ namespace GPUbench {
 
         if (correct) { // print performance scope
             char const fF = FlopChar<real_t>();
-            std::printf("# GPU performed %.3f T%clop in %.3f seconds, i.e. %.1f G%clop/sec\n", 
-                                  nFlop*1e-12, fF, time_sum, nFlop*1e-9/time_sum, fF);
+            std::printf("# GPU performed %.3f T%clop in %.3f seconds\n", nFlop*1e-12, fF, time_sum);
+            std::printf("# GPU performance (lm,ln,tune)=(%3d,%3d,%d) is  %.1f G%clop/sec\n",
+                                            lm,ln,TUNE, nFlop*1e-9/time_sum, fF);
         } // scope
 
         std::printf("# %s: free GPU memory\n", __func__);
@@ -495,32 +496,35 @@ namespace GPUbench {
             std::cout << std::endl;
 #endif // FULLDEBUG
 
-        int constexpr tune = 2;
+//      int constexpr tune = 2;
         switch (lm*1000 + ln) { // blocksize
-#define call_it(REAL_t,LM,LN,DOUBLE_t,TUNE) bench_multi<REAL_t,LM,LN,DOUBLE_t,TUNE>(nnzY, starts.data(), nPairs, pairs.data(), nnzA, nnzX, nrep, nsamp)
-#define decide_precision(LM,LN) \
-            if ('z' == doublePrecision) { call_it(double,LM,LN,double,tune); } else \
-            if ('m' == doublePrecision) { call_it(float, LM,LN,double,tune); } else \
-                                        { call_it(float, LM,LN,float ,tune); }
+#define call_it(REAL_t,LM,LN,DOUBLE_t,TUNE) \
+            bench_multi <REAL_t,LM,LN,DOUBLE_t,TUNE> \
+            (nnzY, starts.data(), nPairs, pairs.data(), nnzA, nnzX, nrep, nsamp)
+#define decide_precision(LM,LN,TUNE) \
+            if ('z' == doublePrecision) { call_it(double,LM,LN,double,TUNE); } else \
+            if ('m' == doublePrecision) { call_it(float, LM,LN,double,TUNE); } else \
+                                        { call_it(float, LM,LN,float ,TUNE); }
 
-            case   4004:  decide_precision(  4,  4); break; // Lmax=1
-            case   8008:  decide_precision(  8,  8); break; // Lmax=1, noco
-            case  16016:  decide_precision( 16, 16); break; // Lmax=3
-            case  32032:  decide_precision( 32, 32); break; // Lmax=3, noco
-            case  64064:  decide_precision( 64, 64); break; // Lmax=7
-            case 128128:  decide_precision(128,128); break; // Lmax=7, noco
+            // tune-parameters extracted from a comparison of TUNE={1,2,3,4,6,8} in double-performance on V100
+            case   4004:  decide_precision(  4,  4, 4); break; // Lmax=1
+            case   8008:  decide_precision(  8,  8, 4); break; // Lmax=1, noco
+            case  16016:  decide_precision( 16, 16, 2); break; // Lmax=3
+            case  32032:  decide_precision( 32, 32, 4); break; // Lmax=3, noco
+            case  64064:  decide_precision( 64, 64, 2); break; // Lmax=7
+            case 128128:  decide_precision(128,128, 2); break; // Lmax=7, noco
 
             // with a single prime factor 3
-            case   6006:  decide_precision(  6,  6); break;
-            case  12012:  decide_precision( 12, 12); break;
-            case  24024:  decide_precision( 24, 24); break;
-            case  48048:  decide_precision( 48, 48); break;
-            case  96096:  decide_precision( 96, 96); break;
+            case   6006:  decide_precision(  6,  6, 3); break;
+            case  12012:  decide_precision( 12, 12, 4); break;
+            case  24024:  decide_precision( 24, 24, 4); break;
+            case  48048:  decide_precision( 48, 48, 6); break;
+            case  96096:  decide_precision( 96, 96, 4); break;
 
             // rectangular cases with CUDA warp size 32
-            case   4032:  decide_precision(  4, 32); break;
-            case   8032:  decide_precision(  8, 32); break;
-            case  16032:  decide_precision( 16, 32); break;
+            case   4032:  decide_precision(  4, 32, 1); break;
+            case   8032:  decide_precision(  8, 32, 1); break;
+            case  16032:  decide_precision( 16, 32, 2); break;
 
 #undef  decide_precision
 #undef  call_it
@@ -542,11 +546,11 @@ int main(int const argc, char const *const argv[]) {
         exit(1);
     } // not enough command line args passed
 
-    char const bench   = (argc > 1)?          *argv[1]  : 't'; // t=tfQMR, m=multiplication
+    char const bench   = (argc > 1)?          *argv[1]  : 't'; // t:tfQMR, m:multiplication
     if ('m' == bench) return GPUbench::benchmark_blockMatrixMatrixMultiplication(argc, argv);
 
     char const *fnm    = (argc > 2)?           argv[2]  : "problem"; // inputfile
-    char const flouble = (argc > 3)?        ((*argv[3]) | IgnoreCase) : 'z'; // z:double, c:float
+    char const flouble = (argc > 3)?        ((*argv[3]) | IgnoreCase) : 'z'; // z:double, c:float, m:mixed
     int  const nrep    = (argc > 4)? std::atoi(argv[4]) : 1; // number of repetitions
     int  const MaxIter = (argc > 5)? std::atoi(argv[5]) : 2000; // max. number of iteration
 
