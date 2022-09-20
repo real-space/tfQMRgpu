@@ -293,7 +293,7 @@ namespace GPUbench {
 
 #ifndef HAS_NO_CUDA
         fill_cos_sin<real_t,LM,LM> <<< nnzbA, {LM, 1024/LM, 1} >>> (matA);
-        fill_cos_sin<real_t,LM,LN> <<< nnzbX, {LN, 1024/LM, 1} >>> (matX);
+        fill_cos_sin<real_t,LM,LN> <<< nnzbX, {LN, 1024/LN, 1} >>> (matX);
 
         // TUNE == 2 performance up to 3.8 TFlop/s for LM=32 on V100
         // TUNE == 4 performance up to 4.3 TFlop/s for LM=32 on V100, does not work for LM=6
@@ -321,10 +321,10 @@ namespace GPUbench {
         } // sample
         POP_RANGE(); // end of NVTX range
 
-        double const time_avg = time_sum / double(nSamples); // average
-        time_rms = std::sqrt(std::max(0., time_rms/double(nSamples) - time_avg*time_avg)); // rms
+        double const time_avg = time_sum/nSamples; // average
+        time_rms = std::sqrt(std::max(0., time_rms/nSamples - time_avg*time_avg)); // rms
         std::printf("# GPU needed %.3f seconds, %.6f +/- %.6f sec per sample, %.1f%% dev\n",
-                  time_sum, time_avg, time_rms, time_rms*100./time_avg);
+                        time_sum, time_avg, time_rms, time_rms*100./time_avg);
 
         bool correct{true};
 #ifdef  SKIP_CORRECTNESS_CHECK
@@ -344,20 +344,24 @@ namespace GPUbench {
             auto const matY_h = create_on_cpu<real_t[2][LM][LN]>(matY, nnzbY);
 #pragma omp parallel for reduction(+:alldev,allval) reduction(max:maxdev)
             for(auto iY = 0u; iY < nnzbY; ++iY) {
-                auto const matY_r = new real_t[2][LM][LN]; // thread-private reference result
+                auto const matY_r = new double_t[2][LM][LN]; // thread-private reference result
                 for(int i = 0; i < LM; ++i) {
                     for(int j = 0; j < LN; ++j) {
-                        matY_r[0][i][j] = 0; matY_r[1][i][j] = 0; // clear real and imaginary part
+                        matY_r[0][i][j] = 0; // clear real part
+                        matY_r[1][i][j] = 0; // clear imaginary part
                     } // j
                 } // i
                 for(auto ipair = starts_h[iY]; ipair < starts_h[iY + 1]; ++ipair) {
                     auto const iA = pairs_h[ipair*2 + 0], iX = pairs_h[ipair*2 + 1];
                     for(int i = 0; i < LM; ++i) {
                         for(int j = 0; j < LN; ++j) {
-                            real_t cr{0}, ci{0};
+                            double_t cr{0}, ci{0};
                             for(int k = 0; k < LM; ++k) {
-                                real_t const srei = matA_h[iA][0][k][i], simi = matA_h[iA][1][k][i];
-                                real_t const vrej = matX_h[iX][0][k][j], vimj = matX_h[iX][1][k][j];
+                                // matA is stored in transposed fashion in tfQMRgpu
+                                double_t const srei = matA_h[iA][0][k][i],
+                                               simi = matA_h[iA][1][k][i];
+                                double_t const vrej = matX_h[iX][0][k][j],
+                                               vimj = matX_h[iX][1][k][j];
                                 cr += srei * vrej - simi * vimj; // Real part
                                 ci += srei * vimj + simi * vrej; // Imag part
                             } // k
