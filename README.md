@@ -74,7 +74,7 @@ Purpose
     `int32_t` as we expect the block indices not to exceed 2,147,483,647
     except for the column indices. The current configuration forsees 
     `uint16_t`, i.e. there can be at most 65,536 block columns.
-    ![block-compressed sparse row format](docs/pics/rowBSR.png)
+![block-compressed sparse row format](docs/pics/rowBSR.png)
 
 ### How to get started with C or C++?
     You need read access to the C-header file `tfQMRgpu/include/tfqmrgpu.h`.
