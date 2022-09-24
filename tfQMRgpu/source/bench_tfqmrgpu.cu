@@ -403,7 +403,7 @@ namespace GPUbench {
             char const fF = FlopChar<real_t>();
             std::printf("# GPU performed %.3f T%clop in %.3f seconds\n", nFlop*1e-12, fF, time_sum);
             std::printf("# GPU performance (lm,ln,tune)=(%3d,%3d,%d) is  %.1f G%clop/sec\n",
-                                            lm,ln,TUNE, nFlop*1e-9/time_sum, fF);
+                                            LM,LN,TUNE, nFlop*1e-9/time_sum, fF);
         } // scope
 
         std::printf("# %s: free GPU memory\n", __func__);
