@@ -1,6 +1,8 @@
 tfQMRgpu 
 ========
 
+![tfQMRgpu Logo](docs/logo/tf_QMR.png)
+
 The transpose-free Quasi Minimal Resdiual library for GPUs
 ----------------------------------------------------------
     A CUDA implementation for graphical processors of the 
