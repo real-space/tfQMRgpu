@@ -106,13 +106,36 @@
         double *flops_performed, // out: number of floating pointer operations performed for the last run
         double *flops_performed_all); // out: number of floating pointer operations performed since createPlan
 
+    // tfQMRgpu uses the Block-compressed Sparse Row (BSR) format
+    // Each block-sparse operator A,B,X has
+    //           nRows // number of rows
+    //           rowPtr[nRows + 1] // pointers to the start of each row, rowPtr[0] == 0 and rowPtr[nRows] == nnzb
+    //           nnzb // number of non-zero blocks
+    //           colInd[nnzb] // column indices
+    //  Matrix_t data[nnzb]
+    //
+    // bsr_t are traversed like this
+    //      for (int row = 0; row < nRows; ++row) {
+    //          for (auto inzb = rowPtr[row]; inzb < rowPtr[row + 1]; ++inzb) {
+    //               auto const col = colInd[inzb];
+    //               Do something on data[inzb] ...
+    //          }
+    //      }
+
+    // Matrix transpositions transA, transX, transB must be either 'n' (non-transposed) or 't' (transposed)
 
     // maybe similar to tfqmrgpu_bsrsv_rectangular in the Fortran_module.F90 offer the easy-to-integrate C function
-    tfqmrgpuStatus_t tfqmrgpu_bsrsv_z(int mb, int ldA, int ldB,
+    tfqmrgpuStatus_t tfqmrgpu_bsrsv_z(
+       int mb, // number of block rows and number of block columns in A, number of block rows in X and B
+       int ldA, // block dimension of blocks of A
+       int ldB, // leading dimension of blocks in X and B
        int32_t const* rowPtrA, int nnzbA, int32_t const* colIndA, double const* Amat, char transA, // assumed data layout double A[nnzbA][ldA][ldA][2]
        int32_t const* rowPtrX, int nnzbX, int32_t const* colIndX, double      * Xmat, char transX, // assumed data layout double X[nnzbX][ldA][ldB][2]
        int32_t const* rowPtrB, int nnzbB, int32_t const* colIndB, double const* Bmat, char transB, // assumed data layout double B[nnzbB][ldA][ldB][2]
-       int32_t *iterations, float *residual, int echo);
+       int32_t *iterations, // on entry *iterations holds the max number of iterations, on exit *iteration is the number of iterations needed to converge
+       float *residual, // on entry *residual holds the threshold, on exit *residual hold the residual that has been reached after the last iteration
+       int echo // verbosity level, 0:no output, .... , 9: debug output
+     );
 
 
     // tfqmrgpu CONSTANTS
