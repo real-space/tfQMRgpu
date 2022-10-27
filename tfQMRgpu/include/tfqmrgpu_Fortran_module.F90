@@ -310,7 +310,7 @@ implicit none
                                                  ! on exit:  how far down did it converge
     integer(kind=4), intent(in) :: o ! I/O unit to write to, 6=stdout, 0=no write (mute)
                              ! other values <n> may end in files fort.<n> or file connected to this unit
-    integer(kind=4), intent(inout) :: ierr ! if ierr /= o on entry, debugging is activated
+    integer(kind=4), intent(inout) :: ierr ! if ierr /= 0 on entry, debugging is activated
 
     ! local variables
     integer(kind=TFQMRGPU_HANDLE_KIND) :: handle

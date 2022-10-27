@@ -1,8 +1,8 @@
 #pragma once
 
-#include <cstdint> // uint16_t, uint32_t, int32_t, int64_t
+#include <cstdint> // uint16_t, uint32_t, int32_t
 #include <vector> // std::vector<T>
-#include "tfqmrgpu_memWindow.h" // memWindow_t 
+#include "tfqmrgpu_memWindow.h" // memWindow_t
 
 struct bsrsv_plan_t {
 

@@ -48,20 +48,21 @@
         , bool const memcount=false
     ) {
         switch (p->LM*1000 + p->LN) {
-#define     instance(LM,LN) \
+#define     allow_block_size(LM,LN) \
             case   LM*1000 + LN: return mysolve_LM_LN<LM,LN>(streamId, p, tolerance, MaxIterations, memcount)
 
-            // list all the allowed block sizes here
-            instance( 4, 4);
-            instance( 4,32); // blocks in X and B are rectangular
-            instance( 8, 8);
-            instance( 8,32); // blocks in X and B are rectangular
-            instance(16,16);
-            instance(16,32); // blocks in X and B are rectangular
-            instance(32,32);
-            instance(64,64);
+            // list all the allowed block sizes here as allow_block_size(ldA, ldB);
+#include    "allowed_block_sizes.h"
+//          allow_block_size( 4, 4);
+//          allow_block_size( 4,32); // blocks in X and B are rectangular
+//          allow_block_size( 8, 8);
+//          allow_block_size( 8,32); // blocks in X and B are rectangular
+//          allow_block_size(16,16);
+//          allow_block_size(16,32); // blocks in X and B are rectangular
+//          allow_block_size(32,32);
+//          allow_block_size(64,64);
 
-#undef      instance
+#undef      allow_block_size
             default: return TFQMRGPU_BLOCKSIZE_MISSING + TFQMRGPU_CODE_CHAR*p->LM + TFQMRGPU_CODE_LINE*p->LN; // also say which blocksize was requested
         } // switch LM
     } // mysolve
@@ -472,6 +473,7 @@
             case 'n': break; // non-transpose
             case 't': break; // transpose
             case '*': sign_imag = -1; trans = 'n'; break; //        only conjugate
+            case 'h': trans = 'c';                        // allow 'H' or 'h' for the Hermitian adjoint
             case 'c': sign_imag = -1; trans = 't'; break; // transpose + conjugate // LAPACK uses 'c' for the Hermitian adjoint
             default: return TFQMRGPU_TANSPOSITION_UNKNOWN + TFQMRGPU_CODE_CHAR*trans + TFQMRGPU_CODE_LINE*line;
         } // switch trans

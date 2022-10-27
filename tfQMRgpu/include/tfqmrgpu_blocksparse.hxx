@@ -130,7 +130,7 @@ class blocksparse_action_t {
                 Yb[0][0][cij] = 0;
             } // cij
 
-//          // WARNING: BLAS-version using dgemm_ cannot treat LM != LN
+//          // WARNING: BLAS-version using dgemm_ so far cannot treat LM != LN
 //          char const tA = 'n', tx = 'n';
 //          int32_t const n = LM;
 //          real_t const alpha = 1, minus = -1;
