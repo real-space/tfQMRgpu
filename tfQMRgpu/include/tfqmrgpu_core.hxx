@@ -169,7 +169,9 @@ namespace tfqmrgpu {
 
       while (iteration < MaxIterations) {
           ++iteration;
+#ifdef FULL_DEBUG
           debug_printf("# iteration %i of %d\n", iteration, MaxIterations);
+#endif // FULL_DEBUG
 
           // =============================
           // tfQMR loop body:
@@ -245,14 +247,14 @@ namespace tfqmrgpu {
           double min_bound2{9e99}; // debug
           int breakdown5{0}, breakdown4{0};
           for(auto rhs = 0; rhs < nRHSs; ++rhs) {
-              res_ub_h[0][rhs] *= invBn2_h[0][rhs]; // apply factor inverse_norm2_of_B    
-              max_bound2 = std::max(max_bound2, res_ub_h[0][rhs]);
-              min_bound2 = std::min(min_bound2, res_ub_h[0][rhs]);
+              auto const res2 = res_ub_h[0][rhs] * invBn2_h[0][rhs]; // apply factor inverse_norm2_of_B
+              max_bound2 = std::max(max_bound2, res2);
+              min_bound2 = std::min(min_bound2, res2);
               breakdown4 += (-2 == status_h[0][rhs]); // breakdown detected in dec34
               breakdown5 += (-1 == status_h[0][rhs]); // breakdown detected in dec35
           } // rhs
           if (0 == (iteration & 0xf)) { // every 16th iteration
-              debug_printf("# in iteration %d, min_bound2 = %g, max_bound2 = %g * %d = %g, target_bound2 = %g\n", iteration, 
+              debug_printf("# in iteration %d, min_bound2 = %g, max_bound2 = %g * %d = %g, target_bound2 = %g\n", iteration,
                   min_bound2, max_bound2, 2*iteration + 1, max_bound2*(2*iteration + 1), target_bound2);
           }
           max_bound2 *= (2*iteration + 1); // multiply with 2 times the iteration number
@@ -276,11 +278,10 @@ namespace tfqmrgpu {
               get_data_from_gpu<double[1][LN]>(resnrm2_h, dvv, nCols, streamId, "resnrm2"); // missing factor inverse_norm2_of_B
               // CCheck(cudaDeviceSynchronize()); // necessary?
 
-              double max_residual2{1e-99}, min_residual2{9e99};
+              double max_residual2{1.4e-76}, min_residual2{9e99};
               bool isDone{true}, status_modified{false};
               for(auto rhs = 0; rhs < nRHSs; ++rhs) {
-                  resnrm2_h[0][0][rhs] *= invBn2_h[0][rhs]; // apply factor inverse_norm2_of_B
-                  auto const res2 = resnrm2_h[0][0][rhs];
+                  auto const res2 = resnrm2_h[0][0][rhs] * invBn2_h[0][rhs]; // apply factor inverse_norm2_of_B
                   max_residual2 = std::max(max_residual2, res2);
                   min_residual2 = std::min(min_residual2, res2);
                   if (res2 > tol2) {

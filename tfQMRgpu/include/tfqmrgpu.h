@@ -37,17 +37,17 @@
     // tfqmrgpuBsrsvPlan_t plan = NULL; // user must perform this before calling createPlan
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_createPlan(tfqmrgpuHandle_t handle, // no interaction
         tfqmrgpuBsrsvPlan_t *plan, // out: pointer to the newly created plan
-        int const mb, // in: number of block rows in A, X and B == number of block columns in A
-        int const *bsrRowPtrA, // in: integer array of mb+1 elements that contains the start of every block row of A and the end of the last block row of A plus one.
-        int const nnzbA,       // in: number of nonzero blocks of matrix A
-        int const *bsrColIndA, // in: integer array of nnzbA ( = bsrRowPtrA[mb] - bsrRowPtrA[0] ) column indices of the nonzero blocks of matrix A.
-        int const *bsrRowPtrX, // in: integer array of mb+1 elements that contains the start of every block row of X and the end of the last block row of X plus one.
-        int const nnzbX,       // in: number of nonzero blocks of matrix X
-        int const *bsrColIndX, // in: integer array of nnzbX ( = bsrRowPtrX[mb] - bsrRowPtrX[0] ) column indices of the nonzero blocks of matrix X.
-        int const *bsrRowPtrB, // in: integer array of mb+1 elements that contains the start of every block row of B and the end of the last block row of B plus one.
-        int const nnzbB,       // in: number of nonzero blocks of matrix B, nnzbB must be less or equal to nnzbX.
-        int const *bsrColIndB, // in: integer array of nnzbB ( = bsrRowPtrB[mb] - bsrRowPtrB[0] ) column indices of the nonzero blocks of matrix B.
-        int const indexOffset); // in: indexOffset=0(C-style) or indexOffset=1(Fortran) for RowPtr and ColInd arrays
+        int     const mb, // in: number of block rows in A, X and B == number of block columns in A
+        int32_t const *bsrRowPtrA, // in: integer array of mb+1 elements that contains the start of every block row of A and the end of the last block row of A plus one.
+        int     const nnzbA,       // in: number of nonzero blocks of matrix A
+        int32_t const *bsrColIndA, // in: integer array of nnzbA ( = bsrRowPtrA[mb] - bsrRowPtrA[0] ) column indices of the nonzero blocks of matrix A.
+        int32_t const *bsrRowPtrX, // in: integer array of mb+1 elements that contains the start of every block row of X and the end of the last block row of X plus one.
+        int     const nnzbX,       // in: number of nonzero blocks of matrix X
+        int32_t const *bsrColIndX, // in: integer array of nnzbX ( = bsrRowPtrX[mb] - bsrRowPtrX[0] ) column indices of the nonzero blocks of matrix X.
+        int32_t const *bsrRowPtrB, // in: integer array of mb+1 elements that contains the start of every block row of B and the end of the last block row of B plus one.
+        int     const nnzbB,       // in: number of nonzero blocks of matrix B, nnzbB must be less or equal to nnzbX.
+        int32_t const *bsrColIndB, // in: integer array of nnzbB ( = bsrRowPtrB[mb] - bsrRowPtrB[0] ) column indices of the nonzero blocks of matrix B.
+        int     const indexOffset); // in: indexOffset=0(C-style) or indexOffset=1(Fortran) for RowPtr and ColInd arrays
 
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_destroyPlan(tfqmrgpuHandle_t handle, // no interaction
                                                 tfqmrgpuBsrsvPlan_t plan); // in: pointer to the plan to be destroyed
@@ -102,7 +102,7 @@
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_getInfo(tfqmrgpuHandle_t handle, // inout
         tfqmrgpuBsrsvPlan_t plan, // in:
         double *residuum_reached, // out: residuum after iterations
-        int *iterations_needed, // out: number of iterations needed to converge
+        int32_t *iterations_needed, // out: number of iterations needed to converge
         double *flops_performed, // out: number of floating pointer operations performed for the last run
         double *flops_performed_all); // out: number of floating pointer operations performed since createPlan
 

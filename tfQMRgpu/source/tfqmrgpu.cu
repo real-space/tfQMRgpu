@@ -128,17 +128,17 @@
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_createPlan(
           tfqmrgpuHandle_t handle // none: opaque handle for the tfqmrgpu library.
         , tfqmrgpuBsrsvPlan_t *plan // out: newly created plan
-        , int const mb          // in: number of block rows in A, X and B == number of block columns in A
-        , int const *bsrRowPtrA // in: integer array of mb+1 elements that contains the start of every block row of A and the end of the last block row of A plus one.
-        , int const nnzbA       // in: number of nonzero blocks of matrix A
-        , int const *bsrColIndA // in: integer array of nnzbA ( = bsrRowPtrA[mb] - bsrRowPtrA[0] ) column indices of the nonzero blocks of matrix A.
-        , int const *bsrRowPtrX // in: integer array of mb+1 elements that contains the start of every block row of X and the end of the last block row of X plus one.
-        , int const nnzbX       // in: number of nonzero blocks of matrix X
-        , int const *bsrColIndX // in: integer array of nnzbX ( = bsrRowPtrX[mb] - bsrRowPtrX[0] ) column indices of the nonzero blocks of matrix X.
-        , int const *bsrRowPtrB // in: integer array of mb+1 elements that contains the start of every block row of B and the end of the last block row of B plus one.
-        , int const nnzbB       // in: number of nonzero blocks of matrix B, nnzbB must be less or equal to nnzbX.
-        , int const *bsrColIndB // in: integer array of nnzbB ( = bsrRowPtrB[mb] - bsrRowPtrB[0] ) column indices of the nonzero blocks of matrix B.
-        , int const indexOffset // in: indexOffset=0(C-style) or indexOffset=1(Fortran) for RowPtr and ColInd arrays    
+        , int     const mb          // in: number of block rows in A, X and B == number of block columns in A
+        , int32_t const *bsrRowPtrA // in: integer array of mb+1 elements that contains the start of every block row of A and the end of the last block row of A plus one.
+        , int     const nnzbA       // in: number of nonzero blocks of matrix A
+        , int32_t const *bsrColIndA // in: integer array of nnzbA ( = bsrRowPtrA[mb] - bsrRowPtrA[0] ) column indices of the nonzero blocks of matrix A.
+        , int32_t const *bsrRowPtrX // in: integer array of mb+1 elements that contains the start of every block row of X and the end of the last block row of X plus one.
+        , int     const nnzbX       // in: number of nonzero blocks of matrix X
+        , int32_t const *bsrColIndX // in: integer array of nnzbX ( = bsrRowPtrX[mb] - bsrRowPtrX[0] ) column indices of the nonzero blocks of matrix X.
+        , int32_t const *bsrRowPtrB // in: integer array of mb+1 elements that contains the start of every block row of B and the end of the last block row of B plus one.
+        , int     const nnzbB       // in: number of nonzero blocks of matrix B, nnzbB must be less or equal to nnzbX.
+        , int32_t const *bsrColIndB // in: integer array of nnzbB ( = bsrRowPtrB[mb] - bsrRowPtrB[0] ) column indices of the nonzero blocks of matrix B.
+        , int     const indexOffset // in: indexOffset=0(C-style) or indexOffset=1(Fortran) for RowPtr and ColInd arrays    
     ) {
         debug_printf("tfqmrgpu_bsrsv_createPlan(handle=%p, *plan=%p, mb=%d, \n"
                "         bsrRowPtrA=%p, nnzbA=%d, bsrColIndA=%p, \n"
@@ -646,7 +646,7 @@
           tfqmrgpuHandle_t handle // in: no function
         , tfqmrgpuBsrsvPlan_t plan // in: contains state
         , double *residuum_reached // out: residuum after iterations
-        , int    *iterations_needed // out: number of iterations needed to converge
+        , int32_t *iterations_needed // out: number of iterations needed to converge
         , double *flops_performed // out: number of floating pointer operations performed for the last run
         , double *flops_performed_all // out: number of floating pointer operations performed since createPlan
     ) {
@@ -685,75 +685,78 @@
         , int32_t const *const rowPtrA
         , int const nnzbA
         , int32_t const *const colIndA
-        , double const *const Amat // assumed data layout double A[nnzbA][ldA][ldA][2]
+        , double  const *const Amat // assumed data layout double A[nnzbA][ldA][ldA][2]
         , char const transA
         , int32_t const *const rowPtrX
         , int const nnzbX
         , int32_t const *const colIndX
-        , double       *const Xmat // assumed data layout double X[nnzbX][ldA][ldB][2]
+        , double        *const Xmat // assumed data layout double X[nnzbX][ldA][ldB][2]
         , char const transX
         , int32_t const *const rowPtrB
         , int const nnzbB
         , int32_t const *const colIndB
-        , double const *const Bmat // assumed data layout double B[nnzbB][ldA][ldB][2]
+        , double  const *const Bmat // assumed data layout double B[nnzbB][ldA][ldB][2]
         , char const transB
         , int32_t *const iterations // on entry: max. number of iterations, on exit: needed number of iterations
         , float *const residual // on entry: required residuum for convergence, on exit: residdum reached
         , int const echo // verbosity to stdout
     ) {
-        if (echo > 0) std::printf("# %s: mb= %d, ldA= %d, ldB= %d\n", __func__, mb, ldA, ldB);
-        tfqmrgpuHandle_t handle;
+        if (echo > 0) std::printf("# %s: mb= %d, ldA= %d, ldB= %d, iterations= %d, residual= %.1e\n", __func__, mb, ldA, ldB, *iterations, *residual);
+        tfqmrgpuHandle_t handle{0};
         auto stat = tfqmrgpuCreateHandle(&handle);
-        if (stat) return stat;
+        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpuCreateHandle returned %d\n", __func__, stat); return stat; }
 
         stat = tfqmrgpuSetStream(handle, 0); // set default stream
-        if (stat) return stat;
+        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpuSetStream returned %d\n", __func__, stat); return stat; }
 
-        tfqmrgpuBsrsvPlan_t plan;
+        tfqmrgpuBsrsvPlan_t plan{0};
         stat = tfqmrgpu_bsrsv_createPlan(handle, &plan, mb
                                   , rowPtrA, nnzbA, colIndA
                                   , rowPtrX, nnzbX, colIndX
                                   , rowPtrB, nnzbB, colIndB, 0);
-        if (stat) return stat;
+        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_createPlan returned %d\n", __func__, stat); return stat; }
 
         size_t gpu_memory_size{0};
         stat = tfqmrgpu_bsrsv_bufferSize(handle, plan, ldA, ldA, ldB, ldB, 'z', &gpu_memory_size);
-        if (stat) return stat;
+        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_bufferSize returned %d\n", __func__, stat); return stat; }
 
         void* gpu_memory_buffer{nullptr};
         stat = tfqmrgpuCreateWorkspace(&gpu_memory_buffer, gpu_memory_size, 'd'); // device memory
-        if (stat) return stat;
+        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpuCreateWorkspace returned %d\n", __func__, stat); return stat; }
 
         stat = tfqmrgpu_bsrsv_setBuffer(handle, plan, gpu_memory_buffer);
-        if (stat) return stat;
+        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_setBuffer returned %d\n", __func__, stat); return stat; }
 
         stat = tfqmrgpu_bsrsv_setMatrix(handle, plan, 'A', Amat, 'z', ldA, ldA, 'n', TFQMRGPU_LAYOUT_RIRIRIRI);
-        if (stat) return stat;
+        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_setMatrix(\'A\') returned %d\n", __func__, stat); return stat; }
 
         stat = tfqmrgpu_bsrsv_setMatrix(handle, plan, 'B', Bmat, 'z', ldB, ldA, 'n', TFQMRGPU_LAYOUT_RIRIRIRI);
-        if (stat) return stat;
+        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_setMatrix(\'B\') returned %d\n", __func__, stat); return stat; }
 
-        double residuum{*residual};
-        stat = tfqmrgpu_bsrsv_solve(handle, plan, residuum, *iterations);
-        if (stat) return stat;
+        double const threshold = (nullptr != residual) ? *residual : 1e-9;
+        int const maxiter = (nullptr != iterations) ? *iterations : 200;
+        stat = tfqmrgpu_bsrsv_solve(handle, plan, threshold, maxiter);
+        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_solve returned %d\n", __func__, stat); return stat; }
 
-        double flops{0}, flops_all{0};
-        stat = tfqmrgpu_bsrsv_getInfo(handle, plan, &residuum, iterations, &flops, &flops_all);
-        if (stat) return stat;
-        *residual = residuum;
-        if (echo > 1) std::printf("# tfQMRgpu needed %d iterations to converge to %.1e using %g GFlop\n", iterations, residuum, flops*1e-9);
+        double residuum{0}, flops{0}, flops_all{0};
+        int32_t needed{0};
+        stat = tfqmrgpu_bsrsv_getInfo(handle, plan, &residuum, &needed, &flops, &flops_all);
+        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_getInfo returned %d\n", __func__, stat); return stat; }
+        if (echo > 1) std::printf("# tfQMRgpu needed %d iterations to converge to %.1e using %g GFlop\n", needed, residuum, flops*1e-9);
+        if (nullptr != residual) *residual = residuum;
+        if (nullptr != iterations) *iterations = needed;
 
         stat = tfqmrgpu_bsrsv_getMatrix(handle, plan, 'X', Xmat, 'z', ldB, ldA, 'n', TFQMRGPU_LAYOUT_RIRIRIRI);
-        if (stat) return stat;
+        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_getMatrix returned %d\n", __func__, stat); return stat; }
 
         stat = tfqmrgpuDestroyWorkspace(gpu_memory_buffer);
-        if (stat) return stat;
+        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpuDestroyWorkspace returned %d\n", __func__, stat); return stat; }
 
         stat = tfqmrgpu_bsrsv_destroyPlan(handle, plan);
-        if (stat) return stat;
+        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_destroyPlan returned %d\n", __func__, stat); return stat; }
 
         stat = tfqmrgpuDestroyHandle(handle);
-        if (stat) return stat;
+        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpuDestroyHandle returned %d\n", __func__, stat); return stat; }
 
         return TFQMRGPU_STATUS_SUCCESS;
     } // tfqmrgpu_bsrsv_z
