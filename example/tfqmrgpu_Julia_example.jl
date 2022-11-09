@@ -7,7 +7,7 @@ plot = true
 
 mb = 7 # number of rows
 ldA = 8 # square block dimension of A
-ldB = 32 # block column dimension of B and X
+ldB = 8 # block column dimension of B and X
 
 nnzbA = 19 # number of nonzero blocks in A
 nnzbX = mb # number of nonzero blocks in X

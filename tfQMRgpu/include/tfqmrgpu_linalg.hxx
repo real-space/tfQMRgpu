@@ -268,7 +268,8 @@ namespace tfqmrgpu {
         auto const j = threadIdx.x; // out col index
         auto const i = threadIdx.y; // out row index
 
-        extern __shared__ real_t temp[]; // shared memory
+        extern __shared__ char shared_buffer[];
+        auto const temp = (real_t*) shared_buffer; // cast pointer
 
         for(auto inzb = blockIdx.x; inzb < nnzb; inzb += gridDim.x) { // grid stride loop over non-zero blocks
             size_t const boff = inzb*blockSize; // block offset
@@ -298,14 +299,9 @@ namespace tfqmrgpu {
                     } // c
                 } // j
             } // i
-            for(uint32_t i = 0; i < nRows; ++i) {
-                for(uint32_t j = 0; j < nCols; ++j) {
-                    for(int c = 0; c < 2; ++c) { // loop over real and imaginary part
-                        auto const iout = (c*nRows + i)*nCols + j;
-                        array[boff + iout] = temp[iout];
-                    } // c
-                } // j
-            } // i
+            for(uint32_t cij = 0; cij < 2*nRows*nCols; ++cij) {
+                array[boff + cij] = temp[cij];
+            } // cij
         } // inzb
 #endif // HAS_CUDA
     } // transpose_blocks_kernel
