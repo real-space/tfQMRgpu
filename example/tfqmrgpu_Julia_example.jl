@@ -68,7 +68,7 @@ println("### operator A: ",counts[1]," offdiagonal and ",counts[2]," diagonal bl
 if true
     println("### tfQMRgpu solves A * X == B")
 
-    const tf = "libtfQMRgpu.so"
+    const tf = "../lib64/libtfQMRgpu.so"
     iterations = zeros(Int32, 1); iterations[1] = 210 # max number of iterations
     residual = zeros(Float32, 1); residual[1] = 1.2e-8 # threshold to converge
     echo = 9 # 9:debug output

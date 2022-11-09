@@ -651,13 +651,13 @@
         , double *flops_performed_all // out: number of floating pointer operations performed since createPlan
     ) {
         auto const p = (bsrsv_plan_t*) plan; // convert opaque plan object
+        int any{0};
+        if (nullptr != residuum_reached   ) { ++any; *residuum_reached    = p->residuum_reached; }
+        if (nullptr != iterations_needed  ) { ++any; *iterations_needed   = p->iterations_needed; }
+        if (nullptr != flops_performed    ) { ++any; *flops_performed     = p->flops_performed;    }
+        if (nullptr != flops_performed_all) { ++any; *flops_performed_all = p->flops_performed_all; }
 
-        if (nullptr != residuum_reached   ) { *residuum_reached    = p->residuum_reached; }
-        if (nullptr != iterations_needed  ) { *iterations_needed   = p->iterations_needed; }
-        if (nullptr != flops_performed    ) { *flops_performed     = p->flops_performed;    }
-        if (nullptr != flops_performed_all) { *flops_performed_all = p->flops_performed_all; }
-
-        return TFQMRGPU_STATUS_SUCCESS;
+        return any ? TFQMRGPU_STATUS_SUCCESS : TFQMRGPU_STATUS_NO_INFO_PASSED;
     } // getInfo
 
     // utilities for the Fortran interface
@@ -666,11 +666,13 @@
         , size_t const pBufferSizeInBytes
         , char const MemoryType
     ) {
+        cudaError err;
         if ('m' == (MemoryType | IgnoreCase)) { // 'm' or 'M' stand for "managed"
-            return cudaMallocManaged(pBuffer, pBufferSizeInBytes);
+            err = cudaMallocManaged(pBuffer, pBufferSizeInBytes);
         } else {
-            return cudaMalloc(pBuffer, pBufferSizeInBytes);
+            err = cudaMalloc(pBuffer, pBufferSizeInBytes);
         }
+        return (cudaSuccess == err) ? TFQMRGPU_STATUS_SUCCESS : TFQMRGPU_STATUS_ALLOCATION_FAILED;
     } // createWorkspace
 
     tfqmrgpuStatus_t tfqmrgpuDestroyWorkspace(void* pBuffer) {
@@ -722,7 +724,11 @@
 
         void* gpu_memory_buffer{nullptr};
         stat = tfqmrgpuCreateWorkspace(&gpu_memory_buffer, gpu_memory_size, 'd'); // device memory
-        if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpuCreateWorkspace returned %d\n", __func__, stat); return stat; }
+        if (stat) {
+            if (echo > 0) std::printf("# %s: tfqmrgpuCreateWorkspace returned %d\n", __func__, stat);
+            if (echo > 3) std::printf("# %s: probably running on hardware without GPUs\n", __func__);
+            return stat;
+        } // stat
 
         stat = tfqmrgpu_bsrsv_setBuffer(handle, plan, gpu_memory_buffer);
         if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_setBuffer returned %d\n", __func__, stat); return stat; }
