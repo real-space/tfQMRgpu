@@ -531,7 +531,7 @@ namespace tfqmrgpu {
         } // icj
         for (uint32_t inz = 0; inz < nnz; ++inz) {
             auto const icol = ColInd[inz];
-            for(int j = 0; j < LM; ++j) { // vectorized
+            for(int j = 0; j < LN; ++j) { // vectorized
                 double dr{0}, di{0};
                 for(int k = 0; k < LM; ++k) { // contraction index
                     double const xRe = x[inz][0][k][j],
