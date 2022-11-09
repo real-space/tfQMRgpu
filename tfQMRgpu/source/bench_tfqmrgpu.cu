@@ -175,7 +175,7 @@ namespace GPUbench {
                 callAndCheck(  tfqmrgpu_bsrsv_getInfo(handle, plan, &residuum_reached, 
                                             &iterations_needed, &flops_performed, 0x0)
                             )
-                std::printf("# GPU converged in %d iterations\n", iterations_needed);
+                std::printf("# GPU converged to %.1e in %d iterations\n", residuum_reached, iterations_needed);
                 char const fF = ('z' == (doublePrecision | IgnoreCase))? 'F' : 'f'; // F:double, f:float
                 double const TFlop = 1e-12*flops_performed;
                 double const performance = TFlop/std::max(solver_time, 1e-6);
@@ -564,7 +564,7 @@ int main(int const argc, char const *const argv[]) {
     }
     std::printf("# found tolerance %g\n", tolerance);
     std::printf("# Execute %d repetitions with max. %d iterations.\n", nrep, MaxIter);
-    std::printf("# requested precision = %c for LM = %d\n", flouble, ABX[0].fastBlockDim);
+    std::printf("# requested precision = %c for LM = %d, LN = %d\n", flouble, ABX[0].fastBlockDim, ABX[1].fastBlockDim);
 
     return GPUbench::benchmark_tfQMRgpu_library(ABX, tolerance, MaxIter, nrep, flouble);
 } // main
