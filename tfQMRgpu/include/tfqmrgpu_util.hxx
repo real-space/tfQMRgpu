@@ -25,11 +25,11 @@
 #ifndef HAS_NO_CUDA
     inline void __device__ check_launch_params(dim3 const grid, dim3 const blk) {
 #ifdef  DEBUG
-        assert(grid.x == gridDim.x); 
-        assert(grid.y == gridDim.y); 
+        assert(grid.x == gridDim.x);
+        assert(grid.y == gridDim.y);
         assert(grid.z == gridDim.z);
-        assert(blk.x == blockDim.x); 
-        assert(blk.y == blockDim.y); 
+        assert(blk.x == blockDim.x);
+        assert(blk.y == blockDim.y);
         assert(blk.z == blockDim.z);
 #endif // DEBUG
     } // check_launch_params
@@ -109,13 +109,13 @@
         {
             char fmt[4] = " %f"; fmt[2] = format;
             printf("\n# print array \'%c\' in format \"%s\" with %d rows of %d elements\n",
-                                      name,           fmt,       num,       Dim); 
+                                      name,           fmt,       num,       Dim);
             for(size_t i = 0; i < num; ++i) {
-                printf("# %c[%d] ", name, i); 
+                printf("# %c[%d] ", name, i);
                 for(int d = 0; d < Dim; ++d) {
-                    printf(fmt, array[i][d]); 
+                    printf(fmt, array[i][d]);
                 } // d
-                printf(" \n"); 
+                printf(" \n");
             } // i
         } // master
     } // print_array

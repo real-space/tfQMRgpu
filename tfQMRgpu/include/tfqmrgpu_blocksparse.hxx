@@ -68,8 +68,8 @@ class blocksparse_action_t {
 
     // driver
     double multiply(
-          real_t         (*devPtr y)[2][LM][LN] // result, y[nnzbY][2][LM][LN]
-        , real_t   const (*devPtr x)[2][LM][LN] // input,  x[nnzbX][2][LM][LN]
+          real_t         (*devPtr y)[2][LM][LN] // result, y[nnzbY][Re:Im][LM][LN]
+        , real_t   const (*devPtr x)[2][LM][LN] // input,  x[nnzbX][Re:Im][LM][LN]
         , uint16_t const (*devPtr colIndex) // column indices, uint16_t allows up to 65,536 block columns
         , uint32_t const nnzbY // == nnzbX
         , uint32_t const nCols=1

@@ -12,6 +12,7 @@ cudaError constexpr cudaSuccess = 0;
 
 enum  cudaMemcpyKind : char
 {
+      cudaMemcpyHostToHost = '_',
       cudaMemcpyDeviceToDevice = '-',
       cudaMemcpyDeviceToHost = 'v',
       cudaMemcpyHostToDevice = '^'

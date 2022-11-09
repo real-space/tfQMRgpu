@@ -38,18 +38,18 @@ namespace tfqmrgpu {
     ) {
 #ifndef HAS_NO_CUDA
         check_launch_params( { nCols, 1, 1 }, { LN, 1, 1 } );
-        { int const i = blockIdx.x;
-            { int const j = threadIdx.x;
+        { auto const i = blockIdx.x;
+            { auto const j = threadIdx.x;
 #else  // HAS_CUDA
         for (uint32_t i = 0; i < nCols; ++i) {
             for (int j = 0; j < LN; ++j) {
 #endif // HAS_CUDA
-                double const rho_Re = double(rho[i][0][j]),
-                             rho_Im = double(rho[i][1][j]);
-                double const abs2rho = abs2(rho_Re, rho_Im);
-                double const z35_Re = z35[i][0][j], 
-                             z35_Im = z35[i][1][j]; // z35 == v3.v5
-                double const abs2z35 = abs2(z35_Re, z35_Im);
+                auto const rho_Re = double(rho[i][0][j]),
+                           rho_Im = double(rho[i][1][j]);
+                auto const abs2rho = abs2(rho_Re, rho_Im);
+                auto const z35_Re = z35[i][0][j],
+                           z35_Im = z35[i][1][j]; // z35 == v3.v5
+                auto const abs2z35 = abs2(z35_Re, z35_Im);
 
                 if ((abs2z35 < EPSILON) || (abs2rho < EPSILON)) { 
                     status[i][j] = -1; // severe breakdown in dec35
@@ -59,7 +59,7 @@ namespace tfqmrgpu {
                         debug_printf("# tfQMRdec35 status[%i][%i]= -1, |z35|^2= %.1e, |rho|^2= %.1e\n", i, j, abs2z35, abs2rho);
                     #endif // FULLDEBUG
                 } else {
-                    double const rho_denom = 1./abs2rho;
+                    auto const rho_denom = 1./abs2rho;
                     // beta := z35 / rho, complex divison
                     bet[i][0][j] = real_t((z35_Re*rho_Re + z35_Im*rho_Im) * rho_denom);
                     bet[i][1][j] = real_t((z35_Im*rho_Re - z35_Re*rho_Im) * rho_denom);
@@ -67,7 +67,7 @@ namespace tfqmrgpu {
                     rho[i][0][j] = z35_Re; rho[i][1][j] = z35_Im;
                 }
             } // threads j
-        } // blocks i 
+        } // blocks i
     } // dec35
 
     template <typename real_t, int LN>
@@ -83,16 +83,18 @@ namespace tfqmrgpu {
     ) {
 #ifndef HAS_NO_CUDA
         check_launch_params( { nCols, 1, 1 }, { LN, 1, 1 } );
-        { int const i = blockIdx.x;
-            { int const j = threadIdx.x;
+        { auto const i = blockIdx.x;
+            { auto const j = threadIdx.x;
 #else  // HAS_CUDA
         for (uint32_t i = 0; i < nCols; ++i) {
             for (int j = 0; j < LN; ++j) {
 #endif // HAS_CUDA
-                double const rho_Re = double(rho[i][0][j]), rho_Im = double(rho[i][1][j]); // load rho
-                double const abs2rho = abs2(rho_Re, rho_Im);
-                double const z34_Re = z34[i][0][j], z34_Im = z34[i][1][j]; // load z34
-                double const abs2z34 = abs2(z34_Re, z34_Im);
+                auto const rho_Re = double(rho[i][0][j]),
+                           rho_Im = double(rho[i][1][j]); // load rho
+                auto const abs2rho = abs2(rho_Re, rho_Im);
+                auto const z34_Re = z34[i][0][j],
+                           z34_Im = z34[i][1][j]; // load z34
+                auto const abs2z34 = abs2(z34_Re, z34_Im);
 
                 if ((abs2z34 < EPSILON) || (abs2rho < EPSILON)) {
                     status[i][j] = -2; // severe breakdown in dec34
@@ -103,24 +105,25 @@ namespace tfqmrgpu {
                     #endif // FULLDEBUG
                 } else {
 //                  debug_printf("# tfQMRdec34 status[%i][%i] = %i\n", i, j, status[i][j]);
-                    double const eta_Re = double(eta[i][0][j]), eta_Im = double(eta[i][1][j]); // load eta
+                    auto const eta_Re = double(eta[i][0][j]),
+                               eta_Im = double(eta[i][1][j]); // load eta
 
-                    double const z34_denom = -1./abs2z34;
+                    auto const z34_denom = -1./abs2z34;
                     // alfa := - rho / z34, complex divison
                     alf[i][0][j] = real_t((rho_Re*z34_Re + rho_Im*z34_Im) * z34_denom);
                     alf[i][1][j] = real_t((rho_Im*z34_Re - rho_Re*z34_Im) * z34_denom);
 
-                    double const vrho_denom = var[i][j]/abs2rho;
+                    auto const vrho_denom = var[i][j]/abs2rho;
                     // compute tmp := var * eta / rho, complex divison
-                    double const tmp_Re = (eta_Re*rho_Re + eta_Im*rho_Im) * vrho_denom;
-                    double const tmp_Im = (eta_Im*rho_Re - eta_Re*rho_Im) * vrho_denom;
+                    auto const tmp_Re = (eta_Re*rho_Re + eta_Im*rho_Im) * vrho_denom;
+                    auto const tmp_Im = (eta_Im*rho_Re - eta_Re*rho_Im) * vrho_denom;
 
                     // c67 := z34 * (var * eta / rho) = z34 * tmp, complex multiplication
                     c67[i][0][j] = real_t(z34_Re*tmp_Re - z34_Im*tmp_Im);
                     c67[i][1][j] = real_t(z34_Im*tmp_Re + z34_Re*tmp_Im);
                 }
             } // threads j
-        } // blocks i 
+        } // blocks i
     } // dec34
 
 
@@ -137,18 +140,18 @@ namespace tfqmrgpu {
     ) {
 #ifndef HAS_NO_CUDA
         check_launch_params( { nCols, 1, 1 }, { LN, 1, 1 } );
-        { int const i = blockIdx.x;
-            { int const j = threadIdx.x;
+        { auto const i = blockIdx.x;
+            { auto const j = threadIdx.x;
 #else  // HAS_CUDA
-        for (unsigned i = 0; i < nCols; ++i) {
-            for (unsigned j = 0; j < LN; ++j) {
+        for (uint32_t i = 0; i < nCols; ++i) {
+            for (int j = 0; j < LN; ++j) {
 #endif // HAS_CUDA
                 double cosi{0};
                 real_t r67{1};
-                double const Tau = tau[i][j]; // load
+                auto const Tau = tau[i][j]; // load
                 if (std::abs(Tau) > EPSILON) {
-                    double const D55 = d55[i][0][j]; // load
-                    double const Var = D55 / Tau;
+                    auto const D55 = d55[i][0][j]; // load
+                    auto const Var = D55 / Tau;
                     #ifdef  FULLDEBUG
                         debug_printf("# component in block %i element %i has tau= %g, d55= %g, var= %g\n", i, j, Tau, D55, Var);
                     #endif // FULLDEBUG
@@ -165,14 +168,18 @@ namespace tfqmrgpu {
                     tau[i][j] = 0; // store
                 }
 
-                if (status[i][j] < 0) { 
-                    eta[i][0][j] = 0; eta[i][1][j] = 0;
+                if (status[i][j] < 0) {
+                    eta[i][0][j] = 0;
+                    eta[i][1][j] = 0;
                 } else {
-                    eta[i][0][j] = real_t(-cosi * double(alf[i][0][j])); 
-                    eta[i][1][j] = real_t(-cosi * double(alf[i][1][j])); 
+                    eta[i][0][j] = real_t(-cosi * alf[i][0][j]); 
+                    eta[i][1][j] = real_t(-cosi * alf[i][1][j]); 
                 }
 
-                if (nullptr != c67) { c67[i][0][j] = r67; c67[i][1][j] = 0; } // no imaginary part given
+                if (nullptr != c67) {
+                    c67[i][0][j] = r67;
+                    c67[i][1][j] = 0; // no imaginary part given
+                }
             } // threads j
         } // blocks i
     } // decT
@@ -215,8 +222,8 @@ namespace tfqmrgpu {
         , tfqmrgpuDataLayout_t const layout_in  // data layout input
         , tfqmrgpuDataLayout_t const layout_out // data layout output
         , char const trans // transpositions, allowed are {'n','N','t','T'}
-        , uint16_t const nCols_per_block=0
-        , uint16_t const nRows_per_block=0
+        , uint32_t const nCols_per_block=0
+        , uint32_t const nRows_per_block=0
     ) {
 #ifndef HAS_NO_CUDA
         // number of columns and rows is transmitted via the launch parameters
@@ -245,7 +252,7 @@ namespace tfqmrgpu {
             case TFQMRGPU_LAYOUT_RIRIRIRI: iNi = nCols*    2; iNj =     2; iNc = 1; break;
         } // switch layout_in
 
-        double scaler[2] = {scal_real, scal_imag}; // should scaler be of real_t?
+        double const scaler[] = {scal_real, scal_imag};
 
         // 'n' is non-transposed, 't' is transposed
         if ('t' == (trans | IgnoreCase)) { // transposition
@@ -261,9 +268,8 @@ namespace tfqmrgpu {
         auto const j = threadIdx.x; // out col index
         auto const i = threadIdx.y; // out row index
 
-        extern __shared__ char shared_buffer[];
-        auto const temp = (real_t*) shared_buffer; // cast pointer
- 
+        extern __shared__ real_t temp[]; // shared memory
+
         for(auto inzb = blockIdx.x; inzb < nnzb; inzb += gridDim.x) { // grid stride loop over non-zero blocks
             size_t const boff = inzb*blockSize; // block offset
             for(int c = 0; c < 2; ++c) { // loop over real and imaginary part
@@ -272,7 +278,7 @@ namespace tfqmrgpu {
                 // store in shared memory
                 temp[iout] = scaler[c] * array[boff + iin];
             } // c
-            __syncthreads(); // wait unit the entire block is in the shared memory
+            __syncthreads(); // wait unit the entire block is in shared memory
             for(int c = 0; c < 2; ++c) { // loop over real and imaginary part
                 auto const iout = (c*nRows + i)*nCols + j;
                 // coalesced reads from shared memory and coalesced writes to global memory
@@ -332,7 +338,7 @@ namespace tfqmrgpu {
                 <<< nnzb, {nCols, nRows, 1}, 2*nRows*nCols*sizeof(float) , streamId >>>
 #endif // HAS_CUDA
                 ((float *) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows); 
-        }
+        } // z
     } // transpose_blocks
 
 
@@ -346,9 +352,9 @@ namespace tfqmrgpu {
         , uint32_t const nnzb // number of nonzero blocks in B
     ) {
         check_launch_params( { gridDim.x, 1, 1 }, { LN, 1, 1 } );
-        int const j = threadIdx.x;
+        auto const j = threadIdx.x;
 
-        __shared__ int inzv; // ToDo: check if we need it to be so complicated
+        __shared__ uint32_t inzv; // ToDo: check if we need it to be so complicated
         for(int inzb = blockIdx.x; inzb < nnzb; inzb += gridDim.x) { // grid stride loop over blocks
             __syncthreads();
             if (0 == j) inzv = subset[inzb]; // block master loads index
@@ -363,16 +369,16 @@ namespace tfqmrgpu {
 
     template <typename real_t, int LM, int LN>
     void __host__ add_RHS(
-          real_t       (*devPtr v)[2][LM][LN] // result, v[nnzv][2][LM][LN]
+          real_t       (*devPtr v)[2][LM][LN] // result, v[nnzv][Re:Im][LM][LN]
         , real_t const (*devPtr b)[2][LM][LN] // input,  b[nnzb][Re:Im][LM][LN]
         , real_t const scal // global scaling factor, no imaginary part
         , uint32_t const (*devPtr subset) // subset index list[nnzb]
         , uint32_t const nnzb // number of nonzero blocks in B
         , cudaStream_t const streamId
     ) {
+        if (nnzb < 1) return;
 #ifndef HAS_NO_CUDA
         assert(LN <= 1024 && "maximum number of threads per block");
-        if (nnzb > 0)
         add_RHS_kernel<real_t,LM,LN> <<< nnzb, LN, 0, streamId >>> (v, b, scal, subset, nnzb);
 #else  // HAS_CUDA
         for(uint32_t inzb = 0; inzb < nnzb; ++inzb) {
@@ -386,7 +392,6 @@ namespace tfqmrgpu {
 
 
 
-#ifndef HAS_NO_CUDA
     template <typename real_t, int LM, int LN>
     void __global__ set_unit_blocks_kernel( // GPU kernel, must be launched with <<< { nnzb, 1, 1 }, { LN, 1, 1 } >>>
           real_t       (*devPtr v)[2][LM][LN] // result, v[nnzb][Re:Im][LM][LN]
@@ -395,16 +400,23 @@ namespace tfqmrgpu {
         , uint32_t const nnzb // number of nonzero blocks in B, needed for check
     ) {
         assert(LN >= LM);
+#ifndef HAS_NO_CUDA
         check_launch_params( { nnzb, 1, 1 }, { LN, 1, 1 } );
-        int const inzb = blockIdx.x;
-        int const j   = threadIdx.x;
-        int const i   = j % LN;
+        {   auto const inzb = blockIdx.x;
+            {   auto const j = threadIdx.x;
+#else  // HAS_CUDA
+        for(uint32_t inzb = 0; inzb < nnzb; ++inzb) {
+            for(int j = 0; j < LN; ++j) {
+#endif // HAS_CUDA
+                auto const i = j % LM;
 
-        v[inzb][0][i][j] = real_part;
-        v[inzb][1][i][j] = imag_part;
+                v[inzb][0][i][j] = real_part;
+                v[inzb][1][i][j] = imag_part;
+            } // j
+        } // inzb
 
     } // set_unit_blocks_kernel
-#endif // HAS_CUDA
+
 
     template <typename real_t, int LM, int LN>
     void __host__ set_unit_blocks(
@@ -414,19 +426,12 @@ namespace tfqmrgpu {
         , real_t   const real_part=1
         , real_t   const imag_part=0
     ) {
+        if (nnzb < 1) return;
+        set_unit_blocks_kernel<real_t,LM,LN>
 #ifndef HAS_NO_CUDA
-        if (nnzb > 0)
-        set_unit_blocks_kernel<real_t,LM,LN> <<< nnzb, LN, 0, streamId >>> (v, real_part, imag_part, nnzb);
-#else  // HAS_CUDA
-        // assume that v has been cleared before
-        for(uint32_t inzb = 0; inzb < nnzb; ++inzb) {
-            for(int j = 0; j < LN; ++j) {
-                int const i = j % LN;
-                v[inzb][0][i][j] = real_part;
-                v[inzb][1][i][j] = imag_part;
-            } // j
-        } // inzb
+            <<< nnzb, LN, 0, streamId >>>
 #endif // HAS_CUDA
+            (v, real_part, imag_part, nnzb);
     } // set_unit_blocks
 
 
@@ -438,29 +443,30 @@ namespace tfqmrgpu {
     template <typename real_t, int LM, int LN, int D2>
     void __global__ col_inner( // GPU kernel, must be launched with <<< { anypowerof2, 1, 1 }, { LN, 1, 1 } >>>
           double       (*devPtr dots)[D2][LN] // result, dots[2^p*nCols][D2][LN], D2 is 2==Re:Im for v*w and 1 for norm |v|^2
-        , real_t const (*devPtr v)[2][LM][LN] // input, v[nnz][Re:Im][LM][LN]
-        , float  const (*devPtr w)[2][LM][LN] // input, w[nnz][Re:Im][LM][LN], only read if D2==2, always float
+        , real_t const (*devPtr v)[2][LM][LN] // input,    v[nnz][Re:Im][LM][LN]
+        , float  const (*devPtr w)[2][LM][LN] // input,    w[nnz][Re:Im][LM][LN], only read if D2==2, always float
         , uint16_t const (*devPtr ColInd) // column index
         , uint32_t const nnz // number of nonzero blocks
         , uint32_t const nCols // number of block columns
     ) {
         check_launch_params( { gridDim.x, 1, 1 }, { LN, 1, 1 } );
-        int const j = threadIdx.x; // vectorization
-        int const iput = blockIdx.x;
+        auto const j = threadIdx.x; // vectorization
+        auto const iput = blockIdx.x;
 
         // dots must be set to zero before calling this kernel
 
-        for(int inz = blockIdx.x; inz < nnz; inz += gridDim.x) { // grid stride loop over blocks
+        for(auto inz = blockIdx.x; inz < nnz; inz += gridDim.x) { // grid stride loop over blocks
             auto const icol = ColInd[inz];
             double dr{0}, di{0};
-            for(int k = 0; k < LM; ++k) {
-                double const vRe = v[inz][0][k][j], 
-                             vIm = v[inz][1][k][j]; // coalesced loads
+            for(int k = 0; k < LM; ++k) { // contraction index
+                auto const vRe = v[inz][0][k][j],
+                           vIm = v[inz][1][k][j]; // coalesced loads
                 if (2 == D2) {
                     // inner product between two different vectors v and w, unconjugated
-                    double const wRe = w[inz][0][k][j], 
-                                 wIm = w[inz][1][k][j]; // coalesced loads
-                    dr += vRe*wRe - vIm*wIm; // complex multiplication
+                    auto const wRe = w[inz][0][k][j],
+                               wIm = w[inz][1][k][j]; // coalesced loads
+                    // complex multiplication
+                    dr += vRe*wRe - vIm*wIm;
                     di += vRe*wIm + vIm*wRe;
                 } else {
                     // square norm of only one vector v, ignore w
@@ -486,12 +492,12 @@ namespace tfqmrgpu {
     ) {
         check_launch_params( { nCols, gridDim.y, 1 }, { LN, 1, D2 } );
 
-        int const j = threadIdx.x; // vectorization
-        int const ri = threadIdx.z; // real/imag part
-        int const icol = blockIdx.x;
+        auto const j = threadIdx.x; // vectorization
+        auto const ri = threadIdx.z; // 0:real or 1:imag part
+        auto const icol = blockIdx.x;
 
-        int const iput = blockIdx.y;       // in [0, 2^(p-1)-1]
-        int const iget = iput + gridDim.y; // in [2^(p-1), 2^p-1]
+        auto const iput = blockIdx.y;       // in [0, 2^(p-1)-1]
+        auto const iget = iput + gridDim.y; // in [2^(p-1), 2^p-1]
 
         a[iput*nCols + icol][ri][j] += a[iget*nCols + icol][ri][j];
 
@@ -501,9 +507,9 @@ namespace tfqmrgpu {
 
     template <typename real_t, int LM, int LN> inline
     double __host__ dotp(
-          double       (*devPtr a)[2][LN]     // result, a[2^p*nCols][Re:Im][LN]
-        , real_t const (*devPtr x)[2][LM][LN] // input,    x[nnz][Re:Im][LM][LN]
-        , float  const (*devPtr y)[2][LM][LN] // input,    y[nnz][Re:Im][LM][LN], always float (v3)
+          double       (*devPtr a)[2][LN]     // result, a[2^p*nCols][Re:Im]    [LN]
+        , real_t const (*devPtr x)[2][LM][LN] // input,        x[nnz][Re:Im][LM][LN]
+        , float  const (*devPtr y)[2][LM][LN] // input,        y[nnz][Re:Im][LM][LN]
         , uint16_t const (*devPtr ColInd) // column index
         , uint32_t const nnz // number of nonzero blocks
         , uint32_t const nCols // number of columns
@@ -520,14 +526,21 @@ namespace tfqmrgpu {
             col_reduction <double,LN,D2> <<< { nCols, np, 1 }, { LN, 1, D2 }, 0, streamId >>> (a, nCols);
         } // level
 #else  // HAS_CUDA
-        for (uint32_t icj = 0; icj < nCols*D2*LM; ++icj) a[0][0][icj] = 0; // init
+        for (uint32_t icj = 0; icj < nCols*D2*LM; ++icj) {
+            a[0][0][icj] = 0; // clear
+        } // icj
         for (uint32_t inz = 0; inz < nnz; ++inz) {
             auto const icol = ColInd[inz];
             for(int j = 0; j < LM; ++j) { // vectorized
                 double dr{0}, di{0};
                 for(int k = 0; k < LM; ++k) { // contraction index
-                    dr += x[inz][0][k][j]*y[inz][0][k][j] - x[inz][1][k][j]*y[inz][1][k][j]; // complex multiplication
-                    di += x[inz][0][k][j]*y[inz][1][k][j] + x[inz][1][k][j]*y[inz][0][k][j];
+                    double const xRe = x[inz][0][k][j],
+                                 xIm = x[inz][1][k][j];
+                    double const yRe = y[inz][0][k][j],
+                                 yIm = y[inz][1][k][j];
+                    // complex multiplication
+                    dr += xRe*yRe - xIm*yIm;
+                    di += xRe*yIm + xIm*yRe;
                 } // k
                 a[icol][0][j] += dr;
                 a[icol][1][j] += di;
@@ -539,15 +552,15 @@ namespace tfqmrgpu {
 
     template <typename real_t, int LM, int LN> inline
     double __host__ nrm2(
-          double       (*devPtr a)[1][LN]     // result, a[2^p*nCols][1][LN]
-        , real_t const (*devPtr x)[2][LM][LN] // input,  x[nnz][Re:Im][LM][LN]
+          double       (*devPtr a)[1][LN]     // result,  a[2^p*nCols][1]    [LN]
+        , real_t const (*devPtr x)[2][LM][LN] // input,     x[nnz][Re:Im][LM][LN]
         , uint16_t const (*devPtr ColInd) // column index
         , uint32_t const nnz // number of nonzero blocks
         , uint32_t const nCols // number of columns
         , uint32_t const p2 // number of reduction levels
         , cudaStream_t const streamId
     ) {
-        int constexpr D2 = 1;
+        unsigned constexpr D2 = 1;
 #ifndef HAS_NO_CUDA
         unsigned const np2 = (1 << p2); // 2^p
         clear_on_gpu<double[D2][LN]>(a, np2*nCols, streamId);
@@ -557,13 +570,16 @@ namespace tfqmrgpu {
             col_reduction <double,LN,D2> <<< { nCols, np, 1 }, { LN, 1, D2 }, 0, streamId >>> (a, nCols);
         } // level
 #else  // HAS_CUDA
-        for (uint32_t icj = 0; icj < nCols*D2*LN; ++icj) a[0][0][icj] = 0; // init
+        for (uint32_t icj = 0; icj < nCols*D2*LN; ++icj) {
+            a[0][0][icj] = 0; // clear
+        } // icj
         for (uint32_t inz = 0; inz < nnz; ++inz) {
             auto const icol = ColInd[inz];
             for(int j = 0; j < LN; ++j) { // vectorized
                 double dr{0};
                 for(int k = 0; k < LM; ++k) { // contraction index
-                    dr += abs2(x[inz][0][k][j], x[inz][1][k][j]); // square norm of x
+                    // square norm of x
+                    dr += abs2(x[inz][0][k][j], x[inz][1][k][j]);
                 } // k
                 a[icol][0][j] += dr;
             } // j
@@ -575,9 +591,9 @@ namespace tfqmrgpu {
 
     template <typename real_t, int LM, int LN, bool ScaleX>
     void __global__ col_axpay( // GPU kernel, must be launched with <<< { any, 1, 1 }, { LN, 1, 1 } >>>
-          real_t       (*devPtr y)[2][LM][LN] // in/out, y[nnz][Re:Im][LM][LN]
-        , real_t const (*devPtr x)[2][LM][LN] // input,  x[nnz][Re:Im][LM][LN]
-        , real_t const (*devPtr a)[2][LN]     // input,  a[nCols][Re:Im]  [LN]
+          real_t       (*devPtr y)[2][LM][LN] // in/out,   y[nnz][Re:Im][LM][LN]
+        , real_t const (*devPtr x)[2][LM][LN] // input,    x[nnz][Re:Im][LM][LN]
+        , real_t const (*devPtr a)[2][LN]     // input,  a[nCols][Re:Im]    [LN]
         , uint16_t const (*devPtr ColInd) // column index
         , uint32_t const nnz // number of nonzero blocks
     ) { //
@@ -591,13 +607,13 @@ namespace tfqmrgpu {
           for(int j = 0; j < LN; ++j) {
 #endif // HAS_CUDA
             auto const icol = ColInd[inz];
-            real_t const aRe = a[icol][0][j], 
-                         aIm = a[icol][1][j];
+            auto const aRe = a[icol][0][j],
+                       aIm = a[icol][1][j];
             for(int i = 0; i < LM; ++i) {
-                real_t const xRe = x[inz][0][i][j],
-                             xIm = x[inz][1][i][j];
-                real_t const yRe = y[inz][0][i][j], 
-                             yIm = y[inz][1][i][j];
+                auto const xRe = x[inz][0][i][j],
+                           xIm = x[inz][1][i][j];
+                auto const yRe = y[inz][0][i][j],
+                           yIm = y[inz][1][i][j];
                 if (ScaleX) {
                     // axpy: scale the x-vector with a and add to y
                     y[inz][0][i][j] = aRe*xRe - aIm*xIm + yRe;
@@ -614,9 +630,9 @@ namespace tfqmrgpu {
 
     template <typename real_t, int LM, int LN> inline
     double __host__ axpy(
-          real_t       (*devPtr y)[2][LM][LN] // in/out, y[nnz][Re:Im][LM][LN]
-        , real_t const (*devPtr x)[2][LM][LN] // input,  x[nnz][Re:Im][LM][LN]
-        , real_t const (*devPtr a)[2][LN]     // input,  a[nCols][Re:Im]  [LN]
+          real_t       (*devPtr y)[2][LM][LN] // in/out,   y[nnz][Re:Im][LM][LN]
+        , real_t const (*devPtr x)[2][LM][LN] // input,    x[nnz][Re:Im][LM][LN]
+        , real_t const (*devPtr a)[2][LN]     // input,  a[nCols][Re:Im]    [LN]
         , uint16_t const (*devPtr ColInd) // column index
         , uint32_t const nnz // number of nonzero blocks
         , cudaStream_t const streamId
@@ -633,9 +649,9 @@ namespace tfqmrgpu {
 
     template <typename real_t, int LM, int LN> inline
     double __host__ xpay(
-          real_t       (*devPtr y)[2][LM][LN] // in/out, y[nnz][Re:Im][LM][LN]
-        , real_t const (*devPtr a)[2][LN]     // input,  a[nCols][Re:Im]  [LN]
-        , real_t const (*devPtr x)[2][LM][LN] // input,  x[nnz][Re:Im][LM][LN]
+          real_t       (*devPtr y)[2][LM][LN] // in/out,   y[nnz][Re:Im][LM][LN]
+        , real_t const (*devPtr a)[2][LN]     // input,  a[nCols][Re:Im]    [LN]
+        , real_t const (*devPtr x)[2][LM][LN] // input,    x[nnz][Re:Im][LM][LN]
         , uint16_t const (*devPtr ColInd) // column index
         , uint32_t const nnz // number of nonzero blocks
         , cudaStream_t const streamId
@@ -660,6 +676,7 @@ namespace tfqmrgpu {
         , real_t const real_part
         , real_t const imag_part=0
     ) {
+        check_launch_params( {gridDim.x, 1, 1}, { LN, 1, 1 } );
         array[blockIdx.x][0][threadIdx.x] = real_part;
         array[blockIdx.x][1][threadIdx.x] = imag_part;
     } // set_complex_value_kernel
@@ -690,9 +707,10 @@ namespace tfqmrgpu {
 #ifndef HAS_NO_CUDA
     template <typename real_t, int LN>
     void __global__ set_real_value_kernel(
-          real_t (*devPtr array)[LN] // 1D launch with correct size
+          real_t (*devPtr array)[LN] // 1D launch with matching size
         , real_t const value
     ) {
+        check_launch_params( {gridDim.x, 1, 1}, { LN, 1, 1 } );
         array[blockIdx.x][threadIdx.x] = value;
     } // set_real_value_kernel
 #endif // HAS_CUDA
@@ -704,8 +722,8 @@ namespace tfqmrgpu {
         , real_t const value
         , cudaStream_t const streamId=0
     ) {
+        if (nblocks < 1) return;
 #ifndef HAS_NO_CUDA
-        if (nblocks > 0)
         set_real_value_kernel<real_t,LN> <<< nblocks, LN, 0, streamId >>> (array, value);
 #else  // HAS_CUDA
         for(uint32_t iblock = 0; iblock < nblocks; ++iblock) {

@@ -117,7 +117,7 @@ namespace tfqmrgpu {
       clear_on_gpu<real_t[2][LM][LN]>(v9, nnzbX, streamId);
 
       clear_on_gpu<real_t[2][LN]>(eta, nCols, streamId); // eta = 0; // needs to run every time again?
-      set_complex_value<real_t,LN>(rho, nCols, 1., 0., streamId); // needs to run every time!
+      set_complex_value<real_t,LN>(rho, nCols, 1,0, streamId); // needs to run every time!
       clear_on_gpu<double[LN]>(var, nCols, streamId); // var = 0; // needs to run every time!
 
       clear_on_gpu<real_t[2][LM][LN]>(v1, nnzbX, streamId); // deletes the content of v, ToDo: only if setMatrix('X') has not been called
@@ -137,12 +137,12 @@ namespace tfqmrgpu {
 
       if (rhs_trivial) {
           clear_on_gpu<real_t[2][LM][LN]>(v2, nnzbB, streamId);
-          set_unit_blocks<real_t,LM,LN>(v2, nnzbB, streamId,  1,0  );
+          set_unit_blocks<real_t,LM,LN>(v2, nnzbB, streamId,  1,0);
           add_RHS<real_t,LM,LN>(v5, v2, 1, subset, nnzbB, streamId); // v5 := v5 + v2
-          set_real_value<double,LN>(tau, nCols, 1., streamId);
-          for(auto rhs = 0; rhs < nRHSs; ++rhs) invBn2_h[0][rhs] = 1;
+          set_real_value<double,LN>(tau, nCols, 1, streamId);
+          for(auto rhs = 0; rhs < nRHSs; ++rhs) { invBn2_h[0][rhs] = 1; }
           // also, we probably called ::solve without much surrounding, so we need to regenerate the random numbers
-          create_random_numbers(v3[0][0][0], nnzbX*2*LM*LN, streamId);
+          create_random_numbers(v3[0][0][0], nnzbX*size_t(2*LM*LN), streamId);
       } else {
           // right hand side is non-trivial and should have been uploaded before
           // ToDo: move this part into the tail of setMatrix('B')
@@ -155,7 +155,7 @@ namespace tfqmrgpu {
 
           // ToDo: split this part into two: allocation on CPU and transfer to the CPU, can be done when setMatrix('B')
           get_data_from_gpu<double[LN]>(invBn2_h, tau, nCols, streamId, "norm2_of_B"); // inverse_norm2_of_B
-          for(auto rhs = 0; rhs < nRHSs; ++rhs) invBn2_h[0][rhs] = 1./invBn2_h[0][rhs]; // invert in-place on the host
+          for(auto rhs = 0; rhs < nRHSs; ++rhs) { invBn2_h[0][rhs] = 1./invBn2_h[0][rhs]; } // invert in-place on the host
       } // rhs_trivial
 
       tfqmrgpuStatus_t return_status{TFQMRGPU_STATUS_MAX_ITERATIONS}; // preliminary result
