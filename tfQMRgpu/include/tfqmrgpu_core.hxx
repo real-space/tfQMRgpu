@@ -93,17 +93,18 @@ namespace tfqmrgpu {
       if (nullptr == gpu_memory_buffer) { // memcount-mode
           p->gpu_mem = buffer - buffer_start + (1ull << TFQMRGPU_MEMORY_ALIGNMENT); // add safety
           debug_printf("# GPU memory requirement = %.9f GByte\n", p->gpu_mem*1e-9);
+          POP_RANGE(); // end of NVTX range
           return TFQMRGPU_STATUS_SUCCESS; // return early as we only counted the device memory requirement
       } // memcount
 
       // host array allocations
 
       int const nRHSs = nCols*LN; // total number of right-hand sides
-      auto const status_h = new int8_t[nCols][LN]; // tfQMR status on host
-      for(auto rhs = 0; rhs < nRHSs; ++rhs) { status_h[0][rhs] = 0; } // this needs to be done every time
       auto const resnrm2_h = new double[nCols][1][LN]; // residual norm squared on host
-      auto const res_ub_h = new double[nCols][LN]; // residual upper bound squared on host
-      auto const invBn2_h = new double[nCols][LN]; // inverse_norm2_of_B on host
+      auto const res_ub_h  = new double[nCols][LN]; // residual upper bound squared on host
+      auto const invBn2_h  = new double[nCols][LN]; // inverse_norm2_of_B on host
+      auto const status_h  = new int8_t[nCols][LN]; // tfQMR status on host
+      for(auto rhs = 0; rhs < nRHSs; ++rhs) { status_h[0][rhs] = 0; }
 
       ////////////////////////////////////////////////
       // no GPU kernels are called before this line //
@@ -148,7 +149,7 @@ namespace tfqmrgpu {
           // ToDo: move this part into the tail of setMatrix('B')
           // v5 == 0
           add_RHS<real_t,LM,LN>(v5, v2, 1, subset, nnzbB, streamId); // v5 := v5 + v2
-          NRM2(dvv, v5); // dvv := ||v5||
+          NRM2(dvv, v5); // dvv := ||v2||
           cudaMemcpy(tau, dvv, nCols*LN*sizeof(double), cudaMemcpyDeviceToDevice);
           // if we always have unit matrices in B, these 3 steps can be avoided and tau := 1
           // ToDo: check if we can call nrm2<real_t,LM,LN>(dvv, v2, ColIndOfB, nnzbB, nCols, l2nX)
@@ -180,11 +181,6 @@ namespace tfqmrgpu {
           DOTP(zvv, v3, v5); // zvv := v3.v5
 
           // decisions based on v3.v5 and rho
-//           tfQMRdec35<real_t,LN>
-// #ifndef HAS_NO_CUDA
-//               <<< nCols, LN, 0, streamId >>>
-// #endif // HAS_CUDA
-//               (status, rho, beta, zvv, nCols);
           tfQMRdec35<real_t,LN>(status, rho, beta, zvv, nCols, streamId);
 
           XPAY(v6, beta, v5); // v6 := v5 + beta*v6
@@ -198,11 +194,6 @@ namespace tfqmrgpu {
           DOTP(zvv, v3, v4); // zvv := v3.v4
 
           // decisions based on v3.v4 and rho
-//           tfQMRdec34<real_t,LN>
-// #ifndef HAS_NO_CUDA
-//               <<< nCols, LN, 0, streamId >>>
-// #endif // HAS_CUDA
-//               (status, c67, alfa, rho, eta, zvv, var, nCols);
           tfQMRdec34<real_t,LN>(status, c67, alfa, rho, eta, zvv, var, nCols, streamId);
 
           XPAY(v7, c67, v6); // v7 := v6 + c67*v7
@@ -212,11 +203,6 @@ namespace tfqmrgpu {
           NRM2(dvv, v5); // dvv := ||v5||
 
           // decisions based on tau
-//           tfQMRdecT<real_t,LN>
-// #ifndef HAS_NO_CUDA
-//               <<< nCols, LN, 0, streamId >>>
-// #endif // HAS_CUDA
-//               (status, c67, eta, var, tau, alfa, dvv, nCols);
           tfQMRdecT<real_t,LN>(status, c67, eta, var, tau, alfa, dvv, nCols, streamId);
 
           AXPY(v1, v7, eta); // v1 := eta*v7 + v1 // update solution vector
@@ -234,11 +220,6 @@ namespace tfqmrgpu {
           NRM2(dvv, v5); // dvv := ||v5||
 
           // decisions based on tau
-//           tfQMRdecT<real_t,LN>
-// #ifndef HAS_NO_CUDA
-//               <<< nCols, LN, 0, streamId >>>
-// #endif // HAS_CUDA
-//               (status, 0x0, eta, var, tau, alfa, dvv, nCols);
           tfQMRdecT<real_t,LN>(status, 0x0, eta, var, tau, alfa, dvv, nCols, streamId);
 
           AXPY(v1, v7, eta); // v1 := eta*v7 + v1 // update solution vector
@@ -247,8 +228,7 @@ namespace tfqmrgpu {
           get_data_from_gpu<int8_t[LN]>(status_h, status, nCols, streamId, "status");
           // CCheck(cudaDeviceSynchronize()); // necessary?
 
-          double max_bound2{0};
-          double min_bound2{9e99}; // debug
+          double max_bound2{0}, min_bound2{9e99}; // min_bound2 only for debug
           int breakdown5{0}, breakdown4{0};
           for(auto rhs = 0; rhs < nRHSs; ++rhs) {
               auto const res2 = res_ub_h[0][rhs] * invBn2_h[0][rhs]; // apply factor inverse_norm2_of_B
@@ -293,7 +273,6 @@ namespace tfqmrgpu {
                   } else if (res2 <= 0) {
                       status_h[0][rhs] = 1; // component converged
                       status_modified = true;
-  //                  converged_at[0][rhs] = iteration; // store iteration in which this rhs-column converged
                   }
               } // rhs
               residual2_reached = max_residual2;
