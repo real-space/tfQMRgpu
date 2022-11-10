@@ -149,12 +149,11 @@
         if (nullptr != *plan)   return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // requirement that *plan == nullptr on entry.
 
         // compute Y = A*X, minimize |Y - B| to solve A*X == B
-        // nnzbY == nnzbX
 
         // static plausibility checks
-        int const nnzbY = nnzbX; // copy number of non-zero elements
-        if (mb < 1)             return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // at least one row/column needs to be there
-        if (nnzbB > nnzbY)      return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // the non-zero pattern of B must be a true subset of that of X or Y.
+        if (mb < 1)             return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // at least one row/column needs to be there.
+        if (nnzbX < 1)          return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // at least one block of X needs to be found.
+        if (nnzbB > nnzbX)      return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // the non-zero pattern of B must be a true subset of that of X.
         if (nnzbA > mb*mb)      return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // the operator A is assumed logically square, mb*mb is the upper bound.
         if (nnzbA != bsrRowPtrA[mb] - bsrRowPtrA[0])  return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // the operator A is not sane
         if (nnzbX != bsrRowPtrX[mb] - bsrRowPtrX[0])  return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // the operator X is not sane
@@ -171,13 +170,14 @@
 
         { // in this scope we compute the multiplication index pair list for Y = A * X
 
-            // the bsrY sparsity pattern is equal to the bsrX sparsity pattern
+            // the BSR sparsity pattern of Y is equal to the BSR sparsity pattern of X
             auto const bsrRowPtrY = bsrRowPtrX; // copy pointer
-            auto bsrColIndY = bsrColIndX; // copy pointer
+            auto const bsrColIndY = bsrColIndX; // copy pointer
 
-            p->pairs.clear();
+            auto const nnzbY = nnzbX; // copy number of non-zero elements
             size_t const estimate_n_pairs = (nnzbY * nnzbA) / mb; // approximate number of block operations
             debug_printf("tfqmrgpu_bsrsv_createPlan tries to reserve %ld pairs\n", estimate_n_pairs);
+            p->pairs.clear();
             p->pairs.reserve(2 * estimate_n_pairs); // factor 2 as we always save pairs of indices
 
             p->starts.clear();
@@ -187,13 +187,13 @@
                 for (auto inzy = bsrRowPtrY[irow] - C0F1; inzy < bsrRowPtrY[irow + 1] - C0F1; ++inzy) {
                     auto const jcol = bsrColIndY[inzy]; // warning, jcol starts from 1 in Fortran
                     // now compute Y[irow][jcol] = sum_k A[irow][kcol] * X[krow][jcol] with k==kcol==krow
-                    {
-                        int const start_index = p->pairs.size()/2;
-                        p->starts.push_back(start_index);
-                    }
+
+                    p->starts.push_back(p->pairs.size()/2);
+
                     for (auto inza = bsrRowPtrA[irow] - C0F1; inza < bsrRowPtrA[irow + 1] - C0F1; ++inza) {
                         auto const kcol = bsrColIndA[inza] - C0F1;
                         auto const krow = kcol;
+                        assert(krow >= 0); assert(krow < mb);
                         auto const inzx = find_in_array(bsrRowPtrX[krow] - C0F1, // begin
                                                         bsrRowPtrX[krow + 1] - C0F1, // end
                                                         jcol, // try to find this value
@@ -205,10 +205,10 @@
                     } // inza
                 } // inzy
             } // irow
-            {   // this last entry is very important for the sparse matrix format
-                int const start_index = p->pairs.size()/2;
-                p->starts.push_back(start_index);
-            }
+
+            // this last entry is very important for the sparse matrix format
+            p->starts.push_back(p->pairs.size()/2);
+
             assert(nnzbY + 1 == p->starts.size()); // sanity check
 
             debug_printf("# found %ld pairs in A*X multiplication\n", p->pairs.size()/2); // log output
@@ -218,8 +218,8 @@
             std::printf("# p->pairs.data()  = %p\n", (char*)(p->pairs.data()));
             std::printf("# p->starts.data() = %p\n", (char*)(p->starts.data()));
 #endif // DEBUG
-            p->cpu_mem += p->starts.size() * sizeof(int); // register host memory usage in Byte
-            p->cpu_mem += p->pairs.size()  * sizeof(int); // register host memory usage in Byte
+            p->cpu_mem += p->starts.size() * sizeof(uint32_t); // register host memory usage in Byte
+            p->cpu_mem += p->pairs.size()  * sizeof(uint32_t); // register host memory usage in Byte
         } // scope
 
 
@@ -237,38 +237,37 @@
                     p->subset.push_back(inzx); // store the block index into the value array of X at which B is also non-zero.
                 } // inzb
             } // irow
+            assert(nnzbB == p->subset.size()); // sanity check
 
-            p->cpu_mem += p->subset.size() * sizeof(int); // register host memory usage in Byte
+            p->cpu_mem += p->subset.size() * sizeof(uint32_t); // register host memory usage in Byte
         } // scope
 
 
-        int nb{0}; // number of block columns
-
         { // in this scope we try to find the number of block columns in X and B
           // and we create a compressed copy of the bsrColIndX list called colindx
-            int nc{0}; // preliminary number of columns computed via the range of indices
 
-            int min_colInd = 2e9, max_colInd = -min_colInd; // init as close to the largest int32_t
+            int32_t min_colInd = 2e9, max_colInd = -min_colInd; // init close to the largest int32_t
             for (auto inzx = 0; inzx < nnzbX; ++inzx) {
                 auto const jcol = bsrColIndX[inzx]; // we do not need to subtract the Fortran 1 here.
                 min_colInd = std::min(min_colInd, jcol); // find the minimum index
                 max_colInd = std::max(max_colInd, jcol); // find the maxmimum index
             } // inzx
-            nc = 1 + max_colInd - min_colInd; // preliminary number of columns computed via the range of indices
+            auto const nc = 1 + max_colInd - min_colInd; // preliminary number of columns computed via the range of indices
             if (nc < 1) return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // at least one column must be in X and B
 
-            // check if all indices in the range [min_colInd, max_colInd] are touched
-            std::vector<int> nRowsPerColX(nc, 0);
+            // check which indices in the range [min_colInd, max_colInd] are touched
+            std::vector<uint32_t> nRowsPerColX(nc, 0);
             for (auto inzx = 0; inzx < nnzbX; ++inzx) {
-                auto const jc = bsrColIndX[inzx] - min_colInd;
+                auto const jcol = bsrColIndX[inzx];
+                auto const jc = jcol - min_colInd;
+                assert(jc >= 0);
                 ++nRowsPerColX[jc];
             } // inzx
 
-            std::vector<int> translate_jc2jb(nc);
-            unsigned nempty{0};
-            nb = 0;
+            std::vector<int32_t> translate_jc2jb(nc);
+            unsigned nempty{0}, nb{0}; // number of block columns
             for (auto jc = 0; jc < nc; ++jc) {
-                if (nRowsPerColX[jc] < 1) {
+                if (0 == nRowsPerColX[jc]) {
                     translate_jc2jb[jc] = -1; // empty column
                     ++nempty;
                 } else {
@@ -276,7 +275,7 @@
                     ++nb;
                 }
             } // jc
-            // now nb is the number of block columns after filtering the empty columns
+            // now nb is the number of block columns after filtering out the empty columns
 
             // warn if there are empty columns as these should be erased before. Is erasing really necessary?
             if (nempty > 0) {
@@ -290,17 +289,19 @@
             p->original_bsrColIndX.resize(nb); // exact size
 
             for (auto inzx = 0; inzx < nnzbX; ++inzx) {
-                auto const jc = bsrColIndX[inzx] - min_colInd; // jc in [0, nc)
+                auto const jcol = bsrColIndX[inzx];
+                auto const jc = jcol - min_colInd; // jc in [0, nc)
+                assert(jc >= 0); assert(jc < nc);
                 auto const jb = translate_jc2jb[jc]; // jb in [0, nb)
+                assert(jb >= 0); assert(jb < nb);
                 p->colindx[inzx] = jb; // or p->colindx.push_back(jb); // but then we need reserve instead of resize above
-                assert(-1 != jb);
-                p->original_bsrColIndX[jb] = bsrColIndX[inzx]; // retrieval information for debugging
+                p->original_bsrColIndX[jb] = jcol; // retrieval information for debugging
             } // inzx
 
-            p->cpu_mem += p->colindx.size() * sizeof(int); // register host memory usage in Byte
-            p->cpu_mem += p->original_bsrColIndX.size() * sizeof(int); // register host memory usage in Byte
+            p->cpu_mem += p->colindx.size() * sizeof(uint16_t); // register host memory usage in Byte
+            p->cpu_mem += p->original_bsrColIndX.size() * sizeof(int32_t); // register host memory usage in Byte
+            p->nCols = nb; // store number of block columns
         } // scope
-        p->nCols = nb; // store number of block columns
 
         p->pBuffer = nullptr; // init pointer copy to device memory (which will be allocated by the user)
 
@@ -425,7 +426,7 @@
         return TFQMRGPU_STATUS_SUCCESS;
     } // getBuffer
 
-  namespace tfqmrgpu {
+namespace tfqmrgpu {
 
     // asynchronous setting/getting of matrix operands
     tfqmrgpuStatus_t set_or_getMatrix(
@@ -550,7 +551,7 @@
         return TFQMRGPU_STATUS_SUCCESS;
     } // set_or_getMatrix
 
-  } // namespace tfqmrgpu
+} // namespace tfqmrgpu
 
 
     // asynchronous setting of matrix operands, C-interface
@@ -560,8 +561,8 @@
         , char const var // in: selector which variable, only {'A', 'X', 'B'} allowed.
         , void const *const values // in: pointer to read-only values, pointer is casted to float* or double*
         , char const doublePrecision // in: 'c':complex<float>, 'z':complex<double>, 's' and 'd' are not supported.
-        , int const ld // in: leading dimension of blocks in array val.
-        , int const d2 // in:  second dimension of blocks in array val.
+        , int const ld // in: leading dimension of blocks in array values, not in use.
+        , int const d2 // in:  second dimension of blocks in array values, not in use.
         , char const trans // in: transposition of the input matrix blocks.
         , tfqmrgpuDataLayout_t const layout
     ) {
@@ -575,8 +576,8 @@
         , char const var // in: selector which variable, only 'X' or 'x' supported.
         , void       *const values // out: pointer to writeable values, pointer is casted to float* or double*
         , char const doublePrecision // in: 'c':complex<float>, 'z':complex<double>, 's' and 'd' are not supported.
-        , int const ld // in: leading dimension of blocks in array val.
-        , int const d2 // in:  second dimension of blocks in array val.
+        , int const ld // in: leading dimension of blocks in array values, not in use.
+        , int const d2 // in:  second dimension of blocks in array values, not in use.
         , char const trans // in: transposition of the output matrix blocks.
         , tfqmrgpuDataLayout_t const layout
     ) {
@@ -603,7 +604,6 @@
         {   auto const stat = tfqmrgpuGetStream(handle, &streamId);
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         }
-
         auto const p = (bsrsv_plan_t*) plan;
 
         return mysolve(streamId, p, threshold, maxIterations);
@@ -700,35 +700,16 @@
         stat = tfqmrgpu_bsrsv_setBuffer(handle, plan, gpu_memory_buffer);
         if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_setBuffer returned %d\n", __func__, stat); return stat; }
 
-        stat = tfqmrgpu_bsrsv_setMatrix(handle, plan, 'A', Amat, 'z', ldA, ldA, 'n', TFQMRGPU_LAYOUT_RIRIRIRI);
+        stat = tfqmrgpu_bsrsv_setMatrix(handle, plan, 'A', Amat, 'z', ldA, ldA, transA, TFQMRGPU_LAYOUT_RIRIRIRI);
         if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_setMatrix(\'A\') returned %d\n", __func__, stat); return stat; }
 
-        stat = tfqmrgpu_bsrsv_setMatrix(handle, plan, 'B', Bmat, 'z', ldB, ldA, 'n', TFQMRGPU_LAYOUT_RIRIRIRI);
+        stat = tfqmrgpu_bsrsv_setMatrix(handle, plan, 'B', Bmat, 'z', ldB, ldA, transB, TFQMRGPU_LAYOUT_RIRIRIRI);
         if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_setMatrix(\'B\') returned %d\n", __func__, stat); return stat; }
 
         double const threshold = (nullptr != residual) ? *residual : 1e-9;
         int const maxiter = (nullptr != iterations) ? *iterations : 200;
         stat = tfqmrgpu_bsrsv_solve(handle, plan, threshold, maxiter);
         if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_solve returned %d\n", __func__, stat); return stat; }
-
-#ifdef DEBUG
-        if (0) {
-                auto const nRows = ldA, nCols = ldB;
-                auto const p = (bsrsv_plan_t const*) plan;
-                auto const x = (double const*)(p->matXwin.offset);
-                debug_printf("\n# solution X[%d][%d][%d]:\n", nnzbX, nRows, nCols);
-                for (uint32_t inzb = 0; inzb < nnzbX; ++inzb) {
-                    for (uint32_t row = 0; row < nRows; ++row) {
-                        for (uint32_t col = 0; col < nCols; ++col) {
-                            debug_printf("# solution X[%d][%d][%d] = %g %g\n", inzb, row, col
-                              , x[inzb*nRows*nCols*2 + nRows*nCols*0 + row*nCols + col]
-                              , x[inzb*nRows*nCols*2 + nRows*nCols*1 + row*nCols + col]);
-                        } // col
-                    } // row
-                } // inzb
-        }
-#endif // DEBUG
-
 
         double residuum{0}, flops{0}, flops_all{0};
         int32_t needed{0};
@@ -738,7 +719,7 @@
         if (nullptr != residual) *residual = residuum;
         if (nullptr != iterations) *iterations = needed;
 
-        stat = tfqmrgpu_bsrsv_getMatrix(handle, plan, 'X', Xmat, 'z', ldB, ldA, 'n', TFQMRGPU_LAYOUT_RIRIRIRI);
+        stat = tfqmrgpu_bsrsv_getMatrix(handle, plan, 'X', Xmat, 'z', ldB, ldA, transX, TFQMRGPU_LAYOUT_RIRIRIRI);
         if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_getMatrix returned %d\n", __func__, stat); return stat; }
 
         stat = tfqmrgpuDestroyWorkspace(gpu_memory_buffer);
