@@ -551,36 +551,40 @@
             debug_printf("#  done asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
         } // set
 
+#ifdef DEBUG
+            if (is_get) {
+                auto const val = (double const*)ptr;
+                debug_printf("# solution %c[%d][%d][%d]:\n", var, nnzb, nRows, nCols);
+                for (uint32_t inzb = 0; inzb < nnzb; ++inzb) {
+                    for (uint32_t row = 0; row < nRows; ++row) {
+                        for (uint32_t col = 0; col < nCols; ++col) {
+                            debug_printf("# solution %c[%d][%d][%d] = %g %g\n", var, inzb, row, col
+                              , val[inzb*nRows*nCols*2 + nRows*nCols*0 + row*nCols + col]
+                              , val[inzb*nRows*nCols*2 + nRows*nCols*1 + row*nCols + col]);
+                        } // col
+                    } // row
+                } // inzb
+            }
+#endif // DEBUG
+
         // for each block change data layout and (if necessary) transpose in-place on the GPU
         if (dp) {
             tfqmrgpu::transpose_blocks_kernel<double>
 #ifndef HAS_NO_CUDA
                 <<< nnzb, {nCols,nRows,1}, byte_per_block, streamId >>>
 #endif // HAS_CUDA
-                ((double*) ptr, nnzb, 1, scal_imag, l_in, l_out, trans_in, trans_out, var, nRows, nCols);
+                ((double*)ptr, nnzb, 1, scal_imag, l_in, l_out, trans_in, trans_out, var, nRows, nCols);
         } else {
             tfqmrgpu::transpose_blocks_kernel<float>
 #ifndef HAS_NO_CUDA
                 <<< nnzb, {nCols,nRows,1}, byte_per_block, streamId >>>
 #endif // HAS_CUDA
-                ((float *) ptr, nnzb, 1, scal_imag, l_in, l_out, trans_in, trans_out, var, nRows, nCols);
+                ((float *)ptr, nnzb, 1, scal_imag, l_in, l_out, trans_in, trans_out, var, nRows, nCols);
         } // dp
 
         if (is_get) {
             // start asynchronous memory transfer from the GPU to the host
             get_data_from_gpu<char>((char*)values, ptr, size, streamId);
-#ifdef DEBUG
-            auto const val = (double const*)values;
-            for (uint32_t inzb = 0; inzb < nnzb; ++inzb) {
-                for (uint32_t row = 0; row < nRows; ++row) {
-                    for (uint32_t col = 0; col < nCols; ++col) {
-                        debug_printf("# got %c[%d,%d,%d] = %g %g\n", var, inzb, row, col
-                          , val[inzb*nRows*nCols*2 + row*nCols*2 + col*2 + 0]
-                          , val[inzb*nRows*nCols*2 + row*nCols*2 + col*2 + 1]);
-                    } // col
-                } // row
-            } // inzb
-#endif // DEBUG
         } // get
 
         return TFQMRGPU_STATUS_SUCCESS;
@@ -869,6 +873,24 @@
         int const maxiter = (nullptr != iterations) ? *iterations : 200;
         stat = tfqmrgpu_bsrsv_solve(handle, plan, threshold, maxiter);
         if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_solve returned %d\n", __func__, stat); return stat; }
+
+#ifdef DEBUG
+        {       auto const nRows = ldA, nCols = ldB;
+                auto const p = (bsrsv_plan_t const*) plan;
+                auto const x = (double const*)(p->matXwin.offset);
+                debug_printf("\n# solution X[%d][%d][%d]:\n", nnzbX, nRows, nCols);
+                for (uint32_t inzb = 0; inzb < nnzbX; ++inzb) {
+                    for (uint32_t row = 0; row < nRows; ++row) {
+                        for (uint32_t col = 0; col < nCols; ++col) {
+                            debug_printf("# solution X[%d][%d][%d] = %g %g\n", inzb, row, col
+                              , x[inzb*nRows*nCols*2 + nRows*nCols*0 + row*nCols + col]
+                              , x[inzb*nRows*nCols*2 + nRows*nCols*1 + row*nCols + col]);
+                        } // col
+                    } // row
+                } // inzb
+        }
+#endif // DEBUG
+
 
         double residuum{0}, flops{0}, flops_all{0};
         int32_t needed{0};

@@ -4,6 +4,8 @@ allow_block_size( 4, 5);
 allow_block_size( 4, 8);
 allow_block_size( 4,32);
 allow_block_size( 8, 8);
+allow_block_size( 8, 9);
+allow_block_size( 8,10);
 allow_block_size( 8,32);
 allow_block_size( 8,64);
 allow_block_size(16,16);

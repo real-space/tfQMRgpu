@@ -49,7 +49,7 @@ for ib = 1:mb # block rows
     for jb = max(1, ib - 1):min(mb, ib + 1) # block columns
         global inzb += 1 # count up
         colIndA[inzb] = jb - 1
-        diagonal = (ib == jb) ? 2 : -1 # create a finite-difference operator
+        diagonal = (ib == jb) ? 2 : -1 # create a 1D finite-difference operator
         for i = 1:ldA
             Amat[i,i,inzb] = diagonal
         end # i

@@ -239,6 +239,20 @@ namespace tfqmrgpu {
 
           AXPY(v1, v7, eta); // v1 := eta*v7 + v1 // update solution vector
 
+#ifdef DEBUG
+        {       auto const nRows = LM, nCols = LN;
+                debug_printf("\n# iteration %d X[%ld][%d][%d]:\n", iteration, nnzbX, nRows, nCols);
+                for (uint32_t inzb = 0; inzb < nnzbX; ++inzb) {
+                    for (uint32_t row = 0; row < nRows; ++row) {
+                        for (uint32_t col = 0; col < nCols; ++col) {
+                            debug_printf("# solution X[%d][%d][%d] = %g %g\n", inzb, row, col
+                                              , v1[inzb][0][row][col], v1[inzb][1][row][col]);
+                        } // col
+                    } // row
+                } // inzb
+        }
+#endif // DEBUG
+
           get_data_from_gpu<double[LN]>(res_ub_h, tau, nCols, streamId, "tau"); // missing factor inverse_norm2_of_B
           get_data_from_gpu<int8_t[LN]>(status_h, status, nCols, streamId, "status");
           // CCheck(cudaDeviceSynchronize()); // necessary?

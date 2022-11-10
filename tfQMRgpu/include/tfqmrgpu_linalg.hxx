@@ -607,7 +607,7 @@ namespace tfqmrgpu {
 #ifndef HAS_NO_CUDA
         check_launch_params( {gridDim.x, 1, 1}, { LN, 1, 1 } );
 
-        int const j = threadIdx.x; // vectorization
+        auto const j = threadIdx.x; // vectorization
         for(auto inz = blockIdx.x; inz < nnz; inz += gridDim.x) { // grid stride loop over blocks
 #else  // HAS_CUDA
         for(uint32_t inz = 0; inz < nnz; ++inz)
@@ -684,8 +684,9 @@ namespace tfqmrgpu {
         , real_t const imag_part=0
     ) {
         check_launch_params( {gridDim.x, 1, 1}, { LN, 1, 1 } );
-        array[blockIdx.x][0][threadIdx.x] = real_part;
-        array[blockIdx.x][1][threadIdx.x] = imag_part;
+        auto const j = threadIdx.x;
+        array[blockIdx.x][0][j] = real_part;
+        array[blockIdx.x][1][j] = imag_part;
     } // set_complex_value_kernel
 #endif // HAS_CUDA
 
@@ -718,7 +719,8 @@ namespace tfqmrgpu {
         , real_t const value
     ) {
         check_launch_params( {gridDim.x, 1, 1}, { LN, 1, 1 } );
-        array[blockIdx.x][threadIdx.x] = value;
+        auto const j = threadIdx.x;
+        array[blockIdx.x][j] = value;
     } // set_real_value_kernel
 #endif // HAS_CUDA
 
@@ -736,7 +738,6 @@ namespace tfqmrgpu {
         for(uint32_t iblock = 0; iblock < nblocks; ++iblock) {
             for(int j = 0; j < LN; ++j) {
                 array[iblock][j] = value;
-//              printf("# set array[%i][%i] := %g\n", iblock, j, value);
             } // j
         } // iblock
 #endif // HAS_CUDA
