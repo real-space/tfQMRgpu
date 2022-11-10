@@ -216,36 +216,39 @@ namespace tfqmrgpu {
     template <typename real_t>
     void __global__ transpose_blocks_kernel( // GPU kernel, must be launched with <<< {any,1,1}, {nCols,nRows,1}, 2*nRows*nCols*sizeof(real_t) >>>
           real_t (*devPtr array) // input and result
-        , size_t const nnzb // number of nonzero blocks
+        , uint32_t const nnzb // number of nonzero blocks
         , double const scal_real // global scaling factor for the real part
         , double const scal_imag // global scaling factor for the imaginary part
         , tfqmrgpuDataLayout_t const layout_in  // data layout input
         , tfqmrgpuDataLayout_t const layout_out // data layout output
-        , char const trans // transpositions, allowed are {'n','N','t','T'}
-        , uint32_t const nCols_per_block=0
+//         , char const trans // transpositions, allowed are {'n','N','t','T'}
+        , bool const trans_in
+        , bool const trans_out
+        , char const var='?' // operator name for debug
         , uint32_t const nRows_per_block=0
+        , uint32_t const nCols_per_block=0
     ) {
 #ifndef HAS_NO_CUDA
         // number of columns and rows is transmitted via the launch parameters
-        auto const nCols = blockDim.x;
         auto const nRows = blockDim.y;
+        auto const nCols = blockDim.x;
         check_launch_params( {gridDim.x, 1, 1}, {nCols, nRows, 1} );
 #else  // HAS_CUDA
-        uint32_t const nCols = nCols_per_block; assert(nCols > 0);
-        uint32_t const nRows = nRows_per_block; assert(nRows > 0);
+        auto const nRows = nRows_per_block; assert(nRows > 0);
+        auto const nCols = nCols_per_block; assert(nCols > 0);
 #endif // HAS_CUDA
         // TFQMRGPU_LAYOUT_RRRRIIII internal format: blocks of real parts, blocks of imaginary parts
         // TFQMRGPU_LAYOUT_RRIIRRII intermediate format: vectors separated between real and imag
-        // TFQMRGPU_LAYOUT_RIRIRIRI Fortran complex(4 or 8), C++ std::complex<real_t>
+        // TFQMRGPU_LAYOUT_RIRIRIRI Fortran complex(kind=4 or 8), C++ std::complex<float or double>
 
-        uint32_t oNi, oNj, oNc; // output
+        uint32_t oNi{0}, oNj{0}, oNc{0}; // output
         switch (layout_out) {
             case TFQMRGPU_LAYOUT_RRRRIIII: oNc = nRows*nCols; oNi = nCols; oNj = 1; break;
             case TFQMRGPU_LAYOUT_RRIIRRII: oNi =     2*nCols; oNc = nCols; oNj = 1; break;
             case TFQMRGPU_LAYOUT_RIRIRIRI: oNi = nCols*    2; oNj =     2; oNc = 1; break;
         } // switch layout_out
 
-        uint32_t iNi, iNj, iNc; // input
+        uint32_t iNi{0}, iNj{0}, iNc{0}; // input
         switch (layout_in) {
             case TFQMRGPU_LAYOUT_RRRRIIII: iNc = nRows*nCols; iNi = nCols; iNj = 1; break;
             case TFQMRGPU_LAYOUT_RRIIRRII: iNi =     2*nCols; iNc = nCols; iNj = 1; break;
@@ -255,12 +258,17 @@ namespace tfqmrgpu {
         double const scaler[] = {scal_real, scal_imag};
 
         // 'n' is non-transposed, 't' is transposed
-        if ('t' == (trans | IgnoreCase)) { // transposition
-            gpu_swap(iNi, iNj);
-        } else {
-           assert('n' == (trans | IgnoreCase)); // other characters are not permitted
+//         if ('t' == (trans | IgnoreCase)) { // transposition
+//             gpu_swap(iNi, iNj);
+//         } else {
+//            assert('n' == (trans | IgnoreCase)); // other characters are not permitted
            // complex conjugation can be done by a negative sign to scal_imag
-        }
+//         }
+        if (trans_in)  gpu_swap(iNi, iNj);
+        if (trans_out) gpu_swap(oNi, oNj);
+
+        debug_printf("# %s for operator \'%c\'  in: %d*i + %d*j + %d*c,  out: %d*i + %d*j + %d*c\n",
+                        __func__, var, iNi, iNj, iNc, oNi, oNj, oNc);
 
         size_t const blockSize = 2*nRows*nCols;
 
@@ -277,7 +285,7 @@ namespace tfqmrgpu {
                 auto const iin  = iNi*i + iNj*j + iNc*c;
                 auto const iout = oNi*i + oNj*j + oNc*c;
                 // store in shared memory
-                temp[iout] = scaler[c] * array[boff + iin];
+                temp[iout] = scaler[c] * array[boff + iin]; // potentially uncoalesced reads from global memory and writes to shared memory
             } // c
             __syncthreads(); // wait unit the entire block is in shared memory
             for(int c = 0; c < 2; ++c) { // loop over real and imaginary part
@@ -287,14 +295,16 @@ namespace tfqmrgpu {
             } // c
         } // inzb
 #else  // HAS_CUDA
-        for(size_t inzb = 0; inzb < nnzb; ++inzb) { // parallel
+        for(uint32_t inzb = 0; inzb < nnzb; ++inzb) { // parallel
             size_t const boff = inzb*blockSize; // block offset
             std::vector<real_t> temp(blockSize);
+//         debug_printf("# %s for operator \'%c\'  inzb=%d address=%p\n", __func__, var, inzb, array + boff);
             for(uint32_t i = 0; i < nRows; ++i) {
                 for(uint32_t j = 0; j < nCols; ++j) {
                     for(int c = 0; c < 2; ++c) { // loop over real and imaginary part
                         auto const iin  = iNi*i + iNj*j + iNc*c;
                         auto const iout = oNi*i + oNj*j + oNc*c;
+//         debug_printf("# %s for operator \'%c\'  in: %d, out: %d max: %ld\n", __func__, var, iin, iout, blockSize);
                         temp[iout] = scaler[c] * array[boff + iin];
                     } // c
                 } // j
@@ -306,6 +316,7 @@ namespace tfqmrgpu {
 #endif // HAS_CUDA
     } // transpose_blocks_kernel
 
+#if 0 // not used
     void transpose_blocks( // driver
           char (*devPtr ptr)
         , size_t const nnzb // number of non-zero blocks
@@ -336,7 +347,7 @@ namespace tfqmrgpu {
                 ((float *) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows); 
         } // z
     } // transpose_blocks
-
+#endif
 
 #ifndef HAS_NO_CUDA
     template <typename real_t, int LM, int LN>

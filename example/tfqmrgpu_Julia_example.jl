@@ -6,13 +6,13 @@
 plot = true
 
 mb = 7 # number of rows
-ldA = 8 # square block dimension of A
-ldB = 8 # block column dimension of B and X
+ldA = 4 # square block dimension of A
+ldB = 5 # block column dimension of B and X
 
 nnzbA = 19 # number of nonzero blocks in A
 nnzbX = mb # number of nonzero blocks in X
-nnzbB = nnzbX #  n. of nonzero blocks in B
-# ToDo: try if we can pass only nnzbB = 1
+# nnzbB = nnzbX
+nnzbB = 1
 
 # get memory for nonzero blocks in Complex{Float64}
 Amat = zeros(ComplexF64, ldA, ldA, nnzbA) # nonzero blocks of the problem
@@ -57,8 +57,9 @@ for ib = 1:mb # block rows
     end # jb
     rowPtrA[ib + 1] = inzb
     rowPtrX[ib + 1] = ib
-    rowPtrB[ib + 1] = ib
+#   rowPtrB[ib + 1] = 0
 end # ib
+rowPtrB[mb + 1] = nnzbB
 println("### rowPtrA = ", rowPtrA)
 println("### rowPtrX = ", rowPtrX)
 println("### colIndA = ", colIndA)
@@ -88,5 +89,6 @@ if true
         @ccall tf.tfqmrgpuPrintError(status::Cint)::Cint
     else
         println("### tfQMRgpu converged to ",residual[1]," in ",iterations[1]," iterations")
+        @show Xmat
     end # if status
 end # if true

@@ -246,7 +246,7 @@
 
         int nb{0}; // number of block columns
 
-        { // in this scope we try to find the number of block columns in X and B        
+        { // in this scope we try to find the number of block columns in X and B
           // and we create a compressed copy of the bsrColIndX list called colindx
             int nc{0}; // preliminary number of columns computed via the range of indices
 
@@ -427,15 +427,15 @@
     } // getBuffer
 
 
-    tfqmrgpuStatus_t varname_selector(
+    tfqmrgpuStatus_t varname_filter(
           char const var
-        , bsrsv_plan_t* p
+        , bsrsv_plan_t const *const p
         , size_t &size
         , char* &ptr
         , uint32_t &nnzb
         , uint32_t &nRows
         , uint32_t &nCols
-        , uint32_t const line
+        , unsigned const line
     ) {
         nRows = p->LM;
         nCols = p->LN;
@@ -447,11 +447,11 @@
             default: return TFQMRGPU_VARIABLENAME_UNKNOWN + TFQMRGPU_CODE_CHAR*var + TFQMRGPU_CODE_LINE*line; 
         } // switch var
         return TFQMRGPU_STATUS_SUCCESS;
-    } // varname_selector
+    } // varname_filter
 
     tfqmrgpuStatus_t datalayout_filter(
           tfqmrgpuDataLayout_t const layout
-        , uint32_t const line
+        , unsigned const line
     ) {
         switch (layout) {
             case TFQMRGPU_LAYOUT_RRRRIIII: break; // native for this GPU solver
@@ -463,41 +463,138 @@
     } // datalayout_filter
 
     tfqmrgpuStatus_t transposition_filter(
-          char &trans
+          char &trans // in: 'n','N', 't','T', '*', 'h','H','c','C', out: 'n' or 't'
         , double &sign_imag
-        , uint32_t const line
+        , unsigned const line
     ) {
         trans |= IgnoreCase; // convert trans to lowercase
         sign_imag = 1;
         switch (trans) {
-            case 'n': break; // non-transpose
-            case 't': break; // transpose
+            case 'h':
+            case 'c': sign_imag = -1; trans = 't'; break; // transpose + conjugate // LAPACK uses 'c' for the Hermitian adjoint, but allow also 'H' or 'h'
             case '*': sign_imag = -1; trans = 'n'; break; //        only conjugate
-            case 'h': trans = 'c';                        // allow 'H' or 'h' for the Hermitian adjoint
-            case 'c': sign_imag = -1; trans = 't'; break; // transpose + conjugate // LAPACK uses 'c' for the Hermitian adjoint
+            case 't': break; // transpose
+            case 'n': break; // non-transpose
             default: return TFQMRGPU_TANSPOSITION_UNKNOWN + TFQMRGPU_CODE_CHAR*trans + TFQMRGPU_CODE_LINE*line;
         } // switch trans
         return TFQMRGPU_STATUS_SUCCESS;
     } // transposition_filter
 
     // asynchronous setting of matrix operands
+    tfqmrgpuStatus_t tfqmrgpu_bsrsv_set_or_getMatrix(
+          tfqmrgpuHandle_t handle // in: opaque handle for the tfqmrgpu library.
+        , tfqmrgpuBsrsvPlan_t plan // inout: plan for bsrsv
+        , char const var // in: selector which variable, only {'A', 'X', 'B'} allowed.
+        , void*const values // pointer to read-only values, pointer is casted to float* or double*
+        , char const doublePrecision // in: 'C','c':complex<float>, 'Z','z':complex<double>, 's' and 'd' are not supported.
+        , int const ld // in: leading dimension of blocks in array val, ignored, use the block dimensions stored in plan
+        , int const d2 // in:  second dimension of blocks in array val, ignored, use the block dimensions stored in plan
+        , char const trans // in: transposition of the input matrix blocks.
+        , tfqmrgpuDataLayout_t const layout
+        , bool const is_get=false
+    ) {
+        debug_printf("# %s for operator \'%c\'  values=%p\n", __func__, var, values);
+        {   auto const stat = datalayout_filter(layout, __LINE__);
+            if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
+        }
+        uint32_t nnzb{0}, nRows{0}, nCols{0};
+        auto const p = (bsrsv_plan_t const*) plan;
+        char* ptr = is_get ? nullptr : p->pBuffer;
+        size_t size{0}; // size in Byte
+        {   auto const stat = varname_filter(var, p, size, ptr, nnzb, nRows, nCols, __LINE__);
+            if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
+        }
+        if (nnzb < 1) return TFQMRGPU_STATUS_SUCCESS; // nothing to do
+        assert(nullptr != ptr);
+
+        double scal_imag{1};
+        char Trans = trans | IgnoreCase; // non-const copy
+        {   auto const stat = transposition_filter(Trans, scal_imag, __LINE__);
+            if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
+        }
+
+        if ('a' == (var | IgnoreCase)) {
+            // internally, operator A is stored column major for coalesced memory access on the GPU
+            if      ('n' == Trans) { Trans = 't'; }
+            else if ('t' == Trans) { Trans = 'n'; }
+            else { return TFQMRGPU_TANSPOSITION_UNKNOWN + TFQMRGPU_CODE_CHAR*trans + TFQMRGPU_CODE_LINE*__LINE__; }
+            debug_printf("# tfqmrgpu_bsrsv_setMatrix: flip transposition "
+              "'%c' to internal '%c' for operator '%c'\n", trans, Trans, var);
+        } // only operator A
+
+        auto const dp = ('z' == p->doublePrecision);
+        if (('z' == (doublePrecision | IgnoreCase)) != dp) {
+            std::printf("# mismatch: \'%c\' and plan says \'%c\'\n", doublePrecision, p->doublePrecision);
+            return TFQMRGPU_PRECISION_MISSMATCH + TFQMRGPU_CODE_CHAR*doublePrecision + TFQMRGPU_CODE_LINE*__LINE__;
+        }
+
+        auto const byte_per_block = 2*nRows*nCols*(dp ? sizeof(double) : sizeof(float));
+        assert(nnzb*byte_per_block == size);
+
+        cudaStream_t streamId{0};
+        {   auto const stat = tfqmrgpuGetStream(handle, &streamId);
+            if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
+        }
+
+        bool trans_in{false}, trans_out{false};
+        tfqmrgpuDataLayout_t l_in, l_out;
+        if (is_get) {
+            trans_in = ('t' == Trans);
+            l_in = TFQMRGPU_LAYOUT_RRRRIIII;
+            l_out = layout;
+        } else {
+            l_in = layout;
+            l_out = TFQMRGPU_LAYOUT_RRRRIIII;
+            trans_out = ('t' == Trans);
+            debug_printf("# start asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
+            copy_data_to_gpu<char>(ptr, (char*)values, size, streamId);
+            debug_printf("#  done asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
+        } // set
+
+        // for each block change data layout and (if necessary) transpose in-place on the GPU
+        if (dp) {
+            tfqmrgpu::transpose_blocks_kernel<double>
+#ifndef HAS_NO_CUDA
+                <<< nnzb, {nCols,nRows,1}, byte_per_block, streamId >>>
+#endif // HAS_CUDA
+                ((double*) ptr, nnzb, 1, scal_imag, l_in, l_out, trans_in, trans_out, var, nRows, nCols);
+        } else {
+            tfqmrgpu::transpose_blocks_kernel<float>
+#ifndef HAS_NO_CUDA
+                <<< nnzb, {nCols,nRows,1}, byte_per_block, streamId >>>
+#endif // HAS_CUDA
+                ((float *) ptr, nnzb, 1, scal_imag, l_in, l_out, trans_in, trans_out, var, nRows, nCols);
+        } // dp
+
+        if (is_get) {
+            // start asynchronous memory transfer from the GPU to the host
+            get_data_from_gpu<char>((char*)values, ptr, size, streamId);
+        } // get
+
+        return TFQMRGPU_STATUS_SUCCESS;
+    } // set_or_getMatrix
+
+
+
+    // asynchronous setting of matrix operands
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_setMatrix(
           tfqmrgpuHandle_t handle // in: opaque handle for the tfqmrgpu library.
         , tfqmrgpuBsrsvPlan_t plan // inout: plan for bsrsv
         , char const var // in: selector which variable, only {'A', 'X', 'B'} allowed.
-        , void const *values // in: pointer to read-only values, pointer is casted to float* or double*
+        , void const *const values // in: pointer to read-only values, pointer is casted to float* or double*
         , char const doublePrecision // in: 'c':complex<float>, 'z':complex<double>, 's' and 'd' are not supported.
         , int const ld // in: leading dimension of blocks in array val.
         , int const d2 // in:  second dimension of blocks in array val.
         , char const trans // in: transposition of the input matrix blocks.
         , tfqmrgpuDataLayout_t const layout
     ) {
+#if 0
         uint32_t nnzb{0}, nRows{0}, nCols{0};
 
         auto const p = (bsrsv_plan_t*) plan;
         auto ptr = (char*) p->pBuffer; // device pointer
         size_t size{0}; // size in Byte
-        {   auto const stat = varname_selector(var, p, size, ptr, nnzb, nRows, nCols, __LINE__);
+        {   auto const stat = varname_filter(var, p, size, ptr, nnzb, nRows, nCols, __LINE__);
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         }
 
@@ -549,19 +646,23 @@
         }
 
         return TFQMRGPU_STATUS_SUCCESS;
+#else
+        return tfqmrgpu_bsrsv_set_or_getMatrix(handle, plan, var, (void*)values, doublePrecision, ld, d2, trans, layout, false);
+#endif
     } // setMatrix
 
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_getMatrix(
           tfqmrgpuHandle_t handle // in: opaque handle for the tfqmrgpu library.
         , tfqmrgpuBsrsvPlan_t plan // in: plan for bsrsv
-        , char const var // in: selector which variable, only 'X' supported.
-        , void      *val // out: pointer to writeable values, pointer is casted to float* or double*
+        , char const var // in: selector which variable, only 'X' or 'x' supported.
+        , void       *const values // out: pointer to writeable values, pointer is casted to float* or double*
         , char const doublePrecision // in: 'c':complex<float>, 'z':complex<double>, 's' and 'd' are not supported.
         , int const ld // in: leading dimension of blocks in array val.
         , int const d2 // in:  second dimension of blocks in array val.
         , char const trans // in: transposition of the output matrix blocks.
         , tfqmrgpuDataLayout_t const layout
     ) {
+#if 0
         {   auto const stat = datalayout_filter(layout, __LINE__);
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         }
@@ -588,15 +689,16 @@
         // ToDo: we have to make sure that getMatrix is not called before the solver has been called with memcount=false
 
         size_t size{0}; // size in Byte
-        {   auto const stat = varname_selector(var, p, size, ptr, nnzb, nRows, nCols, __LINE__);
+        {   auto const stat = varname_filter(var, p, size, ptr, nnzb, nRows, nCols, __LINE__);
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         }
         if ('x' != (var | IgnoreCase)) {
-            // internally, operator A is stored column major, so downloading in e.g. with trans 'n'
+            // Only the download of operator 'X' is allowed.
+            // Internally, operator A is stored column major, so downloading in e.g. with trans 'n'
             // would first modify the value of the operator A in-place on the GPU, so
             // solving again, e.g. with a modified right hand side B might lead to unexpected results
             // therefore, we do not allow downloading of operator A
-            // similarly, B, so we only allow to download operator X
+            // similarly, B, therefore, we only allow to download operator X
             return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_CHAR*var + TFQMRGPU_CODE_LINE*__LINE__;
         } // only operator A
 
@@ -620,9 +722,21 @@
         }
 
         // start asynchronous memory transfer from the GPU to the host
-        get_data_from_gpu<char>((char*)val, ptr, size, streamId);
+        get_data_from_gpu<char>((char*)values, ptr, size, streamId);
 
         return TFQMRGPU_STATUS_SUCCESS;
+#else
+        if ('x' != (var | IgnoreCase)) {
+            // Only the download of operator 'X' is allowed.
+            // Internally, operator A is stored column major, so downloading in e.g. with trans 'n'
+            // would first modify the value of the operator A in-place on the GPU, so
+            // solving again, e.g. with a modified right hand side B might lead to unexpected results
+            // therefore, we do not allow downloading of operator A
+            // similarly, B, therefore, we only allow to download operator X
+            return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_CHAR*var + TFQMRGPU_CODE_LINE*__LINE__;
+        } // only operator A
+        return tfqmrgpu_bsrsv_set_or_getMatrix(handle, plan, var, values, doublePrecision, ld, d2, trans, layout, true);
+#endif
     } // getMatrix
 
 
