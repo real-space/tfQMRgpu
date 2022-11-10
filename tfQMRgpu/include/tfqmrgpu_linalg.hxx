@@ -257,13 +257,6 @@ namespace tfqmrgpu {
 
         double const scaler[] = {scal_real, scal_imag};
 
-        // 'n' is non-transposed, 't' is transposed
-//         if ('t' == (trans | IgnoreCase)) { // transposition
-//             gpu_swap(iNi, iNj);
-//         } else {
-//            assert('n' == (trans | IgnoreCase)); // other characters are not permitted
-           // complex conjugation can be done by a negative sign to scal_imag
-//         }
         if (trans_in)  gpu_swap(iNi, iNj);
         if (trans_out) gpu_swap(oNi, oNj);
 
@@ -315,39 +308,6 @@ namespace tfqmrgpu {
         } // inzb
 #endif // HAS_CUDA
     } // transpose_blocks_kernel
-
-#if 0 // not used
-    void transpose_blocks( // driver
-          char (*devPtr ptr)
-        , size_t const nnzb // number of non-zero blocks
-        , tfqmrgpuDataLayout_t const l_in  // data layout input
-        , tfqmrgpuDataLayout_t const l_out // data layout output
-        , uint32_t const nRows // Rows per block
-        , uint32_t const nCols // Columns per block
-        , char const doublePrecision='z' // should be 'z' or 'Z' for double and 'c' or 'C' for float
-        , double const scal_imag=1 // use -1 for complex conjugation
-        , char const Trans='n' // should be 'n' or 'N' or 't' or 'T'
-        , cudaStream_t const streamId=0
-    ) {
-        if (nnzb < 1) return;
-        assert(nRows*nCols <= 1024 && "maximum number of threads per block");
-        if ('z' == (doublePrecision | IgnoreCase)) {
-//          assert(nnzb * 2 * nRows * nCols * sizeof(double) == size);
-            transpose_blocks_kernel<double>
-#ifndef HAS_NO_CUDA
-                <<< nnzb, {nCols, nRows, 1}, 2*nRows*nCols*sizeof(double), streamId >>>
-#endif // HAS_CUDA
-                ((double*) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows);
-        } else {
-  //        assert(nnzb * 2 * nRows * nCols * sizeof(float)  == size);
-            transpose_blocks_kernel<float>
-#ifndef HAS_NO_CUDA
-                <<< nnzb, {nCols, nRows, 1}, 2*nRows*nCols*sizeof(float) , streamId >>>
-#endif // HAS_CUDA
-                ((float *) ptr, nnzb, 1, scal_imag, l_in, l_out, Trans, nCols, nRows); 
-        } // z
-    } // transpose_blocks
-#endif
 
 #ifndef HAS_NO_CUDA
     template <typename real_t, int LM, int LN>
