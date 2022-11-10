@@ -569,6 +569,18 @@
         if (is_get) {
             // start asynchronous memory transfer from the GPU to the host
             get_data_from_gpu<char>((char*)values, ptr, size, streamId);
+#ifdef DEBUG
+            auto const val = (double const*)values;
+            for (uint32_t inzb = 0; inzb < nnzb; ++inzb) {
+                for (uint32_t row = 0; row < nRows; ++row) {
+                    for (uint32_t col = 0; col < nCols; ++col) {
+                        debug_printf("# got %c[%d,%d,%d] = %g %g\n", var, inzb, row, col
+                          , val[inzb*nRows*nCols*2 + row*nCols*2 + col*2 + 0]
+                          , val[inzb*nRows*nCols*2 + row*nCols*2 + col*2 + 1]);
+                    } // col
+                } // row
+            } // inzb
+#endif // DEBUG
         } // get
 
         return TFQMRGPU_STATUS_SUCCESS;
