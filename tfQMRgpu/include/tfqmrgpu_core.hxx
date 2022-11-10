@@ -129,11 +129,11 @@ namespace tfqmrgpu {
       double residual2_reached{1e300};
 
       double nFlop{0}; // counter for floating point multiplications
+#define MULT(y,x)   nFlop += action.multiply(y, x,       colindx, nnzbX, nCols, l2nX, streamId)
 #define DOTP(d,w,v) nFlop += dotp<real_t,LM,LN>(d, v, w, colindx, nnzbX, nCols, l2nX, streamId)
 #define NRM2(d,v)   nFlop += nrm2<real_t,LM,LN>(d, v,    colindx, nnzbX, nCols, l2nX, streamId)
 #define XPAY(y,a,x) nFlop += xpay<real_t,LM,LN>(y, a, x, colindx, nnzbX, streamId)
 #define AXPY(y,x,a) nFlop += axpy<real_t,LM,LN>(y, x, a, colindx, nnzbX, streamId)
-#define MULT(y,x)   nFlop += action.multiply(y, x,       colindx, nnzbX, nCols, l2nX, streamId)
 
       if (rhs_trivial) {
           clear_on_gpu<real_t[2][LM][LN]>(v2, nnzbB, streamId);
@@ -180,11 +180,12 @@ namespace tfqmrgpu {
           DOTP(zvv, v3, v5); // zvv := v3.v5
 
           // decisions based on v3.v5 and rho
-          tfQMRdec35<real_t,LN>
-#ifndef HAS_NO_CUDA
-              <<< nCols, LN, 0, streamId >>>
-#endif // HAS_CUDA
-              (status, rho, beta, zvv, nCols);
+//           tfQMRdec35<real_t,LN>
+// #ifndef HAS_NO_CUDA
+//               <<< nCols, LN, 0, streamId >>>
+// #endif // HAS_CUDA
+//               (status, rho, beta, zvv, nCols);
+          tfQMRdec35<real_t,LN>(status, rho, beta, zvv, nCols, streamId);
 
           XPAY(v6, beta, v5); // v6 := v5 + beta*v6
 
@@ -197,11 +198,12 @@ namespace tfqmrgpu {
           DOTP(zvv, v3, v4); // zvv := v3.v4
 
           // decisions based on v3.v4 and rho
-          tfQMRdec34<real_t,LN>
-#ifndef HAS_NO_CUDA
-              <<< nCols, LN, 0, streamId >>>
-#endif // HAS_CUDA
-              (status, c67, alfa, rho, eta, zvv, var, nCols);
+//           tfQMRdec34<real_t,LN>
+// #ifndef HAS_NO_CUDA
+//               <<< nCols, LN, 0, streamId >>>
+// #endif // HAS_CUDA
+//               (status, c67, alfa, rho, eta, zvv, var, nCols);
+          tfQMRdec34<real_t,LN>(status, c67, alfa, rho, eta, zvv, var, nCols, streamId);
 
           XPAY(v7, c67, v6); // v7 := v6 + c67*v7
 
@@ -210,39 +212,14 @@ namespace tfqmrgpu {
           NRM2(dvv, v5); // dvv := ||v5||
 
           // decisions based on tau
-          tfQMRdecT<real_t,LN>
-#ifndef HAS_NO_CUDA
-              <<< nCols, LN, 0, streamId >>>
-#endif // HAS_CUDA
-              (status, c67, eta, var, tau, alfa, dvv, nCols);
+//           tfQMRdecT<real_t,LN>
+// #ifndef HAS_NO_CUDA
+//               <<< nCols, LN, 0, streamId >>>
+// #endif // HAS_CUDA
+//               (status, c67, eta, var, tau, alfa, dvv, nCols);
+          tfQMRdecT<real_t,LN>(status, c67, eta, var, tau, alfa, dvv, nCols, streamId);
 
           AXPY(v1, v7, eta); // v1 := eta*v7 + v1 // update solution vector
-
-#ifdef FULL_DEBUG
-          if (0) {
-              debug_printf("\n# eta[%d][%d] in iteration %d:\n", nCols, LN, iteration);
-              for (uint32_t icol = 0; icol < nCols; ++icol) {
-                  debug_printf("# eta[%d][0:%d] ", icol, LN-1);
-                  for (uint32_t col = 0; col < LN; ++col) {
-                      debug_printf("  %g %g", eta[icol][0][col], eta[icol][1][col]);
-                  }   debug_printf("\n");
-              } // icol
-          }
-#endif // FULL_DEBUG
-
-#ifdef FULL_DEBUG
-          if (0) {
-              debug_printf("\n# X[%ld][%d][%d] in iteration %d:\n", nnzbX, LM, LN, iteration);
-              for (uint32_t inzb = 0; inzb < nnzbX; ++inzb) {
-                  for (uint32_t row = 0; row < LM; ++row) {
-                      debug_printf("# X[%d][%d][0:%d] ", inzb, row, LN-1);
-                      for (uint32_t col = 0; col < LN; ++col) {
-                          debug_printf("  %g %g", v1[inzb][0][row][col], v1[inzb][1][row][col]);
-                      }   debug_printf("\n");
-                  } // row
-              } // inzb
-          }
-#endif // FULL_DEBUG
 
           AXPY(v6, v4, alfa); // v6 := alfa*v4 + v6
 
@@ -257,11 +234,12 @@ namespace tfqmrgpu {
           NRM2(dvv, v5); // dvv := ||v5||
 
           // decisions based on tau
-          tfQMRdecT<real_t,LN>
-#ifndef HAS_NO_CUDA
-              <<< nCols, LN, 0, streamId >>>
-#endif // HAS_CUDA
-              (status, 0x0, eta, var, tau, alfa, dvv, nCols);
+//           tfQMRdecT<real_t,LN>
+// #ifndef HAS_NO_CUDA
+//               <<< nCols, LN, 0, streamId >>>
+// #endif // HAS_CUDA
+//               (status, 0x0, eta, var, tau, alfa, dvv, nCols);
+          tfQMRdecT<real_t,LN>(status, 0x0, eta, var, tau, alfa, dvv, nCols, streamId);
 
           AXPY(v1, v7, eta); // v1 := eta*v7 + v1 // update solution vector
 

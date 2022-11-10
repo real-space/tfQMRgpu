@@ -54,11 +54,9 @@
             // list all the allowed block sizes here as allow_block_size(ldA, ldB);
 #include    "allowed_block_sizes.h"
 //          allow_block_size( 4, 4);
-//          allow_block_size( 4,32); // blocks in X and B are rectangular
 //          allow_block_size( 8, 8);
 //          allow_block_size( 8,32); // blocks in X and B are rectangular
 //          allow_block_size(16,16);
-//          allow_block_size(16,32); // blocks in X and B are rectangular
 //          allow_block_size(32,32);
 //          allow_block_size(64,64);
 
@@ -323,7 +321,7 @@
           tfqmrgpuHandle_t handle  // none: opaque handle for the tfqmrgpu library.
         , tfqmrgpuBsrsvPlan_t plan // plan is destroyed
     ) {
-        auto const p = (bsrsv_plan_t*) plan;
+        auto const p = (bsrsv_plan_t const*) plan;
         if (nullptr == p) return TFQMRGPU_POINTER_INVALID;
         delete p;
         return TFQMRGPU_STATUS_SUCCESS;
@@ -338,7 +336,7 @@
         , int const ldB         // in: Leading dimension for blocks in matrix B or X.
         , int const RhsBlockDim // in: Fast block dimension of matrix B or X
         , char const doublePrecision // in: Solver precision 'C':complex<float>, 'Z':complex<double>, 'M':load float and compute double.
-        , size_t *pBufferSizeInBytes // out: number of bytes of the buffer used in the setMatrix, getMatrix and solve.
+        , size_t *pBufferSizeInBytes // out: number of bytes of the buffer used in setMatrix, getMatrix and solve.
     ) {
         // query the necessary GPU memory buffer size
         int const LM = ldA;
@@ -421,133 +419,84 @@
         , tfqmrgpuBsrsvPlan_t plan // in: plan for bsrsv, read the plan-internal buffer variable
         , void* *pBuffer // out: pointer to GPU memory
     ) {
-        *pBuffer = (void*)((bsrsv_plan_t*)plan)->pBuffer;
+        auto const p = (bsrsv_plan_t const*) plan;
+        *pBuffer = (void*)p->pBuffer;
         if (nullptr == *pBuffer) return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__;
         return TFQMRGPU_STATUS_SUCCESS;
     } // getBuffer
 
-#if 0
-    tfqmrgpuStatus_t varname_filter(
-          char const var
-        , bsrsv_plan_t const *const p
-        , size_t &size
-        , char* &ptr
-        , uint32_t &nnzb
-        , uint32_t &nRows
-        , uint32_t &nCols
-        , unsigned const line
-    ) {
-        nRows = p->LM;
-        nCols = p->LN;
-        switch (var | IgnoreCase) {
-            case 'a': ptr += p->matAwin.offset; size = p->matAwin.length; nnzb = p->nnzbA; nCols = p->LM; break;
-            case 'b': ptr += p->matBwin.offset; size = p->matBwin.length; nnzb = p->subset.size();  break;
-            case 'x': ptr += p->matXwin.offset; size = p->matXwin.length; nnzb = p->colindx.size(); break;
-            // the passed variable name does not carry a meaning
-            default: return TFQMRGPU_VARIABLENAME_UNKNOWN + TFQMRGPU_CODE_CHAR*var + TFQMRGPU_CODE_LINE*line; 
-        } // switch var
-        return TFQMRGPU_STATUS_SUCCESS;
-    } // varname_filter
+  namespace tfqmrgpu {
 
-    tfqmrgpuStatus_t datalayout_filter(
-          tfqmrgpuDataLayout_t const layout
-        , unsigned const line
-    ) {
-        switch (layout) {
-            case TFQMRGPU_LAYOUT_RRRRIIII: break; // native for this GPU solver
-//          case TFQMRGPU_LAYOUT_RRIIRRII: break; // not implemented
-            case TFQMRGPU_LAYOUT_RIRIRIRI: break; // native for e.g. Fortran complex arrays
-            default: return TFQMRGPU_DATALAYOUT_UNKNOWN + TFQMRGPU_CODE_CHAR*layout + TFQMRGPU_CODE_LINE*line;
-        } // switch var
-        return TFQMRGPU_STATUS_SUCCESS;
-    } // datalayout_filter
-
-    tfqmrgpuStatus_t transposition_filter(
-          char &trans // in: 'n','N', 't','T', '*', 'h','H','c','C', out: 'n' or 't'
-        , double &sign_imag
-        , unsigned const line
-    ) {
-        trans |= IgnoreCase; // convert trans to lowercase
-        sign_imag = 1;
-        switch (trans) {
-            case 'h':
-            case 'c': sign_imag = -1; trans = 't'; break; // transpose + conjugate // LAPACK uses 'c' for the Hermitian adjoint, but allow also 'H' or 'h'
-            case '*': sign_imag = -1; trans = 'n'; break; //        only conjugate
-            case 't': break; // transpose
-            case 'n': break; // non-transpose
-            default: return TFQMRGPU_TANSPOSITION_UNKNOWN + TFQMRGPU_CODE_CHAR*trans + TFQMRGPU_CODE_LINE*line;
-        } // switch trans
-        return TFQMRGPU_STATUS_SUCCESS;
-    } // transposition_filter
-#endif
-
-    // asynchronous setting of matrix operands
-    tfqmrgpuStatus_t tfqmrgpu_bsrsv_set_or_getMatrix(
+    // asynchronous setting/getting of matrix operands
+    tfqmrgpuStatus_t set_or_getMatrix(
           tfqmrgpuHandle_t handle // in: opaque handle for the tfqmrgpu library.
         , tfqmrgpuBsrsvPlan_t plan // inout: plan for bsrsv
         , char const var // in: selector which variable, only {'A', 'X', 'B'} allowed.
         , void*const values // pointer to read-only values, pointer is casted to float* or double*
         , char const doublePrecision // in: 'C','c':complex<float>, 'Z','z':complex<double>, 's' and 'd' are not supported.
-        , char const trans='n' // in: transposition of the input matrix blocks.
+        , char const transposition='n' // in: transposition of the input matrix blocks.
         , tfqmrgpuDataLayout_t const layout=TFQMRGPU_LAYOUT_RIRIRIRI
         , bool const is_get=false
     ) {
-        debug_printf("# %s for operator \'%c\'  values=%p\n", __func__, var, values);
+        debug_printf("# tfqmrgpu::%cetMatrix for operator \'%c\', values=%p\n", is_get?'g':'s', var, values);
 
         {
-//          auto const stat = datalayout_filter(layout, __LINE__);
-//          if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
             switch (layout) {
                 case TFQMRGPU_LAYOUT_RRRRIIII: break; // native for this GPU solver
                 case TFQMRGPU_LAYOUT_RIRIRIRI: break; // native for e.g. Fortran complex arrays
                 case TFQMRGPU_LAYOUT_RRIIRRII: break; // Beware: not tested
                 default: return TFQMRGPU_DATALAYOUT_UNKNOWN + TFQMRGPU_CODE_CHAR*layout + TFQMRGPU_CODE_LINE*__LINE__;
-            } // switch var
+            } // switch layout
+        }
+
+        double scal_imag{1};
+        char trans = transposition | IgnoreCase; // non-const copy
+        {
+            switch (trans) {
+                case 'h':
+                case 'c': scal_imag = -1; trans = 't'; break; // transpose + conjugate // LAPACK uses 'c' for the Hermitian adjoint, but allow also 'H' or 'h'
+                case '*': scal_imag = -1; trans = 'n'; break; //        only conjugate
+                case 't': break; // transpose
+                case 'n': break; // non-transpose
+                default: return TFQMRGPU_TANSPOSITION_UNKNOWN + TFQMRGPU_CODE_CHAR*trans + TFQMRGPU_CODE_LINE*__LINE__;
+            } // switch trans
+            assert('n' == trans || 't' == trans);
         }
 
         auto const p = (bsrsv_plan_t const*) plan;
-        uint32_t nnzb{0}, nRows{0}, nCols{0};
+        uint32_t nnzb{0}, nRows{p->LM}, nCols{p->LN};
         char* ptr = is_get ? nullptr : p->pBuffer;
         size_t size{0}; // size in Byte
         {
-//          auto const stat = varname_filter(var, p, size, ptr, nnzb, nRows, nCols, __LINE__);
-//          if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
-            nRows = p->LM;
-            nCols = p->LN;
             switch (var | IgnoreCase) {
-                case 'a': ptr += p->matAwin.offset; size = p->matAwin.length; nnzb = p->nnzbA; nCols = p->LM; break;
-                case 'b': ptr += p->matBwin.offset; size = p->matBwin.length; nnzb = p->subset.size();  break;
-                case 'x': ptr += p->matXwin.offset; size = p->matXwin.length; nnzb = p->colindx.size(); break;
+                case 'a':
+                    ptr += p->matAwin.offset;
+                    size = p->matAwin.length;
+                    nnzb = p->nnzbA;
+                    nCols = p->LM;
+                    // internally, operator A is stored column major for coalesced memory access on the GPU
+                    if ('n' == trans) { trans = 't'; } else // this flip could be written as trans = int('n') + int('t') - trans;
+                    if ('t' == trans) { trans = 'n'; } else
+                    { return TFQMRGPU_TANSPOSITION_UNKNOWN + TFQMRGPU_CODE_CHAR*trans + TFQMRGPU_CODE_LINE*__LINE__; }
+                    debug_printf("# tfqmrgpu_bsrsv_setMatrix: flip transposition "
+                      "'%c' to internal '%c' for operator '%c'\n", transposition, trans, var);
+                break;
+                case 'b':
+                    ptr += p->matBwin.offset;
+                    size = p->matBwin.length;
+                    nnzb = p->subset.size();
+                break;
+                case 'x':
+                    ptr += p->matXwin.offset;
+                    size = p->matXwin.length;
+                    nnzb = p->colindx.size();
+                break;
                 // the passed variable name does not carry a meaning
                 default: return TFQMRGPU_VARIABLENAME_UNKNOWN + TFQMRGPU_CODE_CHAR*var + TFQMRGPU_CODE_LINE*__LINE__; 
             } // switch var
         }
         if (nnzb < 1) return TFQMRGPU_STATUS_SUCCESS; // nothing to do
         assert(nullptr != ptr);
-
-        double scal_imag{1};
-        char Trans = trans | IgnoreCase; // non-const copy
-        {
-//          auto const stat = transposition_filter(Trans, scal_imag, __LINE__);
-//          if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
-            switch (Trans) {
-                case 'h':
-                case 'c': scal_imag = -1; Trans = 't'; break; // transpose + conjugate // LAPACK uses 'c' for the Hermitian adjoint, but allow also 'H' or 'h'
-                case '*': scal_imag = -1; Trans = 'n'; break; //        only conjugate
-                case 't': break; // transpose
-                case 'n': break; // non-transpose
-                default: return TFQMRGPU_TANSPOSITION_UNKNOWN + TFQMRGPU_CODE_CHAR*Trans + TFQMRGPU_CODE_LINE*__LINE__;
-            } // switch Trans
-        }
-
-        if ('a' == (var | IgnoreCase)) {
-            // internally, operator A is stored column major for coalesced memory access on the GPU
-            if      ('n' == Trans) { Trans = 't'; }
-            else if ('t' == Trans) { Trans = 'n'; }
-            else { return TFQMRGPU_TANSPOSITION_UNKNOWN + TFQMRGPU_CODE_CHAR*trans + TFQMRGPU_CODE_LINE*__LINE__; }
-            debug_printf("# tfqmrgpu_bsrsv_setMatrix: flip transposition "
-              "'%c' to internal '%c' for operator '%c'\n", trans, Trans, var);
-        } // only operator A
 
         auto const dp = ('z' == p->doublePrecision);
         if (('z' == (doublePrecision | IgnoreCase)) != dp) {
@@ -566,35 +515,17 @@
         bool trans_in{false}, trans_out{false};
         tfqmrgpuDataLayout_t l_in, l_out;
         if (is_get) {
-            trans_in = ('t' == Trans);
+            trans_in = ('t' == trans);
             l_in = TFQMRGPU_LAYOUT_RRRRIIII;
             l_out = layout;
         } else {
             l_in = layout;
             l_out = TFQMRGPU_LAYOUT_RRRRIIII;
-            trans_out = ('t' == Trans);
+            trans_out = ('t' == trans);
             debug_printf("# start asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
             copy_data_to_gpu<char>(ptr, (char*)values, size, streamId);
             debug_printf("#  done asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
-        } // set
-
-#ifdef DEBUG
-        if (0) {
-            if (is_get) {
-                auto const val = (double const*)ptr;
-                debug_printf("# solution %c[%d][%d][%d]:\n", var, nnzb, nRows, nCols);
-                for (uint32_t inzb = 0; inzb < nnzb; ++inzb) {
-                    for (uint32_t row = 0; row < nRows; ++row) {
-                        for (uint32_t col = 0; col < nCols; ++col) {
-                            debug_printf("# solution %c[%d][%d][%d] = %g %g\n", var, inzb, row, col
-                              , val[inzb*nRows*nCols*2 + nRows*nCols*0 + row*nCols + col]
-                              , val[inzb*nRows*nCols*2 + nRows*nCols*1 + row*nCols + col]);
-                        } // col
-                    } // row
-                } // inzb
-            } // is_get
-        }
-#endif // DEBUG
+        } // get or set
 
         // for each block change data layout and (if necessary) transpose in-place on the GPU
         if (dp) {
@@ -619,9 +550,10 @@
         return TFQMRGPU_STATUS_SUCCESS;
     } // set_or_getMatrix
 
+  } // namespace tfqmrgpu
 
 
-    // asynchronous setting of matrix operands
+    // asynchronous setting of matrix operands, C-interface
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_setMatrix(
           tfqmrgpuHandle_t handle // in: opaque handle for the tfqmrgpu library.
         , tfqmrgpuBsrsvPlan_t plan // inout: plan for bsrsv
@@ -633,9 +565,10 @@
         , char const trans // in: transposition of the input matrix blocks.
         , tfqmrgpuDataLayout_t const layout
     ) {
-        return tfqmrgpu_bsrsv_set_or_getMatrix(handle, plan, var, (void*)values, doublePrecision, trans, layout, false);
+        return tfqmrgpu::set_or_getMatrix(handle, plan, var, (void*)values, doublePrecision, trans, layout, false);
     } // setMatrix
 
+    // download of matrix operands, C-interface
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_getMatrix(
           tfqmrgpuHandle_t handle // in: opaque handle for the tfqmrgpu library.
         , tfqmrgpuBsrsvPlan_t plan // in: plan for bsrsv
@@ -656,7 +589,7 @@
             // similarly, B, therefore, we only allow to download operator X
             return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_CHAR*var + TFQMRGPU_CODE_LINE*__LINE__;
         } // only operator A
-        return tfqmrgpu_bsrsv_set_or_getMatrix(handle, plan, var, values, doublePrecision, trans, layout, true);
+        return tfqmrgpu::set_or_getMatrix(handle, plan, var, values, doublePrecision, trans, layout, true);
     } // getMatrix
 
 
@@ -684,7 +617,7 @@
         , double *flops_performed // out: number of floating pointer operations performed for the last run
         , double *flops_performed_all // out: number of floating pointer operations performed since createPlan
     ) {
-        auto const p = (bsrsv_plan_t*) plan; // convert opaque plan object
+        auto const p = (bsrsv_plan_t const*) plan; // convert opaque plan object
         int any{0};
         if (nullptr != residuum_reached   ) { ++any; *residuum_reached    = p->residuum_reached; }
         if (nullptr != iterations_needed  ) { ++any; *iterations_needed   = p->iterations_needed; }

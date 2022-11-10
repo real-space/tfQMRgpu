@@ -29,11 +29,11 @@ namespace tfqmrgpu {
 
 
     template <typename real_t, int LN>
-    void __global__ tfQMRdec35( // GPU kernel, must be launched with <<< nCols, LN >>>
-          int8_t       (*devPtr status)[LN] // tfQMR status
+    void __global__ tfQMRdec35_kernel( // GPU kernel, must be launched with <<< nCols, LN >>>
+          int8_t       (*devPtr status)[LN] // tfQMR status (out)
         , real_t       (*devPtr rho)[2][LN] // rho  (inout)
         , real_t       (*devPtr bet)[2][LN] // beta (out)
-        , double const (*devPtr z35)[2][LN] // inner product v3.v5
+        , double const (*devPtr z35)[2][LN] // inner product v3.v5 (in)
         , uint32_t const nCols
     ) {
 #ifndef HAS_NO_CUDA
@@ -68,17 +68,33 @@ namespace tfqmrgpu {
                 }
             } // threads j
         } // blocks i
-    } // dec35
+    } // tfQMRdec35_kernel
 
     template <typename real_t, int LN>
-    void __global__ tfQMRdec34( // GPU kernel, must be launched with <<< nCols, LN >>>
-          int8_t       (*devPtr status)[LN] // tfQMR status
+    void __host__ tfQMRdec35( // driver
+          int8_t       (*devPtr status)[LN] // tfQMR status (out)
+        , real_t       (*devPtr rho)[2][LN] // rho  (inout)
+        , real_t       (*devPtr bet)[2][LN] // beta (out)
+        , double const (*devPtr z35)[2][LN] // inner product v3.v5 (in)
+        , uint32_t const nCols
+        , cudaStream_t const streamId
+    ) {
+        tfQMRdec35_kernel<real_t,LN>
+#ifndef HAS_NO_CUDA
+              <<< nCols, LN, 0, streamId >>>
+#endif // HAS_CUDA
+              (status, rho, bet, z35, nCols);
+    } // tfQMRdec35
+
+    template <typename real_t, int LN>
+    void __global__ tfQMRdec34_kernel( // GPU kernel, must be launched with <<< nCols, LN >>>
+          int8_t       (*devPtr status)[LN] // tfQMR status (out)
         , real_t       (*devPtr c67)[2][LN] // c67  (out)
         , real_t       (*devPtr alf)[2][LN] // alfa (out)
-        , real_t const (*devPtr rho)[2][LN] // rho
-        , real_t const (*devPtr eta)[2][LN] // eta
-        , double const (*devPtr z34)[2][LN] // inner product v3.v4
-        , double const (*devPtr var)[LN] // var
+        , real_t const (*devPtr rho)[2][LN] // rho (in)
+        , real_t const (*devPtr eta)[2][LN] // eta (in)
+        , double const (*devPtr z34)[2][LN] // inner product v3.v4 (in)
+        , double const (*devPtr var)[LN]    // var (in)
         , uint32_t const nCols
     ) {
 #ifndef HAS_NO_CUDA
@@ -124,18 +140,37 @@ namespace tfqmrgpu {
                 }
             } // threads j
         } // blocks i
-    } // dec34
+    } // tfQMRdec34_kernel
+
+    template <typename real_t, int LN>
+    void __host__ tfQMRdec34( // driver
+          int8_t       (*devPtr status)[LN] // tfQMR status (out)
+        , real_t       (*devPtr c67)[2][LN] // c67  (out)
+        , real_t       (*devPtr alf)[2][LN] // alfa (out)
+        , real_t const (*devPtr rho)[2][LN] // rho (in)
+        , real_t const (*devPtr eta)[2][LN] // eta (in)
+        , double const (*devPtr z34)[2][LN] // inner product v3.v4 (in)
+        , double const (*devPtr var)[LN]    // var (in)
+        , uint32_t const nCols
+        , cudaStream_t const streamId
+    ) {
+          tfQMRdec34_kernel<real_t,LN>
+#ifndef HAS_NO_CUDA
+              <<< nCols, LN, 0, streamId >>>
+#endif // HAS_CUDA
+              (status, c67, alf, rho, eta, z34, var, nCols);
+    } // tfQMRdec34
 
 
     template <typename real_t, int LN>
-    void __global__ tfQMRdecT( // GPU kernel, must be launched with <<< nCols, LN >>>
-          int8_t       (*devPtr status)[LN] // tfQMR status
+    void __global__ tfQMRdecT_kernel( // GPU kernel, must be launched with <<< nCols, LN >>>
+          int8_t       (*devPtr status)[LN] // tfQMR status (inout)
         , real_t       (*devPtr c67)[2][LN] // c67 (optional out)
         , real_t       (*devPtr eta)[2][LN] // eta (out)
         , double       (*devPtr var)   [LN] // var (out)
         , double       (*devPtr tau)   [LN] // tau (inout)
-        , real_t const (*devPtr alf)[2][LN] // alfa
-        , double const (*devPtr d55)[1][LN] // |v5|
+        , real_t const (*devPtr alf)[2][LN] // alfa (in)
+        , double const (*devPtr d55)[1][LN] // |v5| (in)
         , uint32_t const nCols
     ) {
 #ifndef HAS_NO_CUDA
@@ -182,9 +217,26 @@ namespace tfqmrgpu {
                 }
             } // threads j
         } // blocks i
-    } // decT
+    } // tfQMRdecT_kernel
 
-
+    template <typename real_t, int LN>
+    void __host__ tfQMRdecT( // driver
+          int8_t       (*devPtr status)[LN] // tfQMR status (inout)
+        , real_t       (*devPtr c67)[2][LN] // c67 (optional out)
+        , real_t       (*devPtr eta)[2][LN] // eta (out)
+        , double       (*devPtr var)   [LN] // var (out)
+        , double       (*devPtr tau)   [LN] // tau (inout)
+        , real_t const (*devPtr alf)[2][LN] // alfa (in)
+        , double const (*devPtr d55)[1][LN] // |v5| (in)
+        , uint32_t const nCols
+        , cudaStream_t const streamId
+    ) {
+          tfQMRdecT_kernel<real_t,LN>
+#ifndef HAS_NO_CUDA
+              <<< nCols, LN, 0, streamId >>>
+#endif // HAS_CUDA
+              (status, c67, eta, var, tau, alf, d55, nCols);
+    } // tfQMRdecT
 
     // basis linear algebra kernels ////////////////////////////////////////////////////////////////////////
 
@@ -217,11 +269,10 @@ namespace tfqmrgpu {
     void __global__ transpose_blocks_kernel( // GPU kernel, must be launched with <<< {any,1,1}, {nCols,nRows,1}, 2*nRows*nCols*sizeof(real_t) >>>
           real_t (*devPtr array) // input and result
         , uint32_t const nnzb // number of nonzero blocks
-        , double const scal_real // global scaling factor for the real part
-        , double const scal_imag // global scaling factor for the imaginary part
+        , real_t const scal_real // global scaling factor for the real part
+        , real_t const scal_imag // global scaling factor for the imaginary part
         , tfqmrgpuDataLayout_t const layout_in  // data layout input
         , tfqmrgpuDataLayout_t const layout_out // data layout output
-//         , char const trans // transpositions, allowed are {'n','N','t','T'}
         , bool const trans_in
         , bool const trans_out
         , char const var='?' // operator name for debug
@@ -247,6 +298,7 @@ namespace tfqmrgpu {
             case TFQMRGPU_LAYOUT_RRIIRRII: oNi =     2*nCols; oNc = nCols; oNj = 1; break;
             case TFQMRGPU_LAYOUT_RIRIRIRI: oNi = nCols*    2; oNj =     2; oNc = 1; break;
         } // switch layout_out
+        if (trans_out) gpu_swap(oNi, oNj);
 
         uint32_t iNi{0}, iNj{0}, iNc{0}; // input
         switch (layout_in) {
@@ -254,14 +306,9 @@ namespace tfqmrgpu {
             case TFQMRGPU_LAYOUT_RRIIRRII: iNi =     2*nCols; iNc = nCols; iNj = 1; break;
             case TFQMRGPU_LAYOUT_RIRIRIRI: iNi = nCols*    2; iNj =     2; iNc = 1; break;
         } // switch layout_in
+        if (trans_in) gpu_swap(iNi, iNj);
 
-        double const scaler[] = {scal_real, scal_imag};
-
-        if (trans_in)  gpu_swap(iNi, iNj);
-        if (trans_out) gpu_swap(oNi, oNj);
-
-        debug_printf("# %s for operator \'%c\'  in: %d*i + %d*j + %d*c,  out: %d*i + %d*j + %d*c\n",
-                        __func__, var, iNi, iNj, iNc, oNi, oNj, oNc);
+        real_t const scal[] = {scal_real, scal_imag};
 
         size_t const blockSize = 2*nRows*nCols;
 
@@ -278,7 +325,7 @@ namespace tfqmrgpu {
                 auto const iin  = iNi*i + iNj*j + iNc*c;
                 auto const iout = oNi*i + oNj*j + oNc*c;
                 // store in shared memory
-                temp[iout] = scaler[c] * array[boff + iin]; // potentially uncoalesced reads from global memory and writes to shared memory
+                temp[iout] = scal[c] * array[boff + iin]; // potentially uncoalesced reads from global memory and writes to shared memory
             } // c
             __syncthreads(); // wait unit the entire block is in shared memory
             for(int c = 0; c < 2; ++c) { // loop over real and imaginary part
@@ -288,6 +335,8 @@ namespace tfqmrgpu {
             } // c
         } // inzb
 #else  // HAS_CUDA
+        debug_printf("# %s for operator \'%c\'  in: %d*i + %d*j + %d*c,  out: %d*i + %d*j + %d*c\n",
+                        __func__, var, iNi, iNj, iNc, oNi, oNj, oNc);
         for(uint32_t inzb = 0; inzb < nnzb; ++inzb) { // parallel
             size_t const boff = inzb*blockSize; // block offset
             std::vector<real_t> temp(blockSize);
@@ -298,7 +347,7 @@ namespace tfqmrgpu {
                         auto const iin  = iNi*i + iNj*j + iNc*c;
                         auto const iout = oNi*i + oNj*j + oNc*c;
 //         debug_printf("# %s for operator \'%c\'  in: %d, out: %d max: %ld\n", __func__, var, iin, iout, blockSize);
-                        temp[iout] = scaler[c] * array[boff + iin];
+                        temp[iout] = scal[c] * array[boff + iin];
                     } // c
                 } // j
             } // i
