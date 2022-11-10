@@ -89,6 +89,7 @@ if true
         @ccall tf.tfqmrgpuPrintError(status::Cint)::Cint
     else
         println("### tfQMRgpu converged to ",residual[1]," in ",iterations[1]," iterations")
-        @show Xmat
+        # @show Xmat
+        # the solution of a 1D finite-difference operator should be a straight line [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875]
     end # if status
 end # if true

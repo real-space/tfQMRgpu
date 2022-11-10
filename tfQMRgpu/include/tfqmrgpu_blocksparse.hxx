@@ -144,10 +144,10 @@ class blocksparse_action_t {
                     for(int j = 0; j < LN; ++j) {
                         real_t Yre{0}, Yim{0};
                         for(int k = 0; k < LM; ++k) { // contract over k
-                            real_t const Are = A[iAmat][0][i][k],
-                                         Aim = A[iAmat][1][i][k];
-                            real_t const Xre = x[iXmat][0][k][j],
-                                         Xim = x[iXmat][1][k][j];
+                            auto const Are = A[iAmat][0][i][k], // ToDo: check block transposition of A
+                                       Aim = A[iAmat][1][i][k];
+                            auto const Xre = x[iXmat][0][k][j],
+                                       Xim = x[iXmat][1][k][j];
                             // complex multiplication, 8 Flop
                             Yre += Are * Xre - Aim * Xim; // Real part
                             Yim += Are * Xim + Aim * Xre; // Imag part

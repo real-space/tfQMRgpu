@@ -533,7 +533,7 @@ namespace tfqmrgpu {
             col_reduction <double,LN,D2> <<< { nCols, np, 1 }, { LN, 1, D2 }, 0, streamId >>> (a, nCols);
         } // level
 #else  // HAS_CUDA
-        for (uint32_t icj = 0; icj < nCols*D2*LM; ++icj) {
+        for (uint32_t icj = 0; icj < nCols*D2*LN; ++icj) {
             a[0][0][icj] = 0; // clear
         } // icj
         for (uint32_t inz = 0; inz < nnz; ++inz) {

@@ -179,12 +179,36 @@ namespace tfqmrgpu {
 
           DOTP(zvv, v3, v5); // zvv := v3.v5
 
+#ifdef DEBUG
+          if (0) {
+              debug_printf("\n# zvv[%d][%d] in iteration %d:\n", nCols, LN, iteration);
+              for (uint32_t icol = 0; icol < nCols; ++icol) {
+                  debug_printf("# zvv[%d][0:%d] ", icol, LN-1);
+                  for (uint32_t col = 0; col < LN; ++col) {
+                      debug_printf("  %g %g", zvv[icol][0][col], zvv[icol][1][col]);
+                  }   debug_printf("\n");
+              } // icol
+          }
+#endif // DEBUG
+
           // decisions based on v3.v5 and rho
           tfQMRdec35<real_t,LN>
 #ifndef HAS_NO_CUDA
               <<< nCols, LN, 0, streamId >>>
 #endif // HAS_CUDA
               (status, rho, beta, zvv, nCols);
+
+#ifdef DEBUG
+          if (0) {
+              debug_printf("\n# beta[%d][%d] in iteration %d:\n", nCols, LN, iteration);
+              for (uint32_t icol = 0; icol < nCols; ++icol) {
+                  debug_printf("# beta[%d][0:%d] ", icol, LN-1);
+                  for (uint32_t col = 0; col < LN; ++col) {
+                      debug_printf("  %g %g", beta[icol][0][col], beta[icol][1][col]);
+                  }   debug_printf("\n");
+              } // icol
+          }
+#endif // DEBUG
 
           XPAY(v6, beta, v5); // v6 := v5 + beta*v6
 
@@ -218,6 +242,32 @@ namespace tfqmrgpu {
 
           AXPY(v1, v7, eta); // v1 := eta*v7 + v1 // update solution vector
 
+#ifdef DEBUG
+          if (0) {
+              debug_printf("\n# eta[%d][%d] in iteration %d:\n", nCols, LN, iteration);
+              for (uint32_t icol = 0; icol < nCols; ++icol) {
+                  debug_printf("# eta[%d][0:%d] ", icol, LN-1);
+                  for (uint32_t col = 0; col < LN; ++col) {
+                      debug_printf("  %g %g", eta[icol][0][col], eta[icol][1][col]);
+                  }   debug_printf("\n");
+              } // icol
+          }
+#endif // DEBUG
+
+#ifdef DEBUG
+          if (0) {
+              debug_printf("\n# X[%ld][%d][%d] in iteration %d:\n", nnzbX, LM, LN, iteration);
+              for (uint32_t inzb = 0; inzb < nnzbX; ++inzb) {
+                  for (uint32_t row = 0; row < LM; ++row) {
+                      debug_printf("# X[%d][%d][0:%d] ", inzb, row, LN-1);
+                      for (uint32_t col = 0; col < LN; ++col) {
+                          debug_printf("  %g %g", v1[inzb][0][row][col], v1[inzb][1][row][col]);
+                      }   debug_printf("\n");
+                  } // row
+              } // inzb
+          }
+#endif // DEBUG
+
           AXPY(v6, v4, alfa); // v6 := alfa*v4 + v6
 
           XPAY(v7, c67, v6); // v7 := v6 + c67*v7 // can be executed in parallel to the next A call
@@ -240,17 +290,17 @@ namespace tfqmrgpu {
           AXPY(v1, v7, eta); // v1 := eta*v7 + v1 // update solution vector
 
 #ifdef DEBUG
-        {       auto const nRows = LM, nCols = LN;
-                debug_printf("\n# iteration %d X[%ld][%d][%d]:\n", iteration, nnzbX, nRows, nCols);
-                for (uint32_t inzb = 0; inzb < nnzbX; ++inzb) {
-                    for (uint32_t row = 0; row < nRows; ++row) {
-                        for (uint32_t col = 0; col < nCols; ++col) {
-                            debug_printf("# solution X[%d][%d][%d] = %g %g\n", inzb, row, col
-                                              , v1[inzb][0][row][col], v1[inzb][1][row][col]);
-                        } // col
-                    } // row
-                } // inzb
-        }
+          if (0) {
+              debug_printf("\n# X[%ld][%d][%d] in iteration %d:\n", nnzbX, LM, LN, iteration);
+              for (uint32_t inzb = 0; inzb < nnzbX; ++inzb) {
+                  for (uint32_t row = 0; row < LM; ++row) {
+                      debug_printf("# X[%d][%d][0:%d] ", inzb, row, LN-1);
+                      for (uint32_t col = 0; col < LN; ++col) {
+                          debug_printf("  %g %g", v1[inzb][0][row][col], v1[inzb][1][row][col]);
+                      }   debug_printf("\n");
+                  } // row
+              } // inzb
+          }
 #endif // DEBUG
 
           get_data_from_gpu<double[LN]>(res_ub_h, tau, nCols, streamId, "tau"); // missing factor inverse_norm2_of_B

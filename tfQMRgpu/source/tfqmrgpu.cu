@@ -552,6 +552,7 @@
         } // set
 
 #ifdef DEBUG
+        if (0) {
             if (is_get) {
                 auto const val = (double const*)ptr;
                 debug_printf("# solution %c[%d][%d][%d]:\n", var, nnzb, nRows, nCols);
@@ -564,7 +565,8 @@
                         } // col
                     } // row
                 } // inzb
-            }
+            } // is_get
+        }
 #endif // DEBUG
 
         // for each block change data layout and (if necessary) transpose in-place on the GPU
@@ -875,7 +877,8 @@
         if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_solve returned %d\n", __func__, stat); return stat; }
 
 #ifdef DEBUG
-        {       auto const nRows = ldA, nCols = ldB;
+        if (0) {
+                auto const nRows = ldA, nCols = ldB;
                 auto const p = (bsrsv_plan_t const*) plan;
                 auto const x = (double const*)(p->matXwin.offset);
                 debug_printf("\n# solution X[%d][%d][%d]:\n", nnzbX, nRows, nCols);
