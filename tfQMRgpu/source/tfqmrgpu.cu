@@ -1,6 +1,7 @@
-#include <cstdio> // std::printf, std::fflush, stdout
+#include <cstdio> // std::printf, ::fflush, stdout
 #include <vector> // std::vector<T>
 #include <cassert> // assert
+#include <cstring> // std::memset
 
 // #define DEBUG
 
