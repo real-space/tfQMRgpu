@@ -71,7 +71,7 @@ namespace GPUbench {
                 std::printf("[ERROR] CUDA call failed to create a stream in %s:%d\n", __FILE__, __LINE__);
                 return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__;
             }
-        } else  std::printf("# Warning! GPU works on default stream!\n");
+        } else { std::printf("# Warning! GPU works on default stream!\n"); }
 
         // step 3: register the CUDA stream in the handle
         callAndCheck(  tfqmrgpuSetStream(handle, streamId)  )
@@ -94,7 +94,7 @@ namespace GPUbench {
 
         // step 5: compute the GPU memory requirement based on block sizes
         size_t pBufferSize{0}; // in Bytes
-        std::printf("# compute the GPU memory requirements for lm=%d ln=%d\n", lm, ln);
+        std::printf("# compute the GPU memory requirements for precision=\'%c\' LM=%d LN=%d\n", precision, lm, ln);
         callAndCheck(  tfqmrgpu_bsrsv_bufferSize(handle, plan,
             lm, // Leading dimension for blocks in matrix A.
             lm, // Block dimension of matrix A, blocks in A are square blocks. lm <= ldA
@@ -176,7 +176,7 @@ namespace GPUbench {
                                             &iterations_needed, &flops_performed, 0x0)
                             )
                 std::printf("# GPU converged to %.1e in %d iterations\n", residuum_reached, iterations_needed);
-                char const fF = ('z' == (precision | IgnoreCase))? 'F' : 'f'; // F:double, f:float
+                char const fF = ('z' == (precision | IgnoreCase))? 'F' : 'f'; // 'F':double, 'f':float
                 double const TFlop = 1e-12*flops_performed;
                 double const performance = TFlop/std::max(solver_time, 1e-6);
                 std::printf("# GPU performed %.3f T%clop in %.3f seconds = %.3f T%clop/s\n",
@@ -428,8 +428,8 @@ namespace GPUbench {
         int const lm     = (argc > 6)? std::atoi(argv[6]) : 16; // block rows
         int const ln     = (argc > 7)? std::atoi(argv[7]) : lm; // block cols
 
-        char const precision = (('d' == (fF | IgnoreCase)) || ('z' == (fF | IgnoreCase))) ? 'z' 
-                                   : (('m' == (fF | IgnoreCase)) ? 'm' : 'c');
+        char const precision = (('d' == (fF | IgnoreCase)) || ('z' == (fF | IgnoreCase))) ? 'z'
+                             : (('m' == (fF | IgnoreCase)) ? 'm' : 'c');
 
         // read multiplication plan from input file
         std::ifstream input(fnm, std::ifstream::in);
@@ -503,7 +503,7 @@ namespace GPUbench {
 #define decide_precision(LM,LN,TUNE) \
             if ('z' == precision) { call_it(double,LM,LN,double,TUNE); } else \
             if ('m' == precision) { call_it(float, LM,LN,double,TUNE); } else \
-                                        { call_it(float, LM,LN,float ,TUNE); }
+                                  { call_it(float, LM,LN,float ,TUNE); }
 
             // tune-parameters extracted from a comparison of TUNE={1,2,3,4,6,8} in double-performance on V100
             case   4004:  decide_precision(  4,  4, 4); break; // Lmax=1
@@ -539,7 +539,7 @@ namespace GPUbench {
 
 int main(int const argc, char const *const argv[]) {
 
-    if (argc < 2) { 
+    if (argc < 2) {
         std::printf("Usage:  %s  [tfQMR/multiply]  [file]  [float/double]  "
                     "[#repetitions]  [#iterations]  [#blocksize]\n", argv[0]);
         exit(1);
@@ -561,9 +561,9 @@ int main(int const argc, char const *const argv[]) {
     } else {
         tolerance = tfqmrgpu_example_reader::read_in(ABX, fnm);
     }
-    std::printf("# found tolerance %g\n", tolerance);
-    std::printf("# Execute %d repetitions with max. %d iterations.\n", nrep, MaxIter);
-    std::printf("# requested precision = %c for LM = %d, LN = %d\n", flouble, ABX[0].fastBlockDim, ABX[1].fastBlockDim);
+    std::printf("# found tolerance= %g\n", tolerance);
+    std::printf("# Execute %d repetitions with max. %d iterations\n", nrep, MaxIter);
+    std::printf("# requested precision= \'%c\' for LM= %d, LN= %d\n", flouble, ABX[0].fastBlockDim, ABX[1].fastBlockDim);
 
     return GPUbench::benchmark_tfQMRgpu_library(ABX, tolerance, MaxIter, nrep, flouble);
 } // main
