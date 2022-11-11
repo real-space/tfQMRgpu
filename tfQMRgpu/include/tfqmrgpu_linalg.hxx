@@ -266,7 +266,7 @@ namespace tfqmrgpu {
     inline void __device__ gpu_swap(T &a, T &b) { T const c = a; a = b; b = c; }
 
     template <typename real_t>
-    void __global__ transpose_blocks_kernel( // GPU kernel, must be launched with <<< {any,1,1}, {nCols,nRows,1}, 2*nRows*nCols*sizeof(real_t) >>>
+    void __global__ transpose_blocks_kernel( // GPU kernel, must be launched with <<< {any,1,1}, {any,any,1}, 2*nRows*nCols*sizeof(real_t) >>>
           real_t (*devPtr array) // input and result
         , uint32_t const nnzb // number of nonzero blocks
         , real_t const scal_real // global scaling factor for the real part
@@ -275,19 +275,16 @@ namespace tfqmrgpu {
         , tfqmrgpuDataLayout_t const layout_out // data layout output
         , bool const trans_in
         , bool const trans_out
-        , uint32_t const nRows_per_block=0
-        , uint32_t const nCols_per_block=0
+        , uint32_t const nRows
+        , uint32_t const nCols
         , char const var='?' // operator name for debug
     ) {
 #ifndef HAS_NO_CUDA
         // number of columns and rows is transmitted via the launch parameters
-        auto const nRows = blockDim.y;
-        auto const nCols = blockDim.x;
-        check_launch_params( {gridDim.x, 1, 1}, {nCols, nRows, 1} );
-#else  // HAS_CUDA
-        auto const nRows = nRows_per_block; assert(nRows > 0);
-        auto const nCols = nCols_per_block; assert(nCols > 0);
+        check_launch_params( {gridDim.x, 1, 1}, {blockDim.x, blockDim.y, 1} );
 #endif // HAS_CUDA
+
+        assert(nRows > 0); assert(nCols > 0);
         // TFQMRGPU_LAYOUT_RRRRIIII internal format: blocks of real parts, blocks of imaginary parts
         // TFQMRGPU_LAYOUT_RRIIRRII intermediate format: vectors separated between real and imag
         // TFQMRGPU_LAYOUT_RIRIRIRI Fortran complex(kind=4 or 8), C++ std::complex<float or double>
@@ -313,8 +310,6 @@ namespace tfqmrgpu {
         size_t const blockSize = 2*nRows*nCols;
 
 #ifndef HAS_NO_CUDA
-        auto const i = threadIdx.y; // row index
-        auto const j = threadIdx.x; // col index
         extern __shared__ char shared_buffer[];
         auto const temp = (real_t*) shared_buffer; // cast pointer
         for(auto inzb = blockIdx.x; inzb < nnzb; inzb += gridDim.x) { // grid stride loop over non-zero blocks
@@ -325,9 +320,12 @@ namespace tfqmrgpu {
         for(uint32_t inzb = 0; inzb < nnzb; ++inzb) { // if OpenMP-parallel, move temp inside
 #endif // HAS_NO_CUDA
             auto const boff = inzb*blockSize; // block offset
-#ifdef HAS_NO_CUDA
-            for(uint32_t i = 0; i < nRows; ++i)
-                for(uint32_t j = 0; j < nCols; ++j)
+#ifndef HAS_NO_CUDA
+            for(auto i = threadIdx.y; i < nRows; i += blockDim.y) { // grid stride loop over threads
+                for(auto j = threadIdx.x; j < nCols; j += blockDim.x) { // grid stride loop over threads
+#else  // HAS_CUDA
+            for(uint32_t i = 0; i < nRows; ++i) {
+                for(uint32_t j = 0; j < nCols; ++j) {
 #endif // HAS_NO_CUDA
                     for(uint32_t c = 0; c < 2u; ++c) // loop over real and imaginary part
                     {
@@ -336,20 +334,25 @@ namespace tfqmrgpu {
                         // store in shared memory
                         temp[iout] = scal[c] * array[boff + iin]; // potentially uncoalesced reads from global memory and writes to shared memory
                     } // c
+                } // j
+            } // i
 
             __syncthreads(); // threads wait unit the entire block is in shared memory
 
             // now copy temp back into array
             for(uint32_t c = 0; c < 2u; ++c) { // loop over real and imaginary part
-#ifdef HAS_NO_CUDA
-                for(uint32_t i = 0; i < nRows; ++i)
-                    for(uint32_t j = 0; j < nCols; ++j)
+#ifndef HAS_NO_CUDA
+                for(auto i = threadIdx.y; i < nRows; i += blockDim.y) { // grid stride loop over threads
+                    for(auto j = threadIdx.x; j < nCols; j += blockDim.x) { // grid stride loop over threads
+#else  // HAS_CUDA
+                for(uint32_t i = 0; i < nRows; ++i) {
+                    for(uint32_t j = 0; j < nCols; ++j) {
 #endif // HAS_NO_CUDA
-                    {
                         auto const iout = (c*nRows + i)*nCols + j;
                         // coalesced reads from shared memory and coalesced writes to global memory
                         array[boff + iout] = temp[iout];
-                    }
+                    } // j
+                } // i
             } // c
         } // inzb
     } // transpose_blocks_kernel

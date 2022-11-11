@@ -535,24 +535,29 @@ namespace tfqmrgpu {
         } // get or set
 
         // for each block change data layout and (if necessary) transpose in-place on the GPU
+        // ToDo: for blocks larger than 1024 elements, we need a new strategy.
+        unsigned const nthreads_x = std::min(nCols, 1024u), nthreads_y = std::min(nRows, 1024u/nthreads_x);
+        unsigned line;
         if (dp) {
+            line = __LINE__ + 1;
             tfqmrgpu::transpose_blocks_kernel<double>
 #ifndef HAS_NO_CUDA
-                <<< nnzb, {nCols,nRows,1}, byte_per_block, streamId >>>
+                <<< nnzb, {nthreads_x,nthreads_y,1}, byte_per_block, streamId >>>
 #endif // HAS_CUDA
                 ((double*)ptr, nnzb, 1, scal_imag, l_in, l_out, trans_in, trans_out, nRows, nCols, var);
         } else {
+            line = __LINE__ + 1;
             tfqmrgpu::transpose_blocks_kernel<float>
 #ifndef HAS_NO_CUDA
-                <<< nnzb, {nCols,nRows,1}, byte_per_block, streamId >>>
+                <<< nnzb, {nthreads_x,nthreads_y,1}, byte_per_block, streamId >>>
 #endif // HAS_CUDA
                 ((float *)ptr, nnzb, 1, scal_imag, l_in, l_out, trans_in, trans_out, nRows, nCols, var);
         } // dp
         auto const err = cudaGetLastError();
         if (cudaSuccess != err) {
             debug_printf("# failed to launch transpose_blocks_kernel with %d x %d threads per block, Error=\"%s\"\n",
-                                                                              nRows, nCols, cudaGetErrorString(err));
-            return TFQMRGPU_STATUS_LAUNCH_FAILED + TFQMRGPU_CODE_LINE*__LINE__;
+                                                                    nthreads_y, nthreads_x, cudaGetErrorString(err));
+            return TFQMRGPU_STATUS_LAUNCH_FAILED + TFQMRGPU_CODE_LINE*line;
         } // launch error
 
         if (is_get) {
