@@ -267,7 +267,7 @@ namespace tfqmrgpu {
 
     template <typename real_t>
     void __global__ transpose_blocks_kernel( // GPU kernel, must be launched with <<< {any,1,1}, {any,any,1}, 2*nRows*nCols*sizeof(real_t) >>>
-          real_t (*devPtr array) // input and result
+          real_t (*devPtr array) // input and result: logical data layout see table below
         , uint32_t const nnzb // number of nonzero blocks
         , real_t const scal_real // global scaling factor for the real part
         , real_t const scal_imag // global scaling factor for the imaginary part
@@ -297,6 +297,14 @@ namespace tfqmrgpu {
         } // switch layout_out
         if (trans_out) gpu_swap(oNi, oNj);
 
+       /*
+        *   logical data layout      | trans == false               | trans == true
+        *  ==========================|==============================|==============================
+        *   TFQMRGPU_LAYOUT_RRRRIIII | array[nnzb][2][nRows][nCols] | array[nnzb][2][nCols][nRows]
+        *   TFQMRGPU_LAYOUT_RRIIRRII | array[nnzb][nRows][2][nCols] | array[nnzb][nCols][2][nRows]
+        *   TFQMRGPU_LAYOUT_RIRIRIRI | array[nnzb][nRows][nCols][2] | array[nnzb][nCols][nRows][2]
+        */
+
         uint32_t iNi{0}, iNj{0}, iNc{0}; // input
         switch (layout_in) {
             case TFQMRGPU_LAYOUT_RRRRIIII: iNc = nRows*nCols; iNi = nCols; iNj = 1; break;
@@ -319,6 +327,7 @@ namespace tfqmrgpu {
         std::vector<real_t> temp(blockSize);
         for(uint32_t inzb = 0; inzb < nnzb; ++inzb) { // if OpenMP-parallel, move temp inside
 #endif // HAS_NO_CUDA
+
             auto const boff = inzb*blockSize; // block offset
 #ifndef HAS_NO_CUDA
             for(auto i = threadIdx.y; i < nRows; i += blockDim.y) { // grid stride loop over threads
@@ -327,8 +336,7 @@ namespace tfqmrgpu {
             for(uint32_t i = 0; i < nRows; ++i) {
                 for(uint32_t j = 0; j < nCols; ++j) {
 #endif // HAS_NO_CUDA
-                    for(uint32_t c = 0; c < 2u; ++c) // loop over real and imaginary part
-                    {
+                    for(uint32_t c = 0; c < 2u; ++c) { // loop over real and imaginary part
                         auto const iin  = iNi*i + iNj*j + iNc*c;
                         auto const iout = oNi*i + oNj*j + oNc*c;
                         // store in shared memory
