@@ -356,6 +356,9 @@
             case 'z': p->doublePrecision = 'z'; break;  // double precision complex
             default : p->doublePrecision = 'z'; // default double precision complex
         } // doublePrecision
+        if (doublePrecision != p->doublePrecision) {
+            debug_printf("# convert doublePrecision= \'%c\' to \'%c\'\n", doublePrecision, p->doublePrecision);
+        }
 
         p->LM = LM; // store the block size and precision information in the plan
         p->LN = LN; // store the number of columns in each block of X or B
@@ -371,8 +374,8 @@
         auto const status = mysolve(streamId, p, 0.0, 0, memcount); // call the solver in memcount-mode
 
         *pBufferSizeInBytes = p->gpu_mem; // requested minimum number of Bytes in device memory
-        debug_printf("# plan for doublePrecision= %c and LM= %d, LN= %d needs %.3f MByte device memory\n",
-                                     p->doublePrecision, p->LM, p->LN, p->gpu_mem*1e-6);
+        debug_printf("# plan for doublePrecision= \'%c\' and LM= %d, LN= %d needs %.3f MByte device memory\n",
+                              p->doublePrecision,         p->LM,  p->LN,    p->gpu_mem*1e-6);
         return status;
     } // bufferSize
 
@@ -433,13 +436,14 @@ namespace tfqmrgpu {
           tfqmrgpuHandle_t handle // in: opaque handle for the tfqmrgpu library.
         , tfqmrgpuBsrsvPlan_t plan // inout: plan for bsrsv
         , char const var // in: selector which variable, only {'A', 'X', 'B'} allowed.
-        , void*const values // pointer to read-only values, pointer is casted to float* or double*
-        , char const doublePrecision // in: 'C','c':complex<float>, 'Z','z':complex<double>, 's' and 'd' are not supported.
+        , char const* const values_in  // pointer to read-only values, pointer is casted to float* or double*
+        , char const doublePrecision='z' // in: 'C','c':complex<float>, 'Z','z':complex<double>, 's' and 'd' are not supported.
         , char const transposition='n' // in: transposition of the input matrix blocks.
         , tfqmrgpuDataLayout_t const layout=TFQMRGPU_LAYOUT_RIRIRIRI
-        , bool const is_get=false
+        , char       *const values_out=nullptr   // pointer to values, pointer is casted to float* or double*
     ) {
-        debug_printf("# tfqmrgpu::%cetMatrix for operator \'%c\', values=%p\n", is_get?'g':'s', var, values);
+        bool const is_get = (nullptr != values_out);
+        debug_printf("# tfqmrgpu::%cetMatrix for operator \'%c\', values=%p\n", is_get?'g':'s', var, is_get?values_out:values_in);
 
         {
             switch (layout) {
@@ -520,11 +524,12 @@ namespace tfqmrgpu {
             l_in = TFQMRGPU_LAYOUT_RRRRIIII;
             l_out = layout;
         } else {
+            assert(nullptr != values_in);
             l_in = layout;
             l_out = TFQMRGPU_LAYOUT_RRRRIIII;
             trans_out = ('t' == trans);
             debug_printf("# start asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
-            copy_data_to_gpu<char>(ptr, (char*)values, size, streamId);
+            copy_data_to_gpu<char>(ptr, values_in, size, streamId);
             debug_printf("#  done asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
         } // get or set
 
@@ -534,18 +539,19 @@ namespace tfqmrgpu {
 #ifndef HAS_NO_CUDA
                 <<< nnzb, {nCols,nRows,1}, byte_per_block, streamId >>>
 #endif // HAS_CUDA
-                ((double*)ptr, nnzb, 1, scal_imag, l_in, l_out, trans_in, trans_out, var, nRows, nCols);
+                ((double*)ptr, nnzb, 1, scal_imag, l_in, l_out, trans_in, trans_out, nRows, nCols, var);
         } else {
             tfqmrgpu::transpose_blocks_kernel<float>
 #ifndef HAS_NO_CUDA
                 <<< nnzb, {nCols,nRows,1}, byte_per_block, streamId >>>
 #endif // HAS_CUDA
-                ((float *)ptr, nnzb, 1, scal_imag, l_in, l_out, trans_in, trans_out, var, nRows, nCols);
+                ((float *)ptr, nnzb, 1, scal_imag, l_in, l_out, trans_in, trans_out, nRows, nCols, var);
         } // dp
 
         if (is_get) {
-            // start asynchronous memory transfer from the GPU to the host
-            get_data_from_gpu<char>((char*)values, ptr, size, streamId);
+            debug_printf("# start asynchronous memory transfer from the GPU to the host for operator '%c'\n", var);
+            get_data_from_gpu<char>(values_out, ptr, size, streamId);
+            debug_printf("#  done asynchronous memory transfer from the GPU to the host for operator '%c'\n", var);
         } // get
 
         return TFQMRGPU_STATUS_SUCCESS;
@@ -566,7 +572,7 @@ namespace tfqmrgpu {
         , char const trans // in: transposition of the input matrix blocks.
         , tfqmrgpuDataLayout_t const layout
     ) {
-        return tfqmrgpu::set_or_getMatrix(handle, plan, var, (void*)values, doublePrecision, trans, layout, false);
+        return tfqmrgpu::set_or_getMatrix(handle, plan, var, (char const*)values, doublePrecision, trans, layout);
     } // setMatrix
 
     // download of matrix operands, C-interface
@@ -590,7 +596,7 @@ namespace tfqmrgpu {
             // similarly, B, therefore, we only allow to download operator X
             return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_CHAR*var + TFQMRGPU_CODE_LINE*__LINE__;
         } // only operator A
-        return tfqmrgpu::set_or_getMatrix(handle, plan, var, values, doublePrecision, trans, layout, true);
+        return tfqmrgpu::set_or_getMatrix(handle, plan, var, 0x0, doublePrecision, trans, layout, (char *)values);
     } // getMatrix
 
 

@@ -6,8 +6,8 @@
 plot = true
 
 mb = 7 # number of rows
-ldA = 8 # square block dimension of A
-ldB = 32 # block column dimension of B and X
+ldA = 4 # square block dimension of A
+ldB = 5 # block column dimension of B and X
 
 nnzbA = 19 # number of nonzero blocks in A
 nnzbX = mb # number of nonzero blocks in X
@@ -89,7 +89,7 @@ if true
         @ccall tf.tfqmrgpuPrintError(status::Cint)::Cint
     else
         println("### tfQMRgpu converged to ",residual[1]," in ",iterations[1]," iterations")
-        # @show Xmat
+        @show Xmat
         # the solution of a 1D finite-difference operator should be a straight line [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875]
     end # if status
 end # if true
