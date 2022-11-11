@@ -52,7 +52,7 @@
             case   LM*1000 + LN: return mysolve_LM_LN<LM,LN>(streamId, p, tolerance, MaxIterations, memcount)
 
             // list all the allowed block sizes here as allow_block_size(ldA, ldB);
-#include    "allowed_block_sizes.h"
+#include   "allowed_block_sizes.h"
 //          allow_block_size( 4, 4);
 //          allow_block_size( 8, 8);
 //          allow_block_size( 8,32); // blocks in X and B are rectangular
@@ -92,6 +92,7 @@
             case TFQMRGPU_VARIABLENAME_UNKNOWN:     std::printf("tfQMRgpu: Unknown variable name '%c' at line %d!\n",  key, line); break;
             case TFQMRGPU_DATALAYOUT_UNKNOWN:       std::printf("tfQMRgpu: Unknown data layout '%c' at line %d!\n", 20+key, line); break;
             case TFQMRGPU_PRECISION_MISSMATCH:      std::printf("tfQMRgpu: Missmatch in precision '%c' at line %d!\n", key, line); break;
+            case TFQMRGPU_STATUS_LAUNCH_FAILED:     std::printf("tfQMRgpu: device launch failed at line %d!\n", line); break;
             default:                                std::printf("tfQMRgpu: Unknown status= %d at line %d!\n", status, line); break;
         } // switch status
         std::fflush(stdout);
@@ -547,6 +548,12 @@ namespace tfqmrgpu {
 #endif // HAS_CUDA
                 ((float *)ptr, nnzb, 1, scal_imag, l_in, l_out, trans_in, trans_out, nRows, nCols, var);
         } // dp
+        auto const err = cudaGetLastError();
+        if (cudaSuccess != err) {
+            debug_printf("# failed to launch transpose_blocks_kernel with %d x %d threads per block, Error=\"%s\"\n",
+                                                                              nRows, nCols, cudaGetErrorString(err));
+            return TFQMRGPU_STATUS_LAUNCH_FAILED + TFQMRGPU_CODE_LINE*__LINE__;
+        } // launch error
 
         if (is_get) {
             debug_printf("# start asynchronous memory transfer from the GPU to the host for operator '%c'\n", var);
@@ -639,7 +646,7 @@ namespace tfqmrgpu {
         , size_t const pBufferSizeInBytes
         , char const MemoryType
     ) {
-        cudaError err;
+        cudaError_t err;
         if ('m' == (MemoryType | IgnoreCase)) { // 'm' or 'M' stand for "managed"
             err = cudaMallocManaged(pBuffer, pBufferSizeInBytes);
         } else {

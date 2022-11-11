@@ -89,7 +89,9 @@ if true
         @ccall tf.tfqmrgpuPrintError(status::Cint)::Cint
     else
         println("### tfQMRgpu converged to ",residual[1]," in ",iterations[1]," iterations")
-        @show Xmat
-        # the solution of a 1D finite-difference operator should be a straight line [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875]
+        # the solution of the 1D finite-difference operator should be a straight line [.125, .25, .375, .5, .625, .75, .875]
+        Xint8 = Complex{Int16}.(round.(Xmat*8))
+        maximum_deviation = maximum(abs.(Xint8 - Xmat*8))/8.
+        @show maximum_deviation
     end # if status
 end # if true

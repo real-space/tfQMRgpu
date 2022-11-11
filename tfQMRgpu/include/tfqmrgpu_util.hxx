@@ -13,7 +13,7 @@
     // Helper /////////////////////////////////////////////////////////////////////
 
     #define CCheck(err) __cudaSafeCall((err), __FILE__, __LINE__)
-    inline void __cudaSafeCall(cudaError const err, char const *const file, int const line) {
+    inline void __cudaSafeCall(cudaError_t const err, char const *const file, int const line) {
 #ifndef NDEBUG
         if (cudaSuccess != err) {
             printf("[ERROR] CUDA call in %s:%d failed, cudaErrorString= %s\n", file, line, cudaGetErrorString(err));
