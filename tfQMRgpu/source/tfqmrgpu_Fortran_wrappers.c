@@ -75,7 +75,7 @@ typedef tfqmrgpuDataLayout_t layout_t;
       *stat = tfqmrgpuGetStream(*handle, streamId);
   }
 
-  void tfqmrgpu_bsrsv_createplan_(handle_t const *handle, plan_t *plan, int32_t const *mb, 
+  void tfqmrgpu_bsrsv_createplan_(handle_t const *handle, plan_t *plan, int32_t const *mb,
       int32_t const* bsrRowPtrA, int32_t const *nnzbA, int32_t const* bsrColIndA,
       int32_t const* bsrRowPtrX, int32_t const *nnzbX, int32_t const* bsrColIndX,
       int32_t const* bsrRowPtrB, int32_t const *nnzbB, int32_t const* bsrColIndB,
@@ -108,9 +108,9 @@ typedef tfqmrgpuDataLayout_t layout_t;
 
   void tfqmrgpu_bsrsv_buffersize_(handle_t const *handle, plan_t const *plan,
       int32_t const *ldA, int32_t const *blockDim, int32_t const *ldB, int32_t const *RhsBlockDim,
-      char const *doublePrecision, size_t *pBufferSizeInBytes, stat_t *stat) {
+      char const *precision, size_t *pBufferSizeInBytes, stat_t *stat) {
       *stat = tfqmrgpu_bsrsv_bufferSize(*handle, *plan,
-                *ldA, *blockDim, *ldB, *RhsBlockDim, *doublePrecision, 
+                *ldA, *blockDim, *ldB, *RhsBlockDim, *precision,
                 pBufferSizeInBytes); // here, pBufferSizeInBytes is passed by reference
   }
 
@@ -151,14 +151,14 @@ typedef tfqmrgpuDataLayout_t layout_t;
 #endif // DEBUG
   }
 
-  void tfqmrgpu_bsrsv_setmatrix_c_(handle_t const *handle, plan_t const *plan, char const *var, 
+  void tfqmrgpu_bsrsv_setmatrix_c_(handle_t const *handle, plan_t const *plan, char const *var,
           float const*  val, int32_t const *ld, int32_t const *d2, char const *trans, layout_t const *layout, stat_t *stat) {
-      *stat = tfqmrgpu_bsrsv_setMatrix(*handle, *plan, *var, (void*) val, 'c', *ld, *d2, *trans, *layout);
+      *stat = tfqmrgpu_bsrsv_setMatrix(*handle, *plan, *var, (void const*) val, 'c', *ld, *d2, *trans, *layout);
   }
 
-  void tfqmrgpu_bsrsv_setmatrix_z_(handle_t const *handle, plan_t const *plan, char const *var, 
+  void tfqmrgpu_bsrsv_setmatrix_z_(handle_t const *handle, plan_t const *plan, char const *var,
           double const* val, int32_t const *ld, int32_t const *d2, char const *trans, layout_t const *layout, stat_t *stat) {
-      *stat = tfqmrgpu_bsrsv_setMatrix(*handle, *plan, *var, (void*) val, 'z', *ld, *d2, *trans, *layout);
+      *stat = tfqmrgpu_bsrsv_setMatrix(*handle, *plan, *var, (void const*) val, 'z', *ld, *d2, *trans, *layout);
   }
 
   void tfqmrgpu_bsrsv_getmatrix_c_(handle_t const *handle, plan_t const *plan, char const *var,

@@ -14,7 +14,7 @@
 namespace tfqmrgpu_example_reader {
 
   // this is a modified version of https://stackoverflow.com/questions/16388510/evaluate-a-string-with-a-switch-in-c
-  inline uint64_t constexpr str2ull(char const *const str, int const h=0) { 
+  inline uint64_t constexpr str2ull(char const *const str, int const h=0) {
       // simple string hashing function
       return str[h] ? (str2ull(str, h + 1) * 33) ^ str[h] : 5381;
   } // str2ull

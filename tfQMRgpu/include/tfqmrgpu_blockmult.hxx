@@ -33,7 +33,7 @@
         } // ii
 
         auto const iYmat = blockIdx.x;
-        for(int ipair = start[iYmat]; ipair < start[iYmat + 1]; ++ipair) { // BSR-type loop
+        for(auto ipair = start[iYmat]; ipair < start[iYmat + 1]; ++ipair) { // BSR-type loop
             auto const iAmat = pairs[ipair*2 + 0];
             auto const iXmat = pairs[ipair*2 + 1];
 

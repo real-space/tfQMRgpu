@@ -246,7 +246,7 @@ namespace tfqmrgpu {
           real_out_t      (*devPtr out) // result, out
         , real_in_t const (*devPtr  in) // input,  in
         , size_t const n // number of elements to be converted
-        , double const scaling = 1 // global scaling factor
+        , double const scaling=1 // global scaling factor
     ) {
 #ifndef HAS_NO_CUDA
         check_launch_params( {gridDim.x, 1, 1}, {blockDim.x, 1, 1} );
@@ -259,7 +259,6 @@ namespace tfqmrgpu {
             auto const scaled = scaling * in[i];
             out[i] = real_out_t(scaled);
         } // i
-
     } // convert_precision
 
     template <typename T>

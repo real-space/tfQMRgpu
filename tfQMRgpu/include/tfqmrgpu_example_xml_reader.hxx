@@ -9,8 +9,7 @@
  *
  */
 
-#include <cstdio> // std::printf
-#include <cstdio> // std::fBSMen, ::fprintf, ::fclose
+#include <cstdio> // std::printf, ::fopen, ::fprintf, ::fclose
 #include <cassert> // assert
 #include <complex> // std::complex<T>
 #include <vector> // std::vector<T>

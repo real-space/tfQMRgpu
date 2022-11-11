@@ -1,7 +1,7 @@
 #ifndef TFQMRGPU_H
 #define TFQMRGPU_H
 
-    typedef int   tfqmrgpuStatus_t; // return codes
+    typedef int32_t tfqmrgpuStatus_t; // return codes
     // opaque structs
     typedef void* tfqmrgpuHandle_t; // globale library handle pointer, need only one per application execution
     typedef int*  tfqmrgpuBsrsvPlan_t; // plan for bsrsv
@@ -13,6 +13,7 @@
     //
     //
     tfqmrgpuStatus_t tfqmrgpuPrintError(tfqmrgpuStatus_t const status);
+    char const*  tfqmrgpuGetErrorString(tfqmrgpuStatus_t const status);
 
     // tfqmrgpuHandle_t handle = NULL; // user must perform this
     tfqmrgpuStatus_t tfqmrgpuCreateHandle(tfqmrgpuHandle_t *handle); // out: opaque handle for the tfqmrgpu library. 
@@ -59,7 +60,7 @@
         int const blockDim,    // in: Block dimension of matrix A, blocks in A are square blocks. blockDim <= ldA
         int const ldB,         // in: Leading dimension for blocks in matrix B or X.
         int const RhsBlockDim, // in: Fast block dimension of matrix B or X, RhsBlockDim <= ldB.
-        char const doublePrecision, // in: Solver precision 'C':complex<float>, 'Z':complex<double>, 'M':start with float and converge double.
+        char const precision, // in: Solver precision 'c':complex<float>, 'z':complex<double>, 'm':start with float and converge double.
         size_t *pBufferSizeInBytes); // out: number of bytes of the buffer used in the setMatrix, getMatrix and solve.
     // returns the computed size to be allocated by cudaMalloc
 
@@ -77,8 +78,8 @@
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_setMatrix(tfqmrgpuHandle_t handle, // inout
         tfqmrgpuBsrsvPlan_t plan, // inout:
         char const var, // in: selector which variable, only {'A', 'X', 'B'} allowed.
-        void const *val, // in: pointer to read-only values, pointer is casted to double* if 'Z'==doublePrecision or to float* if 'C'==doublePrecision
-        char const doublePrecision, // in: 'C':complex<float>, 'Z':complex<double>, 'S' and 'D' are not supported.
+        void const *val, // in: pointer to read-only values, pointer is casted to double* if 'z'==precision or to float* if 'c'==precision
+        char const precision, // in: 'c':complex<float>, 'z':complex<double>, 's' and 'd' are not supported.
         int const ld, // in: leading dimension of blocks in array val.
         int const d2, // in:  second dimension of blocks in array val.
         char const trans, // in: transposition of the input matrix blocks.
@@ -87,8 +88,8 @@
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_getMatrix(tfqmrgpuHandle_t handle, // inout
         tfqmrgpuBsrsvPlan_t plan, // in:
         char const var, // in: selector which variable, only 'X' supported.
-        void       *val, // in: pointer to values to be written, pointer is casted to double* if 'Z'==doublePrecision or to float* if 'C'==doublePrecision
-        char const doublePrecision, // in: 'C':complex<float>, 'Z':complex<double>, 'S' and 'D' are not supported.
+        void       *val, // in: pointer to values to be written, pointer is casted to double* if 'z'==precision or to float* if 'c'==precision
+        char const precision, // in: 'c':complex<float>, 'z':complex<double>, 's' and 'd' are not supported.
         int const ld, // in: leading dimension of blocks in array val.
         int const d2, // in:  second dimension of blocks in array val.
         char const trans, // in: transposition of the output matrix blocks.
@@ -112,7 +113,7 @@
     //           rowPtr[nRows + 1] // pointers to the start of each row, rowPtr[0] == 0 and rowPtr[nRows] == nnzb
     //           nnzb // number of non-zero blocks
     //           colInd[nnzb] // column indices
-    //  Matrix_t data[nnzb]
+    //           data[nnzb] :: MatrixBlock_t
     //
     // bsr_t are traversed like this
     //      for (int row = 0; row < nRows; ++row) {
@@ -124,7 +125,7 @@
 
     // Matrix transpositions transA, transX, transB must be either 'n' (non-transposed) or 't' (transposed)
 
-    // maybe similar to tfqmrgpu_bsrsv_rectangular in the Fortran_module.F90 offer the easy-to-integrate C function
+    // maybe similar to tfqmrgpu_bsrsv_rectangular in the Fortran_module.F90 offer an easy-to-integrate C function
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_z(
        int mb, // number of block rows and number of block columns in A, number of block rows in X and B
        int ldA, // block dimension of blocks of A
@@ -137,6 +138,12 @@
        int echo // verbosity level, 0:no output, .... , 9: debug output
      );
 
+    // single precision version of tfqmrgpu_bsrsv_z
+    tfqmrgpuStatus_t tfqmrgpu_bsrsv_c(int mb, int ldA, int ldB,
+       int32_t const* rowPtrA, int nnzbA, int32_t const* colIndA, float const* Amat, char transA,
+       int32_t const* rowPtrX, int nnzbX, int32_t const* colIndX, float      * Xmat, char transX,
+       int32_t const* rowPtrB, int nnzbB, int32_t const* colIndB, float const* Bmat, char transB,
+       int32_t *iterations, float *residual, int echo);
 
     // tfqmrgpu CONSTANTS
 

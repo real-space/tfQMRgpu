@@ -92,7 +92,7 @@ implicit none
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=cuda_stream_kind), intent(out) :: streamId
     external :: tfqmrgpugetstream
-    call tfqmrgpugetstream(handle, streamId, ierr)    
+    call tfqmrgpugetstream(handle, streamId, ierr)
   endsubroutine ! get
 
 
@@ -105,7 +105,7 @@ implicit none
     external :: tfqmrgpucreateworkspace
     call tfqmrgpucreateworkspace(pBuffer, pBufferSizeInBytes, ierr)
 #ifdef  DEBUG
-    write(*, '(a,":",i0,a,z0)') __FILE__, & 
+    write(*, '(a,":",i0,a,z0)') __FILE__, &
         __LINE__," pBuffer = 0x",pBuffer
 #endif
   endsubroutine ! create
@@ -158,7 +158,7 @@ implicit none
 
   subroutine bsrsv_bufferSize(handle, plan, &
                     ldA, blockDim, ldB, RhsBlockDim, &
-                    doublePrecision, pBufferSizeInBytes, ierr)
+                    prec, pBufferSizeInBytes, ierr)
     !! returns the computed size to be allocated by cudaMalloc
     integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
@@ -167,11 +167,11 @@ implicit none
     integer(kind=4), intent(in) :: blockDim
     integer(kind=4), intent(in) :: ldB
     integer(kind=4), intent(in) :: RhsBlockDim
-    character      , intent(in) :: doublePrecision
+    character      , intent(in) :: prec
     integer(kind=8), intent(out) :: pBufferSizeInBytes
     external :: tfqmrgpu_bsrsv_buffersize
     call tfqmrgpu_bsrsv_buffersize(handle, plan, ldA, blockDim, ldB, &
-            RhsBlockDim, doublePrecision, pBufferSizeInBytes, ierr)
+            RhsBlockDim, prec, pBufferSizeInBytes, ierr)
   endsubroutine ! get
 
   subroutine bsrsv_setBuffer(handle, plan, pBuffer, ierr)
@@ -345,7 +345,7 @@ implicit none
       CheckError(ierr, "Failed to get the CUDA stream")
       if (streamIdCopy /= streamId) then 
         if(u>0) write(u, "(9(a,i0))") "streamId = ", &
-            streamId," but streamIdCopy = ",streamIdCopy  
+            streamId," but streamIdCopy = ",streamIdCopy
         stop "[DEBUG] Failed to verify the CUDA stream in use"
       endif
 !-sanity-check
@@ -357,7 +357,7 @@ implicit none
     call create(handle, plan, mb, &
            rowPtrA, size(colIndA), colIndA, &
            rowPtrX, size(colIndX), colIndX, &
-           rowPtrB, size(colIndB), colIndB, ierr) 
+           rowPtrB, size(colIndB), colIndB, ierr)
     CheckError(ierr, "Failed to create the bsrsv plan")
 
     !! compute the size of the required GPU memory buffer
@@ -378,9 +378,9 @@ implicit none
 !+sanity-check
       call get(handle, plan, memBufferCopy, ierr)
       CheckError(ierr, "Failed to get the registered GPU memory buffer address")
-      if (memBufferCopy /= memBuffer) then 
+      if (memBufferCopy /= memBuffer) then
         write(*, "(9(a,z0))") "memBuffer = 0x",memBuffer, &
-                         " but memBufferCopy = 0x",memBufferCopy  
+                         " but memBufferCopy = 0x",memBufferCopy
         stop "[DEBUG] Failed to verify the GPU memory buffer address"
       endif
 !-sanity-check
@@ -453,7 +453,8 @@ implicit none
     call tfqmrgpu_bsrsv_rectangular(mb, ldA, ldA, &
       rowPtrA, colIndA, Amat, transA, &
       rowPtrX, colIndX, Xmat, transX, &
-      rowPtrB, colIndB, Bmat, transB, iterations, residual, o, ierr)
+      rowPtrB, colIndB, Bmat, transB, &
+      iterations, residual, o, ierr)
 
   endsubroutine ! tfqmrgpu_bsrsv_complete
 

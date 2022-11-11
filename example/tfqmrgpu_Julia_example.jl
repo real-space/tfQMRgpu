@@ -5,19 +5,21 @@
 
 plot = true
 
-mb = 7 # number of rows
+mb = 7 # number of block rows
 ldA = 4 # square block dimension of A
-ldB = 5 # block column dimension of B and X
+ldB = 5 # number of columns per block of B and X
 
 nnzbA = 19 # number of nonzero blocks in A
 nnzbX = mb # number of nonzero blocks in X
-# nnzbB = nnzbX
 nnzbB = 1
 
+const ComplexF00 = ComplexF32 # F32 or F64
+# ToDo: seems like F32 does not work properly
+
 # get memory for nonzero blocks in Complex{Float64}
-Amat = zeros(ComplexF64, ldA, ldA, nnzbA) # nonzero blocks of the problem
-Xmat = zeros(ComplexF64, ldB, ldA, nnzbX) # nonzero blocks of the solution
-Bmat = zeros(ComplexF64, ldB, ldA, nnzbB) # nonzero blocks of the right-hand-sides
+Amat = zeros(ComplexF00, ldA, ldA, nnzbA) # nonzero blocks of the problem
+Xmat = zeros(ComplexF00, ldB, ldA, nnzbX) # nonzero blocks of the solution
+Bmat = zeros(ComplexF00, ldB, ldA, nnzbB) # nonzero blocks of the right-hand-sides
 
 # block transpositions
 transA = 'n'
@@ -72,19 +74,29 @@ if true
 
     const tf = "../lib64/libtfQMRgpu.so"
     iterations = zeros(Int32, 1); iterations[1] = 210 # max number of iterations
-    residual = zeros(Float32, 1); residual[1] = 1.2e-8 # threshold to converge
+    residual = zeros(Float32, 1)
     echo = 9 # 9:debug output
-    status = @ccall tf.tfqmrgpu_bsrsv_z(
+    if ComplexF64 == ComplexF00
+        residual[1] = 1.2e-8 # threshold to converge
+        status = @ccall tf.tfqmrgpu_bsrsv_z(
             mb::Cint # number of block rows and number of block columns in A, number of block rows in X and B
           , ldA::Cint # block dimension of blocks of A
           , ldB::Cint # leading dimension of blocks in X and B
-          , rowPtrA::Ref{Int32}, nnzbA::Cint, colIndA::Ref{Int32}, Amat::Ref{ComplexF64}, transA::Cchar # assumed data layout ComplexF64 A[ldA,ldA,nnzbA]
-          , rowPtrX::Ref{Int32}, nnzbX::Cint, colIndX::Ref{Int32}, Xmat::Ref{ComplexF64}, transX::Cchar # assumed data layout ComplexF64 X[ldB,ldA,nnzbX]
-          , rowPtrB::Ref{Int32}, nnzbB::Cint, colIndB::Ref{Int32}, Bmat::Ref{ComplexF64}, transB::Cchar # assumed data layout ComplexF64 B[ldB,ldA,nnzbB]
+          , rowPtrA::Ref{Int32}, nnzbA::Cint, colIndA::Ref{Int32}, Amat::Ref{ComplexF64}, transA::Cchar # assumed data layout Complex Amat[ldA,ldA,nnzbA]
+          , rowPtrX::Ref{Int32}, nnzbX::Cint, colIndX::Ref{Int32}, Xmat::Ref{ComplexF64}, transX::Cchar # assumed data layout Complex Xmat[ldB,ldA,nnzbX]
+          , rowPtrB::Ref{Int32}, nnzbB::Cint, colIndB::Ref{Int32}, Bmat::Ref{ComplexF64}, transB::Cchar # assumed data layout Complex Bmat[ldB,ldA,nnzbB]
           , iterations::Ref{Int32} # on entry *iterations holds the max number of iterations, on exit *iteration is the number of iterations needed to converge
           , residual::Ref{Float32} # on entry *residual holds the threshold, on exit *residual hold the residual that has been reached after the last iteration
           , echo::Cint # verbosity level, 0:no output, .... , 9: debug output
-          )::Cint
+          )::Int32
+    else
+        residual[1] = 1.2e-5 # threshold to converge
+        status = @ccall tf.tfqmrgpu_bsrsv_c(mb::Cint, ldA::Cint, ldB::Cint
+          , rowPtrA::Ref{Int32}, nnzbA::Cint, colIndA::Ref{Int32}, Amat::Ref{ComplexF32}, transA::Cchar
+          , rowPtrX::Ref{Int32}, nnzbX::Cint, colIndX::Ref{Int32}, Xmat::Ref{ComplexF32}, transX::Cchar
+          , rowPtrB::Ref{Int32}, nnzbB::Cint, colIndB::Ref{Int32}, Bmat::Ref{ComplexF32}, transB::Cchar
+          , iterations::Ref{Int32}, residual::Ref{Float32}, echo::Cint)::Int32
+    end # complex
     if (0 != status)
         @ccall tf.tfqmrgpuPrintError(status::Cint)::Cint
     else

@@ -35,11 +35,12 @@ class blocksparse_action_t {
 
   public:
 
-    blocksparse_action_t(bsrsv_plan_t* const plan) : p(plan) {
+    blocksparse_action_t(bsrsv_plan_t *const plan) : p(plan) {
         assert(nullptr != p);
         assert(LM == p->LM);
+        assert(LM > 0);
         assert(LN >= LM);
-        p->doublePrecision = (sizeof(real_t) > 4)? 'z' : 'c';
+        p->precision = (sizeof(real_t) == 8) ? 'z' : 'c';
     } // constructor
 
     void take_memory(char* &buffer) {
@@ -174,7 +175,6 @@ class blocksparse_action_t {
         // end of CPU version
 
 #endif // HAS_CUDA
-
 
         return p->pairs.size()*.5*LM*8.*LM*LN; // returns the number of Flops: 8 per complex
     } // multiply

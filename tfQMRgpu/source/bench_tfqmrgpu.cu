@@ -35,7 +35,7 @@ namespace GPUbench {
         , double const tolerance=1.0e-6
         , int const maxIterations=999
         , int const nRepetitions=1
-        , char const doublePrecision='z' // {'c', 'm', 'z'}
+        , char const precision='z' // {'c', 'm', 'z'}
     ) {
 
         PUSH_RANGE(__func__); // NVTX range markers for nvvp
@@ -100,7 +100,7 @@ namespace GPUbench {
             lm, // Block dimension of matrix A, blocks in A are square blocks. lm <= ldA
             ln, // Leading dimension for blocks in matrix B or X.
             ln, // Fast block dimension of matrix B or X, RhsBlockDim <= ldB.
-            doublePrecision, // Solver precision 'c':complex<float>, 'z':complex<double>, 'm':mixed
+            precision, // Solver precision 'c':complex<float>, 'z':complex<double>, 'm':mixed
             &pBufferSize)  )
 
         // step 6: allocate the GPU memory
@@ -109,7 +109,7 @@ namespace GPUbench {
             auto const cudaErr = cudaMalloc(&pBuffer, pBufferSize);
             if (cudaSuccess != cudaErr) {
                 std::printf("[ERROR] CUDA call failed to allocate %.6f GByte in %s:%d\n", pBufferSize*1e-9, __FILE__, __LINE__);
-                return TFQMRGPU_STATUS_ALLOCATION_FAILED;
+                return TFQMRGPU_STATUS_ALLOCATION_FAILED + TFQMRGPU_CODE_LINE*__LINE__;
             } else {
                 debug_printf("# allocated %.6f GByte GPU memory at %p in %s:%d\n", pBufferSize*1e-9, pBuffer, __FILE__, __LINE__);
                 std::printf("# use %.6f GByte GPU memory\n", pBufferSize*1e-9);
@@ -172,18 +172,17 @@ namespace GPUbench {
                 // seems correct, report performance
                 int iterations_needed{0};
                 double flops_performed{0}, residuum_reached{1};
-                callAndCheck(  tfqmrgpu_bsrsv_getInfo(handle, plan, &residuum_reached, 
+                callAndCheck(  tfqmrgpu_bsrsv_getInfo(handle, plan, &residuum_reached,
                                             &iterations_needed, &flops_performed, 0x0)
                             )
                 std::printf("# GPU converged to %.1e in %d iterations\n", residuum_reached, iterations_needed);
-                char const fF = ('z' == (doublePrecision | IgnoreCase))? 'F' : 'f'; // F:double, f:float
+                char const fF = ('z' == (precision | IgnoreCase))? 'F' : 'f'; // F:double, f:float
                 double const TFlop = 1e-12*flops_performed;
                 double const performance = TFlop/std::max(solver_time, 1e-6);
-                std::printf("# GPU performed %.3f T%clop in %.3f seconds = %.3f T%clop/s\n", 
-                                       TFlop, fF, solver_time, performance, fF);
+                std::printf("# GPU performed %.3f T%clop in %.3f seconds = %.3f T%clop/s\n",
+                                            TFlop, fF, solver_time, performance, fF);
             } // maxdev
         } // scope
-
 
         // step e: destroy the plan
         callAndCheck(  tfqmrgpu_bsrsv_destroyPlan(handle, plan)  )
@@ -269,9 +268,9 @@ namespace GPUbench {
     template <typename real_t, int LM, int LN=LM, typename double_t=real_t, int TUNE=2>
     double bench_multi( // returns the average time needed per kernel call
           unsigned const nnzbY
-        , uint32_t const (*const starts_h)
+        , uint32_t const starts_h[]
         , size_t const nPairs
-        , uint32_t const (*const pairs_h)
+        , uint32_t const pairs_h[]
         , unsigned const nnzbA
         , unsigned const nnzbX
         , int const nRepetitions=1 // Number of iterations of the same procedure
@@ -429,7 +428,7 @@ namespace GPUbench {
         int const lm     = (argc > 6)? std::atoi(argv[6]) : 16; // block rows
         int const ln     = (argc > 7)? std::atoi(argv[7]) : lm; // block cols
 
-        char const doublePrecision = (('d' == (fF | IgnoreCase)) || ('z' == (fF | IgnoreCase))) ? 'z' 
+        char const precision = (('d' == (fF | IgnoreCase)) || ('z' == (fF | IgnoreCase))) ? 'z' 
                                    : (('m' == (fF | IgnoreCase)) ? 'm' : 'c');
 
         // read multiplication plan from input file
@@ -502,8 +501,8 @@ namespace GPUbench {
             bench_multi <REAL_t,LM,LN,DOUBLE_t,TUNE> \
             (nnzY, starts.data(), nPairs, pairs.data(), nnzA, nnzX, nrep, nsamp)
 #define decide_precision(LM,LN,TUNE) \
-            if ('z' == doublePrecision) { call_it(double,LM,LN,double,TUNE); } else \
-            if ('m' == doublePrecision) { call_it(float, LM,LN,double,TUNE); } else \
+            if ('z' == precision) { call_it(double,LM,LN,double,TUNE); } else \
+            if ('m' == precision) { call_it(float, LM,LN,double,TUNE); } else \
                                         { call_it(float, LM,LN,float ,TUNE); }
 
             // tune-parameters extracted from a comparison of TUNE={1,2,3,4,6,8} in double-performance on V100
