@@ -87,6 +87,7 @@ if true
           , rowPtrB::Ref{Int32}, nnzbB::Cint, colIndB::Ref{Int32}, Bmat::Ref{ComplexF64}, transB::Cchar # assumed data layout Complex Bmat[ldB,ldA,nnzbB]
           , iterations::Ref{Int32} # on entry *iterations holds the max number of iterations, on exit *iteration is the number of iterations needed to converge
           , residual::Ref{Float32} # on entry *residual holds the threshold, on exit *residual hold the residual that has been reached after the last iteration
+          , 0::Cint # C,C++ indices start at 0, Fortran and Julia native indices start at 1
           , echo::Cint # verbosity level, 0:no output, .... , 9: debug output
           )::Int32
     else
@@ -95,7 +96,7 @@ if true
           , rowPtrA::Ref{Int32}, nnzbA::Cint, colIndA::Ref{Int32}, Amat::Ref{ComplexF32}, transA::Cchar
           , rowPtrX::Ref{Int32}, nnzbX::Cint, colIndX::Ref{Int32}, Xmat::Ref{ComplexF32}, transX::Cchar
           , rowPtrB::Ref{Int32}, nnzbB::Cint, colIndB::Ref{Int32}, Bmat::Ref{ComplexF32}, transB::Cchar
-          , iterations::Ref{Int32}, residual::Ref{Float32}, echo::Cint)::Int32
+          , iterations::Ref{Int32}, residual::Ref{Float32}, 0::Cint, echo::Cint)::Int32
     end # complex
     if (0 != status)
         @ccall tf.tfqmrgpuPrintError(status::Cint)::Cint

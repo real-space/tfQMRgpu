@@ -81,9 +81,9 @@
         char* str = tfqmrgpuErrorString; // abbreviation
         tfqmrgpuStatus_t stat{status};
         char const key = stat / TFQMRGPU_CODE_CHAR;
-                  stat -= key * TFQMRGPU_CODE_CHAR;
+        stat -= key * TFQMRGPU_CODE_CHAR;
         uint32_t const line = stat / TFQMRGPU_CODE_LINE;
-                  stat -= line * TFQMRGPU_CODE_LINE;
+        stat -= line * TFQMRGPU_CODE_LINE;
         switch (stat) {
             case TFQMRGPU_STATUS_SUCCESS:           std::memset(str, 0x0, nc); break;
             case TFQMRGPU_STATUS_MAX_ITERATIONS:    std::snprintf(str, nc, "tfQMRgpu: Max number of iterations exceeded!");       break;
@@ -98,7 +98,8 @@
             case TFQMRGPU_VARIABLENAME_UNKNOWN:     std::snprintf(str, nc, "tfQMRgpu: Unknown variable name '%c' at line %d!",  key, line); break;
             case TFQMRGPU_DATALAYOUT_UNKNOWN:       std::snprintf(str, nc, "tfQMRgpu: Unknown data layout '%c' at line %d!", 20+key, line); break;
             case TFQMRGPU_PRECISION_MISSMATCH:      std::snprintf(str, nc, "tfQMRgpu: Missmatch in precision '%c' at line %d!", key, line); break;
-            default:                                std::snprintf(str, nc, "tfQMRgpu: Unknown status= %d at line %d!", status, line); break;
+            default:                                std::snprintf(str, nc, "tfQMRgpu: Unknown status= %d at line %d, key \'%c\', stat= %d!",
+                                                                                              status, line, (key >= 32)?key:'?', stat);     break;
         } // switch status
         return str;
     } // tfqmrgpuGetErrorString
@@ -153,15 +154,16 @@
         , int32_t const *bsrRowPtrB // in: integer array of mb+1 elements that contains the start of every block row of B and the end of the last block row of B plus one.
         , int     const nnzbB       // in: number of nonzero blocks of matrix B, nnzbB must be less or equal to nnzbX.
         , int32_t const *bsrColIndB // in: integer array of nnzbB ( = bsrRowPtrB[mb] - bsrRowPtrB[0] ) column indices of the nonzero blocks of matrix B.
-        , int     const indexOffset // in: indexOffset=0(C-style) or indexOffset=1(Fortran) for RowPtr and ColInd arrays    
+        , int     const indexOffset // in: indexOffset=0(C-style) or indexOffset=1(Fortran) for RowPtr and ColInd arrays
     ) {
-        debug_printf("tfqmrgpu_bsrsv_createPlan(handle=%p, *plan=%p, mb=%d, \n"
-               "         bsrRowPtrA=%p, nnzbA=%d, bsrColIndA=%p, \n"
-               "         bsrRowPtrX=%p, nnzbX=%d, bsrColIndX=%p, \n"
-               "         bsrRowPtrB=%p, nnzbB=%d, bsrColIndB=%p, indexOffset=%d)\n",
-               handle, *plan, mb,             bsrRowPtrA, nnzbA, bsrColIndA, 
-               bsrRowPtrX, nnzbX, bsrColIndX, bsrRowPtrB, nnzbB, bsrColIndB, indexOffset);
-        std::fflush(stdout);
+        debug_printf("# tfqmrgpu_bsrsv_createPlan(handle=%p, *plan=%p, mb=%d, \n"
+               "#          bsrRowPtrA=%p, nnzbA=%d, bsrColIndA=%p, \n"
+               "#          bsrRowPtrX=%p, nnzbX=%d, bsrColIndX=%p, \n"
+               "#          bsrRowPtrB=%p, nnzbB=%d, bsrColIndB=%p, indexOffset=%d)\n",
+               handle, *plan, mb,
+               bsrRowPtrA, nnzbA, bsrColIndA,
+               bsrRowPtrX, nnzbX, bsrColIndX,
+               bsrRowPtrB, nnzbB, bsrColIndB, indexOffset);
 
         if (nullptr != *plan) return TFQMRGPU_POINTER_INVALID + TFQMRGPU_CODE_LINE*__LINE__; // requirement that *plan == nullptr on entry.
 
@@ -193,7 +195,7 @@
 
             auto const nnzbY = nnzbX; // copy number of non-zero elements
             size_t const estimate_n_pairs = (nnzbY * nnzbA) / mb; // approximate number of block operations
-            debug_printf("tfqmrgpu_bsrsv_createPlan tries to reserve %ld pairs\n", estimate_n_pairs);
+            debug_printf("# tfqmrgpu_bsrsv_createPlan tries to reserve %ld pairs\n", estimate_n_pairs);
             p->pairs.clear();
             p->pairs.reserve(2 * estimate_n_pairs); // factor 2 as we always save pairs of indices
 
@@ -331,7 +333,7 @@
 
         *plan = (tfqmrgpuBsrsvPlan_t) p; // cast into opaque pointer type
 
-        debug_printf("done tfqmrgpu_bsrsv_createPlan(handle=%p, *plan=%p, [internal p=%p] ...)\n", handle, *plan, p);
+        debug_printf("# done tfqmrgpu_bsrsv_createPlan(handle=%p, *plan=%p, [internal p=%p] ...)\n", handle, *plan, p);
         return TFQMRGPU_STATUS_SUCCESS;
     } // analysis
 
@@ -703,6 +705,7 @@ namespace tfqmrgpu {
         , char const transB
         , int32_t *const iterations // on entry: max. number of iterations, on exit: needed number of iterations
         , float *const residual // on entry: required residuum for convergence, on exit: residdum reached
+        , int const indexOffset // C,C++ indices start at 0, Fortran and Julia native indices start at 1
         , int const echo // verbosity to stdout
     ) {
         tfqmrgpuStatus_t stat;
@@ -719,7 +722,7 @@ namespace tfqmrgpu {
         stat = tfqmrgpu_bsrsv_createPlan(handle, &plan, mb
                                   , rowPtrA, nnzbA, colIndA
                                   , rowPtrX, nnzbX, colIndX
-                                  , rowPtrB, nnzbB, colIndB, 0);
+                                  , rowPtrB, nnzbB, colIndB, indexOffset);
         if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_createPlan returned %d\n", __func__, stat); return stat; }
 
         size_t gpu_memory_size{0};
@@ -778,13 +781,13 @@ namespace tfqmrgpu {
         int32_t const *const rowPtrA, int const nnzbA, int32_t const *const colIndA, double  const *const Amat, char const transA,
         int32_t const *const rowPtrX, int const nnzbX, int32_t const *const colIndX, double        *const Xmat, char const transX,
         int32_t const *const rowPtrB, int const nnzbB, int32_t const *const colIndB, double  const *const Bmat, char const transB,
-        int32_t *const iterations, float *const residual, int const echo
+        int32_t *const iterations, float *const residual, int const indexOffset, int const echo
     ) {
         return tfqmrgpu::tfqmrgpu_bsrsv<double>(mb, ldA, ldB,
                 rowPtrA, nnzbA, colIndA, Amat, transA,
                 rowPtrX, nnzbX, colIndX, Xmat, transX,
                 rowPtrB, nnzbB, colIndB, Bmat, transB,
-                iterations, residual, echo);
+                iterations, residual, indexOffset, echo);
     } // tfqmrgpu_bsrsv_z
 
     // C-wrapper
@@ -792,11 +795,11 @@ namespace tfqmrgpu {
         int32_t const *const rowPtrA, int const nnzbA, int32_t const *const colIndA, float   const *const Amat, char const transA,
         int32_t const *const rowPtrX, int const nnzbX, int32_t const *const colIndX, float         *const Xmat, char const transX,
         int32_t const *const rowPtrB, int const nnzbB, int32_t const *const colIndB, float   const *const Bmat, char const transB,
-        int32_t *const iterations, float *const residual, int const echo
+        int32_t *const iterations, float *const residual, int const indexOffset, int const echo
     ) {
         return tfqmrgpu::tfqmrgpu_bsrsv<float>(mb, ldA, ldB,
                 rowPtrA, nnzbA, colIndA, Amat, transA,
                 rowPtrX, nnzbX, colIndX, Xmat, transX,
                 rowPtrB, nnzbB, colIndB, Bmat, transB,
-                iterations, residual, echo);
+                iterations, residual, indexOffset, echo);
     } // tfqmrgpu_bsrsv_c

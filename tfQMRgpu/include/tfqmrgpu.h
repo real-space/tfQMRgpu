@@ -135,6 +135,7 @@
        int32_t const* rowPtrB, int nnzbB, int32_t const* colIndB, double const* Bmat, char transB, // assumed data layout double B[nnzbB][ldA][ldB][2]
        int32_t *iterations, // on entry *iterations holds the max number of iterations, on exit *iteration is the number of iterations needed to converge
        float *residual, // on entry *residual holds the threshold, on exit *residual hold the residual that has been reached after the last iteration
+       int indexOffset, // C,C++ indices start at 0, Fortran and Julia native indices start at 1
        int echo // verbosity level, 0:no output, .... , 9: debug output
      );
 
@@ -143,7 +144,7 @@
        int32_t const* rowPtrA, int nnzbA, int32_t const* colIndA, float const* Amat, char transA,
        int32_t const* rowPtrX, int nnzbX, int32_t const* colIndX, float      * Xmat, char transX,
        int32_t const* rowPtrB, int nnzbB, int32_t const* colIndB, float const* Bmat, char transB,
-       int32_t *iterations, float *residual, int echo);
+       int32_t *iterations, float *residual, int indexOffset, int echo);
 
     // tfqmrgpu CONSTANTS
 
