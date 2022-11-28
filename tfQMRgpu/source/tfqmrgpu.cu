@@ -68,32 +68,26 @@
     } // mysolve
 
 
-    tfqmrgpuStatus_t tfqmrgpu_bsrsv_allowedBlockSizes(
+    tfqmrgpuStatus_t tfqmrgpu_bsrsv_allowedBlockSizes( // C-interface
           int32_t *number
         , int32_t *blockSizes
         , int const arrayLength
     ) {
-        std::vector<uint16_t> v;
+        if (nullptr == number) return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__;
+        auto & n = *number;
+        if (nullptr == blockSizes) return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__;
+        for (int i = 0; i < arrayLength*(0 != n); ++i) { blockSizes[i] = 0; } // clear result array
+        n = 0;
+        int i{0};
         {
 #define     allow_block_size(LM,LN) \
-            v.push_back(LM); v.push_back(LN)
+            ++n; if (2*n < arrayLength) { blockSizes[2*i] = LM; blockSizes[2*i + 1] = LN; ++i; }
 
 #include   "allowed_block_sizes.h" // as above, but with a different definition of allow_block_size(LM,LN)
 
 #undef      allow_block_size
         }
-        // transfer allowed block sizes into the array
-        for (int i = 0; i < arrayLength; ++i) {
-            blockSizes[i] = 0; // clear
-        } // i
-        if (nullptr == number) return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__;
-        *number = v.size()/2;
-        auto const np = std::min(arrayLength/2, *number);
-        for (int p = 0; p < np; ++p) {
-            blockSizes[2*p + 0] = v[2*p + 0];
-            blockSizes[2*p + 1] = v[2*p + 1];
-        } // p
-        return (arrayLength >= v.size()) ? TFQMRGPU_STATUS_SUCCESS : (TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__);
+        return (n == i) ?  TFQMRGPU_STATUS_SUCCESS : (TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__); // probably arrayLength was too short
     } // tfqmrgpu_bsrsv_allowedBlockSizes
 
 

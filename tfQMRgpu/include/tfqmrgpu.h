@@ -29,7 +29,10 @@
     tfqmrgpuStatus_t tfqmrgpuCreateWorkspace(void* *pBuffer, size_t const pBufferSizeInBytes, char const memType);
     tfqmrgpuStatus_t tfqmrgpuDestroyWorkspace(void* pBuffer);
 
-    tfqmrgpuStatus_t tfqmrgpu_bsrsv_allowedBlockSizes(int32_t *number, int32_t *blockSizes, int const arrayLength);
+    tfqmrgpuStatus_t tfqmrgpu_bsrsv_allowedBlockSizes(
+        int32_t *number, // on exit, *number is the number of allowed block size pairs
+        int32_t *blockSizes, // on exit, blockSizes[0:min(2*(*number), arrayLength)] contains the block size pairs
+        int const arrayLength); // maximum number of elements to be written into blockSizes[]
 
     ////////////////////// bsrsv specific routines //////////////////////////////////////////////////
     // bsrsv is a linear solve of A * X == B
@@ -160,12 +163,12 @@
     tfqmrgpuStatus_t const TFQMRGPU_STATUS_LAUNCH_FAILED     = 2;
     tfqmrgpuStatus_t const TFQMRGPU_STATUS_NO_INFO_PASSED    = 3;
     tfqmrgpuStatus_t const TFQMRGPU_POINTER_INVALID          = 7;
-    // for the following error codes, the throwing source line can be extracted from bit #8 on
+    // for the following error codes, the throwing source line can be extracted from bit #8 through bit #23
     tfqmrgpuStatus_t const TFQMRGPU_CODE_LINE             = 1 << 8; // roughly 4 decimal digits
     tfqmrgpuStatus_t const TFQMRGPU_NO_IMPLEMENTATION     = 19; //
     tfqmrgpuStatus_t const TFQMRGPU_BLOCKSIZE_MISSING     = 12; //
     tfqmrgpuStatus_t const TFQMRGPU_UNDOCUMENTED_ERROR    = 14; //
-    // for the following error codes, a char can be extracted from bin #24 on
+    // for the following error codes, a char can be extracted from bit #24 on
     tfqmrgpuStatus_t const TFQMRGPU_CODE_CHAR             = 1 << 24; // only valid ASCII chars are expected
     tfqmrgpuStatus_t const TFQMRGPU_TANSPOSITION_UNKNOWN  = 17; //
     tfqmrgpuStatus_t const TFQMRGPU_VARIABLENAME_UNKNOWN  = 18; //
