@@ -29,6 +29,8 @@
     tfqmrgpuStatus_t tfqmrgpuCreateWorkspace(void* *pBuffer, size_t const pBufferSizeInBytes, char const memType);
     tfqmrgpuStatus_t tfqmrgpuDestroyWorkspace(void* pBuffer);
 
+    tfqmrgpuStatus_t tfqmrgpu_bsrsv_allowedBlockSizes(int32_t *number, int32_t *blockSizes, int const arrayLength);
+
     ////////////////////// bsrsv specific routines //////////////////////////////////////////////////
     // bsrsv is a linear solve of A * X == B
     // with A, X and B are BSR (block compressed sparse row) formatted operators.

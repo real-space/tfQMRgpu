@@ -73,6 +73,16 @@ if true
     println("### tfQMRgpu solves A * X == B")
 
     const tf = "../lib64/libtfQMRgpu.so"
+    nAllowedBlockSizes = zeros(Int32, 1)
+    AllowedBlockSizes = zeros(Int32, 2, 100)
+    status = @ccall tf.tfqmrgpu_bsrsv_allowedBlockSizes(nAllowedBlockSizes::Ref{Int32}, AllowedBlockSizes::Ref{Int32}, 200::Cint)::Int32
+    if (0 != status)
+        @ccall tf.tfqmrgpuPrintError(status::Cint)::Cint
+    else
+        @show nAllowedBlockSizes[1]
+        @show AllowedBlockSizes[1:2,1:nAllowedBlockSizes[1]]'
+    end # status
+
     iterations = zeros(Int32, 1); iterations[1] = 210 # max number of iterations
     residual = zeros(Float32, 1)
     echo = 9 # 9:debug output
