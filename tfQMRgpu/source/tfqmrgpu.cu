@@ -10,7 +10,9 @@
 #include "tfqmrgpu_blocksparse.hxx" // blocksparse_action_t
 #include "tfqmrgpu_util.hxx" // IgnoreCase
 
-#include "tfqmrgpu_error_tool.cxx" // definition of tfqmrgpuPrintError
+#define __NO_MAIN__
+  #include "tfqmrgpu_error_tool.cxx" // definition of tfqmrgpuPrintError
+#undef  __NO_MAIN__
 
     template <typename real_t, int LM, int LN=LM, typename double_t=real_t>
     tfqmrgpuStatus_t mysolve_real_LM_LN (

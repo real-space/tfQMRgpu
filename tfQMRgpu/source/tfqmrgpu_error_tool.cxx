@@ -1,6 +1,7 @@
-#ifdef __MAIN__
+#ifndef __NO_MAIN__
     // To compile a standalone executable tool that decyphers tfQMRgpu error codes:
     // g++ -g -O0 -Wall -Werror -I include -D __MAIN__ source/tfqmrgpu_error_tool.cxx
+    #include <cstdint> // uint32_t
     #include <cstdlib> // std::atoi, int64_t
     #include <cstdio> // std::printf
 
@@ -25,7 +26,7 @@
         } // argument given
 
     } // main
-#endif // __MAIN__
+#endif // __NO_MAIN__
 
     char const* tfqmrgpuGetErrorString(tfqmrgpuStatus_t const status) {
         unsigned const nc = 128; // max number of characters

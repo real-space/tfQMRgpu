@@ -5,13 +5,14 @@ set(tfQMRgpu_version 0.0.1)
 # For cuRAND
 find_package(CUDAToolkit REQUIRED)
 
-set(tfQMRgpu_sources source/tfqmrgpu.cu)
+set(tfQMRgpu_sources source/tfqmrgpu.cu source/tfqmrgpu_error_tool.cxx)
 
 # Explicitly depend on the headers to trigger rebuilds on changes
-set(tfQMRgpu_public_headers include/bsr.hxx
-	             include/tfqmrgpu_blockmult.hxx
-	             include/tfqmrgpu_blocksparse.hxx
-	             include/tfqmrgpu_core.hxx
+set(tfQMRgpu_public_headers 
+		     include/bsr.hxx
+		     include/tfqmrgpu_blockmult.hxx
+		     include/tfqmrgpu_blocksparse.hxx
+		     include/tfqmrgpu_core.hxx
 		     include/tfqmrgpu_cudaStubs.hxx
 		     include/tfqmrgpu_example_reader.hxx
 		     include/tfqmrgpu_example_xml_reader.hxx
@@ -23,6 +24,8 @@ set(tfQMRgpu_public_headers include/bsr.hxx
 		     include/tfqmrgpu_memWindow.h
 		     include/tfqmrgpu_plan.hxx
 		     include/tfqmrgpu_util.hxx
+		     include/bsr.hxx
+		     include/allowed_block_sizes.h
 		     )
 
 # TODO: split into public and private headers
@@ -79,6 +82,11 @@ if(HAS_BENCHMARK)
     target_link_libraries(bench_tfqmrgpu tfQMRgpu)
     set(tfqmrgpu_targets ${tfqmrgpu_targets} bench_tfqmrgpu)
 endif(HAS_BENCHMARK)
+
+# new tool to decypher error codes
+add_executable(tfqmrgpu_error_tool source/tfqmrgpu_error_tool.cxx ${tfQMRgpu_headers})
+target_link_libraries(tfqmrgpu_error_tool tfQMRgpu)
+set(tfqmrgpu_targets ${tfqmrgpu_targets} tfqmrgpu_error_tool)
 
 
 # default installation paths
