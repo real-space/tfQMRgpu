@@ -156,30 +156,28 @@
     tfqmrgpuStatus_t const TFQMRGPU_STATUS_SUCCESS = 0;
 
     // error codes
-    tfqmrgpuStatus_t const TFQMRGPU_STATUS_MAX_ITERATIONS    = 9; // ToDo: adjust value of this flag
-    tfqmrgpuStatus_t const TFQMRGPU_STATUS_BREAKDOWN         = 6;
-    tfqmrgpuStatus_t const TFQMRGPU_STATUS_ALLOCATION_FAILED = 4;
-    tfqmrgpuStatus_t const TFQMRGPU_STATUS_RANDOM_GEN_FAILED = 5;
-    tfqmrgpuStatus_t const TFQMRGPU_STATUS_LAUNCH_FAILED     = 2;
-    tfqmrgpuStatus_t const TFQMRGPU_STATUS_NO_INFO_PASSED    = 3;
-    tfqmrgpuStatus_t const TFQMRGPU_POINTER_INVALID          = 7;
-    // for the following error codes, the throwing source line can be extracted from bit #8 through bit #23
-    tfqmrgpuStatus_t const TFQMRGPU_CODE_LINE             = 1 << 8; // roughly 4 decimal digits
-    tfqmrgpuStatus_t const TFQMRGPU_NO_IMPLEMENTATION     = 19; //
-    tfqmrgpuStatus_t const TFQMRGPU_BLOCKSIZE_MISSING     = 12; //
-    tfqmrgpuStatus_t const TFQMRGPU_UNDOCUMENTED_ERROR    = 14; //
-    // for the following error codes, a char can be extracted from bit #24 on
-    tfqmrgpuStatus_t const TFQMRGPU_CODE_CHAR             = 1 << 24; // only valid ASCII chars are expected
-    tfqmrgpuStatus_t const TFQMRGPU_TANSPOSITION_UNKNOWN  = 17; //
-    tfqmrgpuStatus_t const TFQMRGPU_VARIABLENAME_UNKNOWN  = 18; //
-    tfqmrgpuStatus_t const TFQMRGPU_DATALAYOUT_UNKNOWN    = 15; //
-    tfqmrgpuStatus_t const TFQMRGPU_PRECISION_MISSMATCH   = 16; //
+    tfqmrgpuStatus_t const TFQMRGPU_STATUS_MAX_ITERATIONS    =  9;
+    tfqmrgpuStatus_t const TFQMRGPU_STATUS_BREAKDOWN         =  6;
+    tfqmrgpuStatus_t const TFQMRGPU_STATUS_NO_INFO_PASSED    =  3;
+    tfqmrgpuStatus_t const TFQMRGPU_POINTER_INVALID          =  7;
+    tfqmrgpuStatus_t const TFQMRGPU_STATUS_ALLOCATION_FAILED =  4;
+    tfqmrgpuStatus_t const TFQMRGPU_STATUS_RANDOM_GEN_FAILED =  5;
+    tfqmrgpuStatus_t const TFQMRGPU_STATUS_LAUNCH_FAILED     =  2;
+    tfqmrgpuStatus_t const TFQMRGPU_NO_IMPLEMENTATION        = 19;
+    tfqmrgpuStatus_t const TFQMRGPU_UNDOCUMENTED_ERROR       = 14;
+    tfqmrgpuStatus_t const TFQMRGPU_DATALAYOUT_UNKNOWN       = 15;
+    tfqmrgpuStatus_t const TFQMRGPU_BLOCKSIZE_MISSING        = 12;
+    tfqmrgpuStatus_t const TFQMRGPU_TANSPOSITION_UNKNOWN     = 17;
+    tfqmrgpuStatus_t const TFQMRGPU_VARIABLENAME_UNKNOWN     = 18;
+    tfqmrgpuStatus_t const TFQMRGPU_PRECISION_MISSMATCH      = 16;
+    // encrypt and short int and a char into the error codes:      // lowest 3 decimal digits for the error code
+    tfqmrgpuStatus_t const TFQMRGPU_CODE_LINE              = 1000; // middle 4 decimal digits for a source line
+    tfqmrgpuStatus_t const TFQMRGPU_CODE_CHAR        = 10000*1000; // upper  3 decimal digits for an ASCII char
 
     // block shape is assumed 2x2 for simplicity here. 0:real part, 1:imaginary part
-    tfqmrgpuDataLayout_t const TFQMRGPU_LAYOUT_RRRRIIII = 15; // 0b00001111; // native layout for the GPU version, real and imag part of each block are separated.
-    tfqmrgpuDataLayout_t const TFQMRGPU_LAYOUT_RRIIRRII = 51; // 0b00110011; // intermediate layout, ever used?
-    tfqmrgpuDataLayout_t const TFQMRGPU_LAYOUT_RIRIRIRI = 85; // 0b01010101; // default host layout, real and imag parts are interleaved.
-
+    tfqmrgpuDataLayout_t const TFQMRGPU_LAYOUT_RRRRIIII = 0x0f; // 0b00001111; // native layout for the GPU version, real and imag part of each block are separated.
+    tfqmrgpuDataLayout_t const TFQMRGPU_LAYOUT_RRIIRRII = 0x33; // 0b00110011; // intermediate layout, ever used?
+    tfqmrgpuDataLayout_t const TFQMRGPU_LAYOUT_RIRIRIRI = 0x55; // 0b01010101; // default host layout, real and imag parts are interleaved.
 
     // tfqmrgpu configuration:
 

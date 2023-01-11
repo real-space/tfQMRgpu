@@ -1,7 +1,6 @@
 #include <cstdio> // std::printf, ::fflush, stdout
 #include <vector> // std::vector<T>
 #include <cassert> // assert
-#include <cstring> // std::memset
 
 // #define DEBUG
 
@@ -11,6 +10,7 @@
 #include "tfqmrgpu_blocksparse.hxx" // blocksparse_action_t
 #include "tfqmrgpu_util.hxx" // IgnoreCase
 
+#include "tfqmrgpu_error_tool.cxx" // definition of tfqmrgpuPrintError
 
     template <typename real_t, int LM, int LN=LM, typename double_t=real_t>
     tfqmrgpuStatus_t mysolve_real_LM_LN (
@@ -93,51 +93,9 @@
 
 
     // library peripherals ////////////////////////////////////////
-    template <typename T>
-    T tfqmrgpu_mem_align(T a) { return (((a - 1) >> TFQMRGPU_MEMORY_ALIGNMENT) + 1) << TFQMRGPU_MEMORY_ALIGNMENT; }
-
-    char const* tfqmrgpuGetErrorString(tfqmrgpuStatus_t const status) {
-        unsigned constexpr nc = 128; // max number of characters
-        static char tfqmrgpuErrorString[nc];
-        char* str = tfqmrgpuErrorString; // abbreviation
-        tfqmrgpuStatus_t stat{status};
-        char const key = stat / TFQMRGPU_CODE_CHAR;
-        stat -= key * TFQMRGPU_CODE_CHAR;
-        uint32_t const line = stat / TFQMRGPU_CODE_LINE;
-        stat -= line * TFQMRGPU_CODE_LINE;
-        switch (stat) {
-            case TFQMRGPU_STATUS_SUCCESS:           std::memset(str, 0x0, nc); break;
-            case TFQMRGPU_STATUS_MAX_ITERATIONS:    std::snprintf(str, nc, "tfQMRgpu: Max number of iterations exceeded!");       break;
-            case TFQMRGPU_STATUS_BREAKDOWN:         std::snprintf(str, nc, "tfQMRgpu: All components have broken down!");         break;
-            case TFQMRGPU_POINTER_INVALID:          std::snprintf(str, nc, "tfQMRgpu: Pointer invalid at line %d!",        line); break;
-            case TFQMRGPU_STATUS_ALLOCATION_FAILED: std::snprintf(str, nc, "tfQMRgpu: Allocation failed at line %d!",      line); break;
-            case TFQMRGPU_NO_IMPLEMENTATION:        std::snprintf(str, nc, "tfQMRgpu: Missing implementation at line %d!", line); break;
-            case TFQMRGPU_UNDOCUMENTED_ERROR:       std::snprintf(str, nc, "tfQMRgpu: Undocumented error at line %d!",     line); break;
-            case TFQMRGPU_STATUS_LAUNCH_FAILED:     std::snprintf(str, nc, "tfQMRgpu: Device launch failed at line %d!",   line); break;
-            case TFQMRGPU_BLOCKSIZE_MISSING:        std::snprintf(str, nc, "tfQMRgpu: Missing blocksize %d x %d!",         int(key), line); break;
-            case TFQMRGPU_TANSPOSITION_UNKNOWN:     std::snprintf(str, nc, "tfQMRgpu: Unknown transposition '%c' at line %d!",  key, line); break;
-            case TFQMRGPU_VARIABLENAME_UNKNOWN:     std::snprintf(str, nc, "tfQMRgpu: Unknown variable name '%c' at line %d!",  key, line); break;
-            case TFQMRGPU_DATALAYOUT_UNKNOWN:       std::snprintf(str, nc, "tfQMRgpu: Unknown data layout '%c' at line %d!", 20+key, line); break;
-            case TFQMRGPU_PRECISION_MISSMATCH:      std::snprintf(str, nc, "tfQMRgpu: Missmatch in precision '%c' at line %d!", key, line); break;
-            default:                                std::snprintf(str, nc, "tfQMRgpu: Unknown status= %d at line %d, key \'%c\', stat= %d!",
-                                                                                              status, line, (key >= 32)?key:'?', stat);     break;
-        } // switch status
-        return str;
-    } // tfqmrgpuGetErrorString
-
-    tfqmrgpuStatus_t tfqmrgpuPrintError(tfqmrgpuStatus_t const status) {
-        std::fflush(stdout);
-        if (TFQMRGPU_STATUS_SUCCESS == status) {
-            debug_printf("# tfQMRgpu: Success!\n");
-        } else {
-            auto const string = tfqmrgpuGetErrorString(status);
-            std::printf("\n%s\n\n", string);
-        }
-        std::fflush(stdout);
-        return TFQMRGPU_STATUS_SUCCESS;
-    } // printError
 
     tfqmrgpuStatus_t tfqmrgpuCreateHandle(tfqmrgpuHandle_t *handle) { // out: opaque handle for the tfqmrgpu library.
+        if (nullptr ==  handle) return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__;
         if (nullptr != *handle) return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__;
         *handle = (tfqmrgpuHandle_t) new tfq_handle_t(); // create new and cast pointer
         return (nullptr != *handle) ? TFQMRGPU_STATUS_SUCCESS : (TFQMRGPU_STATUS_ALLOCATION_FAILED + TFQMRGPU_CODE_LINE*__LINE__);
@@ -490,11 +448,11 @@ namespace tfqmrgpu {
                 case TFQMRGPU_LAYOUT_RRRRIIII: break; // native for this GPU solver
                 case TFQMRGPU_LAYOUT_RIRIRIRI: break; // native for e.g. Fortran complex arrays
                 case TFQMRGPU_LAYOUT_RRIIRRII: break; // Beware: not tested
-                default: return TFQMRGPU_DATALAYOUT_UNKNOWN + TFQMRGPU_CODE_CHAR*layout + TFQMRGPU_CODE_LINE*__LINE__;
+                default: return TFQMRGPU_DATALAYOUT_UNKNOWN + TFQMRGPU_CODE_LINE*layout;
             } // switch layout
         }
 
-        double scal_imag{1};
+        double scal_imag{1}; // scaling factor for the imaginary part
         char trans = transposition | IgnoreCase; // non-const copy
         {
             switch (trans) {

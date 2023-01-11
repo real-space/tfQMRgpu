@@ -143,7 +143,8 @@ namespace tfqmrgpu {
           set_real_value<double,LN>(tau, nCols, 1, streamId);
           for(auto rhs = 0; rhs < nRHSs; ++rhs) { invBn2_h[0][rhs] = 1; }
           // also, we probably called ::solve without much surrounding, so we need to regenerate the random numbers
-          create_random_numbers(v3[0][0][0], nnzbX*size_t(2*LM*LN), streamId);
+          auto const stat = create_random_numbers(v3[0][0][0], nnzbX*size_t(2*LM*LN), streamId);
+          if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
       } else {
           // right hand side is non-trivial and should have been uploaded before
           // ToDo: move this part into the tail of setMatrix('B')

@@ -769,7 +769,7 @@ namespace tfqmrgpu {
         tfqmrgpuStatus_t stat{0};
         curandGenerator_t gen;
         #define CURAND_CALL(x) { stat = (x); \
-            if (0 != stat) return TFQMRGPU_UNDOCUMENTED_ERROR + __LINE__ * TFQMRGPU_CODE_LINE; }
+            if (0 != stat) return TFQMRGPU_STATUS_RANDOM_GEN_FAILED + __LINE__ * TFQMRGPU_CODE_LINE; }
         /* Create pseudo-random number generator */
         CURAND_CALL(curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT));
         /* Set seed */
