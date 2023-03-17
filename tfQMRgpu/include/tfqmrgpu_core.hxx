@@ -252,6 +252,7 @@ namespace tfqmrgpu {
               probe = false;
           } // stop now
 
+probe = true;
           if (probe) { // compute the residual
 
               MULT(v9, v1); // v9 := A*v1
@@ -277,6 +278,7 @@ namespace tfqmrgpu {
                   }
               } // rhs
               residual2_reached = max_residual2;
+std::printf("#in_iteration %d residual_reached= %g\n", iteration, std::sqrt(residual2_reached));
 
               target_bound2 = (max_bound2 / max_residual2) * tol2; // for the next iteration
               debug_printf("# in iteration %d, max_res2 = %g, min_res2 = %g, new target_bound2 = %g\n", 
