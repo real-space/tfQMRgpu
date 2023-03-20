@@ -505,7 +505,7 @@ namespace tfqmrgpu {
 
         auto const is_double = ('z' == p->precision);
         if (('z' == (precision | IgnoreCase)) != is_double) {
-            std::printf("# mismatch: \'%c\' and plan says \'%c\'\n", precision, p->precision);
+            std::printf("\n# mismatch: \'%c\' and plan says \'%c\'\n", precision, p->precision);
             return TFQMRGPU_PRECISION_MISSMATCH + TFQMRGPU_CODE_CHAR*precision + TFQMRGPU_CODE_LINE*__LINE__;
         }
 
@@ -553,7 +553,7 @@ namespace tfqmrgpu {
         } // is_double
         auto const err = cudaGetLastError();
         if (cudaSuccess != err) {
-            debug_printf("# failed to launch transpose_blocks_kernel with %d x %d threads per block, %.3f kByte shared memory"
+            debug_printf("\n# failed to launch transpose_blocks_kernel with %d x %d threads per block, %.3f kByte shared memory"
                          ", Error=\"%s\"\n", nthreads_y, nthreads_x, byte_per_block*1e-3, cudaGetErrorString(err));
             return TFQMRGPU_STATUS_LAUNCH_FAILED + TFQMRGPU_CODE_LINE*line;
         } // launch error

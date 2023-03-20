@@ -44,7 +44,7 @@
 \begin{document}
 \pagestyle{plain}
 
-\title       {User Manual for the \fullcodename{}}
+\title       {User Manual for \codename{}}
 \titlerunning{\codename{} User Manual}
 
 \author{%
@@ -65,7 +65,8 @@
 
 % ==============================================================================
 \begin{abstract}
-This is a user manual for a linear system solver on GPUs.
+This is a user manual for the linear system solver \codename{} on GPUs.
+The \fullcodename{} 
 \end{abstract}
 % ==============================================================================
 
@@ -82,15 +83,15 @@ In many situations we need to solve inverse problems like finding $X$ in
 \end{equation}
 where $B$ and $X$ are vectors and $A$ is a linear operator which could be represented
 as a square matrix. \codename{} is an implementation for linear system solves,
-however, $X$ and $B$ can itself be block-sparse matrices.
+where $X$ and $B$ are collections of column vectors treated as block-sparse matrices.
 
 \subsection{Development background} \label{sec:backstory}
 %
 In the framework of electronic structure calculations with \ac{DFT},
 the core problem can either be solved by an eigenvalue solver finding eigenfunction (wave functions)
 or by a linear solver finding the Green function.
-\codename{} has been originally developed for KKRnano, a linear-scaling Green function \ac{DFT} application.
-From this, matrix structures is block-sparse due to the nature of a short-ranged tight-binding interaction of orbitals on neighbouring atoms.
+\codename{} has been originally developed for \emph{KKRnano}, a linear-scaling Green function \ac{DFT} application.
+From this, the matrix structures are block-sparse due to the nature of a short-ranged tight-binding interaction of orbitals on neighbouring atoms and due to the truncation of the Green function.
 KKRnano achieves linear scaling by truncating the Green function at a certain radius.
 This leads to a special solver in which $A, X$ and $B$ are block-sparse matrices.
 Since such a special solver was not found in the literature \codename{} was developed to fill this gap.
@@ -213,7 +214,7 @@ with the following arguments
 \begin{itemize}
 	\item \ttt{nRows} is the number of block rows in $A$, $X$, and $B$, and the number of block columns in $A$.
 	\item \ttt{ldA} is the block dimension of blocks of $A$, i.e.~$A_{ij} \in \mathbb{C}^{\ttt{ldA}\times\ttt{ldA}}$
-	\item \ttt{ldB} is the leading dimension of blocks in $X$ and $B$, e.g.~$X_{jk} \in \mathbb{C}^{\ttt{ldB}\times\ttt{ldA}}$
+	\item \ttt{ldB} is the leading dimension of blocks in $X$ and $B$, e.g.~$X_{jk} \in \mathbb{C}^{\ttt{ldA}\times\ttt{ldB}}$
 	\item \ttt{rowPtr}, \ttt{nnzb}, \ttt{colInd}, \ttt{mat} for $A$, $X$ and $B$ as described in Sec.~\ref{sec:bsr}.
 	\item \ttt{trans} for $A$, $X$ and $B$ determines the block transpositions.
 	\item \ttt{iterations} controls the maximum number of iterations and returns the number of iterations performed.

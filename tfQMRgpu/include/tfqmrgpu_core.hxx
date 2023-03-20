@@ -45,7 +45,7 @@ namespace tfqmrgpu {
       // ... total memory requirement and creates the memory window descriptors
       char* const buffer_start = buffer;
 
-      auto const v1 = take_gpu_memory<real_t[2][LM][LN]>(buffer, nnzbX, &(p->matXwin), "X"); // the result X will be here
+      auto const v1 = take_gpu_memory<real_t[2][LM][LN]>(buffer, nnzbX, &(p->matXwin), "X"); // the result X will be here, X should be the 1st array in the buffer
       // save position and length of the v1 section in the buffer
       auto const v4 = take_gpu_memory<real_t[2][LM][LN]>(buffer, nnzbX);
       auto const v5 = take_gpu_memory<real_t[2][LM][LN]>(buffer, nnzbX);
@@ -118,7 +118,7 @@ namespace tfqmrgpu {
       clear_on_gpu<real_t[2][LM][LN]>(v9, nnzbX, streamId);
 
       clear_on_gpu<real_t[2][LN]>(eta, nCols, streamId); // eta = 0; // needs to run every time again?
-      set_complex_value<real_t,LN>(rho, nCols, 1,0, streamId); // needs to run every time!
+      set_complex_value<real_t,LN>(rho, nCols, 1,0, streamId); // rho = 1; // needs to run every time!
       clear_on_gpu<double[LN]>(var, nCols, streamId); // var = 0; // needs to run every time!
 
       clear_on_gpu<real_t[2][LM][LN]>(v1, nnzbX, streamId); // deletes the content of v, ToDo: only if setMatrix('X') has not been called
@@ -244,7 +244,7 @@ namespace tfqmrgpu {
           }
           max_bound2 *= (2*iteration + 1); // multiply with 2 times the iteration number
 
-          bool probe{(iteration >= MaxIterations || max_bound2 <= target_bound2)};
+          bool probe{(max_bound2 <= target_bound2 || iteration >= MaxIterations)};
           if (nRHSs == breakdown5 + breakdown4) {
               debug_printf("# in iteration %d, all %d+%d of %d components broke down!\n", iteration, breakdown5, breakdown4, nRHSs);
               iteration += MaxIterations; // stop the loop

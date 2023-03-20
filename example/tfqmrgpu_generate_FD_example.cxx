@@ -263,7 +263,7 @@ extern "C" {
       auto const rad2 = pow2(radius);
       int8_t minima[3] = { 127,  127,  127};
       int8_t maxima[3] = {-128, -128, -128};
-      int limits[3][2] = {{0,0}, {0,0}, {0,0}};
+      int limits[3][2] = {{0,0}, {0,0}, {0,0}}; // borders inclusive
       for (int dir = 0; dir < Dimension; ++dir) {
           limits[dir][0] = center[dir] - irad;
           limits[dir][1] = center[dir] + irad;
@@ -303,7 +303,8 @@ extern "C" {
         float const rsb
       , float const rtb
       , double const energy
-      , char const ref
+      , char const ref // 'n' or 'N' --> no, otherwise yes
+      , int nFD // range of the FD stencil
       , int const echo=0
       , float const tolerance=1e-9
       , char const *filename="FD_problem.xml"
@@ -312,9 +313,9 @@ extern "C" {
       assert(Dimension > 0 && Dimension < 4);
       int constexpr BS = BlockEdge * ((Dimension > 1)? BlockEdge : 1)
                                    * ((Dimension > 2)? BlockEdge : 1);
-      BlockSparseOperator<BS, int32_t> A('A');
-      BlockSparseOperator<BS,  int8_t> B('B');
-      BlockSparseOperator<BS,   float> X('X');
+      BlockSparseOperator<BS, int32_t> A('A'); // for nFD <= 8 the scaled stencil can be represented by int32_t
+      BlockSparseOperator<BS,  int8_t> B('B'); // B only contains 0s and 1s, so the smallest data type is ok
+      BlockSparseOperator<BS,   float> X('X'); // float as we do not need a high precision to compare if the solution is about right
 
 //            DENOM,          0,      1,      2,    3,    4,  5,  6,
 // ==================================================================================================  
@@ -326,21 +327,69 @@ extern "C" {
 //            25200,     -73766,  42000,  -6000, 1000, -125,  8,  0, & ! 10th order
 //           831600,   -2480478,1425600,-222750,44000,-7425,864,-50  & ! 12th order
 
-#ifdef HIGHER_FINITE_DIFFERENCE_ORDER      
-      int constexpr nFD = 6; // number of finite-difference neighbors
-      int32_t const FDdenom = 831600;
-      int32_t const FDcoeff[1 + nFD] = {2480478, -1425600, 222750, -44000, 7425, -864, 50}; // minus Laplacian (as appearing in electrostatics)
-#else
-      int constexpr nFD = 4; // number of finite-difference neighbors
-      int32_t const FDdenom = 5040;
-      int32_t const FDcoeff[1 + nFD] = {14350, -8064, 1008, -128, 9}; // minus Laplacian (as appearing in electrostatics)
-#endif
+//       double const norm = prefactor/5040.; // {-14350, 8064, -1008, 128, -9}/5040. --> 8th order
+        // FD16th = [-924708642, 538137600, -94174080, 22830080, -5350800, 1053696, -156800, 15360, -735] / 302702400
+
+        // FD24th
+            // c[12] = -1./(194699232.*h2);
+            // c[11] = 12./(81800719.*h2);
+            // c[10] = -3./(1469650.*h2);
+            // c[9] = 44./(2380833.*h2);
+            // c[8] = -33./(268736.*h2);
+            // c[7] = 132./(205751.*h2);
+            // c[6] = -11./(3978.*h2);
+            // c[5] = 396./(38675.*h2);
+            // c[4] = -99./(2912.*h2);
+            // c[3] = 88./(819.*h2);
+            // c[2] = -33./(91.*h2);
+            // c[1] = 24./(13.*h2);
+            // c[0] = -240505109./(76839840.*h2);
+
+      int64_t FDdenom{1};
+      int64_t FDcoeff[16] = {2,-1,0,0 , 0,0,0,0 , 0,0,0,0 , 0,0,0,0};
+      if (8 == nFD) {
+          FDdenom = 302702400;
+          FDcoeff[0] = 924708642;
+          FDcoeff[1] = -538137600;
+          FDcoeff[2] = 94174080;
+          FDcoeff[3] = -22830080; 
+          FDcoeff[4] = 5350800;
+          FDcoeff[5] = -1053696;
+          FDcoeff[6] = 156800;
+          FDcoeff[7] = -15360;
+          FDcoeff[8] = 735;
+      } else
+      if (6 == nFD) {
+          FDdenom = 831600;
+          FDcoeff[0] = 2480478;
+          FDcoeff[1] = -1425600;
+          FDcoeff[2] = 222750;
+          FDcoeff[3] = -44000; 
+          FDcoeff[4] = 7425;
+          FDcoeff[5] = -864;
+          FDcoeff[6] = 50; // minus Laplacian (as appearing in electrostatics)
+      } else
+      if (4 == nFD) {
+          FDdenom = 5040;
+          FDcoeff[0] = 14350;
+          FDcoeff[1] = -8064;
+          FDcoeff[2] = 1008;
+          FDcoeff[3] = -128; 
+          FDcoeff[4] = 9; // minus Laplacian (as appearing in electrostatics)
+      } else
+      if (1 == nFD) {
+          // already set, no warning
+      } else {
+          if (echo > 0) std::cout << "# warning nFD=" << nFD << " but only {1,4,6} implemented, set nFD=1" << std::endl;
+          nFD = 1;
+      }
+
       { // scope: check consistency of FD coefficients
           int64_t checksum{0};
           if (echo > 2) std::cout << "# use " << nFD << " finite-difference neighbors with coefficients:" << std::endl;
           for (int iFD = 0; iFD <= nFD; ++iFD) {
               if (echo > 2) std::printf("# %i\t%9d/%d =%16.12f\n", iFD, FDcoeff[iFD], FDdenom, FDcoeff[iFD]/double(FDdenom));
-              checksum += FDcoeff[iFD] * (1 + (iFD > 0));
+              checksum += FDcoeff[iFD] * (1ll + (iFD > 0)); // all but the central coefficient are added with a factor 2;
           } // iFD
           if (echo > 2) std::cout << std::endl;
           assert(0 == checksum);
@@ -380,14 +429,14 @@ extern "C" {
                           ++iob;
                       } // ob_ind
                   } // dir
-              } // ipm
+              } // ipm in {1, -1}
           } // isr
           assert(iob < StencilBlockZero && "stencil extent is too large");
       } // scope
       int const nob = iob;
       if (echo > 1) std::cout << "# " << nob << " nonzero stencil blocks" << std::endl;
 
-      // the stencil has integer coefficients if we do not apply the finite-difference denominator
+      // the stencil has integer coefficients if we do not divide by the finite-difference denominator
       std::vector<DenseBlock<BS, int32_t>> Stencil(nob);
 
       int32_t const sub_diagonal_term = std::round(FDdenom*energy);
@@ -807,7 +856,7 @@ extern "C" {
 
           std::fprintf(f, "<?xml version=\"%.1f\"?>\n", 1.0);
           std::fprintf(f, "<LinearProblem problem_kind=\"A*X==B\"\n"
-                          "               generator_version=\"%.1f\" tolerance=\"%.3e\">\n", 0.0, tolerance);
+                          "               generator_version=\"%.1f\" tolerance=\"%.3e\">\n", 0.1, tolerance);
           std::fprintf(f, "  <!-- input: radius_source_blocks=%g", rsb);
           std::fprintf(f,              " radius_target_blocks=%g", rtb);
           std::fprintf(f,        "\n\t\t block_edge=%d", BlockEdge);
@@ -837,14 +886,15 @@ extern "C" {
       , float const rtb
       , double const energy
       , char const ref
+      , int const nFD // range of the FD stencil
       , int const echo=0
   ) {
       // resolve non-type template parameter BlockEdge
       switch(block_edge) {
-        case 1: return generate<1,Dimension>(rsb, rtb, energy, ref, echo);
-        case 2: return generate<2,Dimension>(rsb, rtb, energy, ref, echo);
-        case 4: return generate<4,Dimension>(rsb, rtb, energy, ref, echo);
-        case 8: return generate<8,Dimension>(rsb, rtb, energy, ref, echo);
+        case 1: return generate<1,Dimension>(rsb, rtb, energy, ref, nFD, echo);
+        case 2: return generate<2,Dimension>(rsb, rtb, energy, ref, nFD, echo);
+        case 4: return generate<4,Dimension>(rsb, rtb, energy, ref, nFD, echo);
+        case 8: return generate<8,Dimension>(rsb, rtb, energy, ref, nFD, echo);
         default:
           int constexpr line_to_modify = __LINE__ - 3;
           assert(block_edge > 0 && "block_edge must be a positive integer!");
@@ -865,8 +915,9 @@ extern "C" {
       int const BlockEdge      = (argc > 3) ? std::atoi(argv[3]) : 2;
       int const dimension      = (argc > 4) ? std::atoi(argv[4]) : 3;
       double const energy      = (argc > 5) ? std::atof(argv[5]) : 0.0;
-      char const ref           = (argc > 6) ?          *argv[6]  : 'n';
+      char const ref           = (argc > 6) ?          *argv[6]  : 'n'; // 'n':no, otherwise yes
       int const echo           = (argc > 7) ? std::atoi(argv[7]) : 5;
+      int const nFD            = (argc > 8) ? std::atoi(argv[8]) : 4; // range of the FD stencil
 
       if (echo > 2) std::cout << std::endl;
       if (echo > 2) std::cout << "# ========================================" << std::endl;
@@ -882,13 +933,14 @@ extern "C" {
                     << "  energy= " << energy
                     << "  reference= " << ref
                     << "  echo= " << echo
+                    << "  finite_difference= " << nFD
                     << std::endl << std::endl;
       } // echo
 
       switch (dimension) {
-        case  1: return generate<1>(BlockEdge, rsb, rtb, energy, ref, echo);
-        case  2: return generate<2>(BlockEdge, rsb, rtb, energy, ref, echo);
-        case  3: return generate<3>(BlockEdge, rsb, rtb, energy, ref, echo);
+        case  1: return generate<1>(BlockEdge, rsb, rtb, energy, ref, nFD, echo);
+        case  2: return generate<2>(BlockEdge, rsb, rtb, energy, ref, nFD, echo);
+        case  3: return generate<3>(BlockEdge, rsb, rtb, energy, ref, nFD, echo);
         default: std::cout << "Error, dimension must be in {1,2,3}!" << std::endl;
       } // dimension
 
