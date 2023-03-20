@@ -10,7 +10,7 @@
 // #define DEBUG
 
 #include "tfqmrgpu.hxx" // includes cuda.h (or tfqmrgpu_cudaStubs.hxx) and tfqmrgpu.h
-#include "bsr.hxx" // bsr_t block-sparse row matrices
+#include "bsr.hxx" // bsr_t [block-sparse row matrices]
 #include "tfqmrgpu_example_reader.hxx" // ::read_in()
 #include "tfqmrgpu_example_xml_reader.hxx" // ::read_in()
 
@@ -35,7 +35,7 @@ namespace GPUbench {
         , double const tolerance=1.0e-6
         , int const maxIterations=999
         , int const nRepetitions=1
-        , char const precision='z' // {'c', 'm', 'z'}
+        , char const precision='z' // {'c', 'z'}
     ) {
 
         PUSH_RANGE(__func__); // NVTX range markers for nvvp
@@ -127,13 +127,28 @@ namespace GPUbench {
 
         // step 8a: upload the values for the matrix A
         // values come from Fortran, so they are in RIRIRIRI layout
-        callAndCheck(  tfqmrgpu_bsrsv_setMatrix(handle, plan, 'A',
-            (char*)A->mat.data(), 'z', lm, lm, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
+        std::vector<float> Amat_float, Bmat_float, Xmat_float;
+        auto Amat = (char*)A->mat.data();
+        auto Bmat = (char*)B->mat.data();
+        auto Xmat = (char*)X->mat.data();
+        if ('z' != (precision | 32)) {
+            Amat_float.resize(A->mat.size());
+            for (size_t bij = 0; bij < A->mat.size(); ++bij) Amat_float[bij] = A->mat[bij]; // convert to float
+            Amat = (char*)Amat_float.data();
+
+            Bmat_float.resize(B->mat.size());
+            for (size_t bij = 0; bij < B->mat.size(); ++bij) Bmat_float[bij] = B->mat[bij]; // convert to float
+            Bmat = (char*)Bmat_float.data();
+
+            Xmat_float.resize(X->mat.size(), 0.f);
+            Xmat = (char*)Xmax_float.data();
+        } // single precision
+
+        callAndCheck(  tfqmrgpu_bsrsv_setMatrix(handle, plan, 'A', Amat, precision, lm, lm, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
 
         // step 8b: upload the values for the right-hand side vectors B
         // values come from Fortran, so we need to transpose the blocks of B
-        callAndCheck(  tfqmrgpu_bsrsv_setMatrix(handle, plan, 'B',
-            (char*)B->mat.data(), 'z', ln, lm, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
+        callAndCheck(  tfqmrgpu_bsrsv_setMatrix(handle, plan, 'B', Bmat, precision, ln, lm, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
 
         // [optional ]step 8x: upload the values for the initial vectors X
 
@@ -152,8 +167,10 @@ namespace GPUbench {
 
         // step d: retrieve the result vectors X 
         // convert the blocks into ColMajor and RIRIRIRI to match the Fortran data layout
-        callAndCheck(  tfqmrgpu_bsrsv_getMatrix(handle, plan, 'X',
-            (char*)X->mat.data(), 'z', ln, lm, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
+        callAndCheck(  tfqmrgpu_bsrsv_getMatrix(handle, plan, 'X', Xmat, precision, ln, lm, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
+        if ('z' != (precision | 32)) {
+            for (size_t bij = 0; bij < X->mat.size(); ++bij) X->mat[bij] = Xmat_float[bij]; // convert to double
+        } // single precision
 
         { // scope:
             PUSH_RANGE("compare@CPU");

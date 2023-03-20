@@ -15,7 +15,7 @@ class blocksparse_action_t {
   public:
       typedef floating_point_t real_t;
       static int constexpr LM = block_rows,
-                           LN = block_cols;
+                           LN = block_cols; // in principle only multiply depends on LN, so one could move that template there
   //
   // This action is an explicit block-sparse matrix multiplication.
   // Blocks of A are sized [LM][LM].
@@ -35,11 +35,11 @@ class blocksparse_action_t {
 
   public:
 
-    blocksparse_action_t(bsrsv_plan_t *const plan) : p(plan) {
+    blocksparse_action_t(bsrsv_plan_t* const plan) : p(plan) {
         assert(nullptr != p);
         assert(LM == p->LM);
         assert(LM > 0);
-        assert(LN >= LM);
+        assert(LN >= LM); // this constraint is only for the block-sparse operator and stems from the specific implementation of the kernel gemmNxNf
         p->precision = (sizeof(real_t) == 8) ? 'z' : 'c';
     } // constructor
 
