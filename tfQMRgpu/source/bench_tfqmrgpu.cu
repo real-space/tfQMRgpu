@@ -125,13 +125,17 @@ namespace GPUbench {
             assert(pBuffer == pBuffer_copy);
         } // sanity check
 
+        // create array for the result
+        auto const sizeX = X->mat.size();
+        std::vector<double> result(sizeX, 0.0);
+
         // step 8a: upload the values for the matrix A
         // values come from Fortran, so they are in RIRIRIRI layout
         std::vector<float> Amat_float, Bmat_float, Xmat_float;
         auto Amat = (char*)A->mat.data();
         auto Bmat = (char*)B->mat.data();
-        auto Xmat = (char*)X->mat.data();
-        if ('z' != (precision | 32)) {
+        auto Xmat = (char*)result.data();
+        if ('z' != (precision | IgnoreCase)) {
             Amat_float.resize(A->mat.size());
             for (size_t bij = 0; bij < A->mat.size(); ++bij) Amat_float[bij] = A->mat[bij]; // convert to float
             Amat = (char*)Amat_float.data();
@@ -140,8 +144,8 @@ namespace GPUbench {
             for (size_t bij = 0; bij < B->mat.size(); ++bij) Bmat_float[bij] = B->mat[bij]; // convert to float
             Bmat = (char*)Bmat_float.data();
 
-            Xmat_float.resize(X->mat.size(), 0.f);
-            Xmat = (char*)Xmax_float.data();
+            Xmat_float.resize(sizeX, 0.f);
+            Xmat = (char*)Xmat_float.data();
         } // single precision
 
         callAndCheck(  tfqmrgpu_bsrsv_setMatrix(handle, plan, 'A', Amat, precision, lm, lm, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
@@ -161,24 +165,22 @@ namespace GPUbench {
         // step b: spare line
         // step c: spare line
 
-        // compare matX and matR (the reference matrix)
-        auto const sizeX = X->mat.size(); 
-        std::vector<double> Xref(X->mat); // copy constructor
 
         // step d: retrieve the result vectors X 
         // convert the blocks into ColMajor and RIRIRIRI to match the Fortran data layout
         callAndCheck(  tfqmrgpu_bsrsv_getMatrix(handle, plan, 'X', Xmat, precision, ln, lm, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
-        if ('z' != (precision | 32)) {
-            for (size_t bij = 0; bij < X->mat.size(); ++bij) X->mat[bij] = Xmat_float[bij]; // convert to double
+        if (Xmat_float.data() == (float*)Xmat) {
+            for (size_t bij = 0; bij < X->mat.size(); ++bij) result[bij] = Xmat_float[bij]; // convert to double
         } // single precision
 
         { // scope:
             PUSH_RANGE("compare@CPU");
             double alldev{0}, allval{0}, maxdev{0}, maxrel{0};
+            double const *const reference = X->mat.data();
             for(auto cij = 0ull; cij < sizeX; ++cij) {
-                double const dev = std::abs(X->mat[cij] - Xref[cij]);
+                double const dev = std::abs(result[cij] - reference[cij]);
                 maxdev = std::max(maxdev, dev);
-                if (0.0 != Xref[cij]) maxrel = std::max(maxrel, dev/Xref[cij]);
+                if (0.0 != reference[cij]) maxrel = std::max(maxrel, dev/reference[cij]);
                 alldev += dev;
                 allval += 1.0;
             } // cij
