@@ -6,7 +6,7 @@
 #include <string> // std::string
 #include <sstream> // std::stringstream
 #include <vector> // std::vector<T>
-#include <cmath> // ?
+#include <cmath> // std::sqrt
 #include <cassert> // assert
 
 #include "bsr.hxx" // bsr_t
@@ -32,7 +32,7 @@ namespace tfqmrgpu_example_reader {
       if (num_samples < 1) { if (dev) *dev = -1.; return 0.; }
       double const denom = 1./num_samples;
       double const avg = sum_samples*denom;
-      if(dev) *dev = sqrt(std::max(0., sum_squares*denom - avg*avg));
+      if(dev) *dev = std::sqrt(std::max(0., sum_squares*denom - avg*avg));
       return avg;
   } // average_and_deviation
 

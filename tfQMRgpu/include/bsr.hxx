@@ -17,7 +17,7 @@ struct bsr_t {
     // block sparse matrix values
     unsigned fastBlockDim; // number of columns per block
     unsigned slowBlockDim; // number of rows per block
-    std::vector<double> mat;
+    std::vector<double> mat; // [nnzb*slowBlockDim*fastBlockDim*2]
 
     std::string name;
 }; // struct bsr_t

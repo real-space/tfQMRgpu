@@ -34,6 +34,8 @@
         int32_t *blockSizes, // on exit, blockSizes[0:min(2*(*number), arrayLength)] contains the block size pairs
         int const arrayLength); // maximum number of elements to be written into blockSizes[]
 
+    tfqmrgpuStatus_t tfqmrgpu_bsrsv_blockSizeMissing(int const ldA, int const ldB); // returns 0 if allowed
+
     ////////////////////// bsrsv specific routines //////////////////////////////////////////////////
     // bsrsv is a linear solve of A * X == B
     // with A, X and B are BSR (block compressed sparse row) formatted operators.
@@ -53,7 +55,8 @@
         int32_t const *bsrRowPtrB, // in: integer array of mb+1 elements that contains the start of every block row of B and the end of the last block row of B plus one.
         int     const nnzbB,       // in: number of nonzero blocks of matrix B, nnzbB must be less or equal to nnzbX.
         int32_t const *bsrColIndB, // in: integer array of nnzbB ( = bsrRowPtrB[mb] - bsrRowPtrB[0] ) column indices of the nonzero blocks of matrix B.
-        int     const indexOffset); // in: indexOffset=0(C-style) or indexOffset=1(Fortran) for RowPtr and ColInd arrays
+        int     const indexOffset, // in: indexOffset=0(C-style) or indexOffset=1(Fortran) for RowPtr and ColInd arrays
+        int     const echo);       // in: log level, 0:no output, 9:debug
 
     tfqmrgpuStatus_t tfqmrgpu_bsrsv_destroyPlan(tfqmrgpuHandle_t handle, // no interaction
                                                 tfqmrgpuBsrsvPlan_t plan); // in: pointer to the plan to be destroyed
@@ -166,6 +169,8 @@
     tfqmrgpuStatus_t const TFQMRGPU_NO_IMPLEMENTATION        = 19;
     tfqmrgpuStatus_t const TFQMRGPU_UNDOCUMENTED_ERROR       = 14;
     tfqmrgpuStatus_t const TFQMRGPU_DATALAYOUT_UNKNOWN       = 15;
+    tfqmrgpuStatus_t const TFQMRGPU_B_IS_NOT_SUBSET_OF_X     = 13;
+    tfqmrgpuStatus_t const TFQMRGPU_B_HAS_A_ZERO_COLUMN      = 11;
     tfqmrgpuStatus_t const TFQMRGPU_BLOCKSIZE_MISSING        = 12;
     tfqmrgpuStatus_t const TFQMRGPU_TANSPOSITION_UNKNOWN     = 17;
     tfqmrgpuStatus_t const TFQMRGPU_VARIABLENAME_UNKNOWN     = 18;

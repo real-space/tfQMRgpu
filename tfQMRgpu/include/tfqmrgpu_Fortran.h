@@ -4,11 +4,11 @@
 !     integer(kind=4), parameter :: TFQMRGPU_STATUS_MAX_ITERATIONS = 9
 !     integer(kind=4), parameter :: TFQMRGPU_STATUS_ALLOCATION_FAILED = 4
 !     integer(kind=4), parameter :: TFQMRGPU_POINTER_INVALID = 7
-!     integer(kind=4), parameter :: TFQMRGPU_CODE_LINE             = 2**8
+!     integer(kind=4), parameter :: TFQMRGPU_CODE_LINE             = 1000
 !     integer(kind=4), parameter :: TFQMRGPU_NO_IMPLEMENTATION     = 19
 !     integer(kind=4), parameter :: TFQMRGPU_BLOCKSIZE_MISSING     = 12
 !     integer(kind=4), parameter :: TFQMRGPU_UNDOCUMENTED_ERROR    = 14
-!     integer(kind=4), parameter :: TFQMRGPU_CODE_CHAR             = 2**24
+!     integer(kind=4), parameter :: TFQMRGPU_CODE_CHAR             = 1000000
 !     integer(kind=4), parameter :: TFQMRGPU_TANSPOSITION_UNKNOWN  = 17
 !     integer(kind=4), parameter :: TFQMRGPU_VARIABLENAME_UNKNOWN  = 18
 !     integer(kind=4), parameter :: TFQMRGPU_DATALAYOUT_UNKNOWN    = 15

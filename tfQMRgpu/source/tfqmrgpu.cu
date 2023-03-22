@@ -84,15 +84,24 @@
         {
 #define     allow_block_size(LM,LN) \
             ++n; if (2*n < arrayLength) { blockSizes[2*i] = LM; blockSizes[2*i + 1] = LN; ++i; }
-
 #include   "allowed_block_sizes.h" // as above, but with a different definition of allow_block_size(LM,LN)
-
 #undef      allow_block_size
         }
         return (n == i) ?  TFQMRGPU_STATUS_SUCCESS : (TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__); // probably arrayLength was too short
     } // tfqmrgpu_bsrsv_allowedBlockSizes
 
-
+    tfqmrgpuStatus_t tfqmrgpu_bsrsv_blockSizeMissing( // C-interface
+          int const ldA
+        , int const ldB
+    ) {
+        {
+#define     allow_block_size(LM,LN) \
+            if (LM == ldA && LN == ldB) return 0;
+#include   "allowed_block_sizes.h" // as above, but with a different definition of allow_block_size(LM,LN)
+#undef      allow_block_size
+        }
+        return TFQMRGPU_BLOCKSIZE_MISSING + TFQMRGPU_CODE_CHAR*ldA + TFQMRGPU_CODE_LINE*ldB; // also say which blocksize was requested
+    } // tfqmrgpu_bsrsv_blockSizeMissing
 
     // library peripherals ////////////////////////////////////////
 
@@ -136,15 +145,16 @@
         , int     const nnzbB       // in: number of nonzero blocks of matrix B, nnzbB must be less or equal to nnzbX.
         , int32_t const *bsrColIndB // in: integer array of nnzbB ( = bsrRowPtrB[mb] - bsrRowPtrB[0] ) column indices of the nonzero blocks of matrix B.
         , int     const indexOffset // in: indexOffset=0(C-style) or indexOffset=1(Fortran) for RowPtr and ColInd arrays
+        , int     const echo        // in: log level
     ) {
-        debug_printf("# tfqmrgpu_bsrsv_createPlan(handle=%p, *plan=%p, mb=%d, \n"
+        if (echo > 7) std::printf("# tfqmrgpu_bsrsv_createPlan(handle=%p, *plan=%p, mb=%d, \n"
                "#          bsrRowPtrA=%p, nnzbA=%d, bsrColIndA=%p, \n"
                "#          bsrRowPtrX=%p, nnzbX=%d, bsrColIndX=%p, \n"
-               "#          bsrRowPtrB=%p, nnzbB=%d, bsrColIndB=%p, indexOffset=%d)\n",
+               "#          bsrRowPtrB=%p, nnzbB=%d, bsrColIndB=%p, indexOffset=%d, echo=%d)\n",
                handle, *plan, mb,
                bsrRowPtrA, nnzbA, bsrColIndA,
                bsrRowPtrX, nnzbX, bsrColIndX,
-               bsrRowPtrB, nnzbB, bsrColIndB, indexOffset);
+               bsrRowPtrB, nnzbB, bsrColIndB, indexOffset, echo);
 
         if (nullptr != *plan) return TFQMRGPU_POINTER_INVALID + TFQMRGPU_CODE_LINE*__LINE__; // requirement that *plan == nullptr on entry.
 
@@ -175,20 +185,18 @@
             auto const bsrColIndY = bsrColIndX; // copy pointer
 
             auto const nnzbY = nnzbX; // copy number of non-zero elements
-            size_t const estimate_n_pairs = (nnzbY * nnzbA) / mb; // approximate number of block operations
-            debug_printf("# tfqmrgpu_bsrsv_createPlan tries to reserve %ld pairs\n", estimate_n_pairs);
+            auto const estimate_n_pairs = (size_t(nnzbY) * nnzbA) / mb; // approximate number of block operations
+            if (echo > 8) std::printf("# tfqmrgpu_bsrsv_createPlan tries to reserve %ld pairs\n", estimate_n_pairs);
             p->pairs.clear();
-            p->pairs.reserve(2 * estimate_n_pairs); // factor 2 as we always save pairs of indices
+            p->pairs.reserve(estimate_n_pairs*2); // factor 2 as we always save pairs of indices
 
-            p->starts.clear();
-            p->starts.reserve(nnzbY + 1); // exact size
+            p->starts.resize(nnzbY + 1); // exact size
+            p->starts[0] = 0;
 
             for (auto irow = 0; irow < mb; ++irow) {
                 for (auto inzy = bsrRowPtrY[irow] - C0F1; inzy < bsrRowPtrY[irow + 1] - C0F1; ++inzy) {
                     auto const jcol = bsrColIndY[inzy]; // warning, jcol starts from 1 in Fortran
                     // now compute Y[irow][jcol] = sum_k A[irow][kcol] * X[krow][jcol] with k==kcol==krow
-
-                    p->starts.push_back(p->pairs.size()/2);
 
                     for (auto inza = bsrRowPtrA[irow] - C0F1; inza < bsrRowPtrA[irow + 1] - C0F1; ++inza) {
                         auto const kcol = bsrColIndA[inza] - C0F1;
@@ -203,15 +211,12 @@
                             p->pairs.push_back(inzx);
                         } // exists
                     } // inza
+
+                    p->starts[inzy] = p->pairs.size()/2;
                 } // inzy
             } // irow
 
-            // this last entry is very important for the sparse matrix format
-            p->starts.push_back(p->pairs.size()/2);
-
-            assert(nnzbY + 1 == p->starts.size()); // sanity check
-
-            debug_printf("# found %ld pairs in A*X multiplication\n", p->pairs.size()/2); // log output
+            if (echo > 6) std::printf("# found %ld pairs in A*X multiplication\n", p->pairs.size()/2); // log output
 
             p->pairs.shrink_to_fit(); // free unused host memory
 #ifdef DEBUG
@@ -225,20 +230,21 @@
 
         { // in this scope we check if B is a true subset of X
           // and compute the sparse subset list for operations of type X -= B or X += B
-            p->subset.clear();
-            p->subset.reserve(nnzbB); // exact size
+            p->subset.resize(nnzbB); // exact size
             for (auto irow = 0; irow < mb; ++irow) {
                 for (auto inzb = bsrRowPtrB[irow] - C0F1; inzb < bsrRowPtrB[irow + 1] - C0F1; ++inzb) {
                     auto const inzx = find_in_array(bsrRowPtrX[irow] - C0F1, // begin
                                                     bsrRowPtrX[irow + 1] - C0F1, // end
                                                     bsrColIndB[inzb], // try to find this value
                                                     bsrColIndX); // in this array
-                    if (inzx < 0) return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // B is not a true subset of X
-                    p->subset.push_back(inzx); // store the block index into the value array of X at which B is also non-zero.
+                    if (inzx < 0) {
+                        if (echo > 0) std::printf("# %s: in row #%d B has col #%d but X does not!\n",
+                                                    __func__, irow + C0F1, bsrColIndB[inzb]);
+                        return TFQMRGPU_B_IS_NOT_SUBSET_OF_X + TFQMRGPU_CODE_LINE*irow;
+                    } // not found in bsrColIndX
+                    p->subset[inzb] = inzx; // store the block index into the value array of X at which B is also non-zero.
                 } // inzb
             } // irow
-            assert(nnzbB == p->subset.size()); // sanity check
-
             p->cpu_mem += p->subset.size() * sizeof(uint32_t); // register host memory usage in Byte
         } // scope
 
@@ -246,7 +252,7 @@
         { // in this scope we try to find the number of block columns in X and B
           // and we create a compressed copy of the bsrColIndX list called colindx
 
-            int32_t min_colInd = 2e9, max_colInd = -min_colInd; // init close to the largest int32_t
+            int32_t min_colInd{2147483647}, max_colInd{-min_colInd}; // init as largest int32_t
             for (auto inzx = 0; inzx < nnzbX; ++inzx) {
                 auto const jcol = bsrColIndX[inzx]; // we do not need to subtract the Fortran 1 here.
                 min_colInd = std::min(min_colInd, jcol); // find the minimum index
@@ -254,6 +260,8 @@
             } // inzx
             auto const nc = 1 + max_colInd - min_colInd; // preliminary number of columns computed via the range of indices
             if (nc < 1) return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // at least one column must be in X and B
+
+            if (echo > 5) std::printf("# %s: column indices of X are in [%d, %d]\n", __func__, min_colInd, max_colInd);
 
             // check which indices in the range [min_colInd, max_colInd] are touched
             std::vector<uint32_t> nRowsPerColX(nc, 0);
@@ -266,6 +274,7 @@
 
             std::vector<int32_t> translate_jc2jb(nc);
             unsigned nempty{0}, nb{0}; // number of block columns
+            double stats{0}, stats2{0};
             for (auto jc = 0; jc < nc; ++jc) {
                 if (0 == nRowsPerColX[jc]) {
                     translate_jc2jb[jc] = -1; // empty column
@@ -273,34 +282,58 @@
                 } else {
                     translate_jc2jb[jc] = nb; // valid column
                     ++nb;
+                    stats  += nRowsPerColX[jc];
+                    stats2 += nRowsPerColX[jc]*1.*nRowsPerColX[jc];
                 }
             } // jc
             // now nb is the number of block columns after filtering out the empty columns
 
-            // warn if there are empty columns as these should be erased before. Is erasing really necessary?
-            if (nempty > 0) {
-                debug_printf("# found %d columns without non-zero entries!\n", nempty); // warning output
-            } // nempty
+            if (echo > 5) std::printf("# %s: found %d empty columns and %d columns with entries\n", __func__, nempty, nb);
+            if (nempty > 0 && echo > 0) std::printf("# %s: found %d empty columns in X!\n", __func__, nempty, nb);
+            if (nb < 1) return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // at least one non-empty column must be in X and B
+            stats /= nb;
+            if (echo > 5) std::printf("# %s: X has %g +/- %g rows per column\n", __func__, stats, std::sqrt(std::max(0., stats2/nb - stats*stats))));
 
-            p->colindx.clear();
             p->colindx.resize(nnzbX); // exact size
-
-            p->original_bsrColIndX.clear();
             p->original_bsrColIndX.resize(nb); // exact size
-
             for (auto inzx = 0; inzx < nnzbX; ++inzx) {
                 auto const jcol = bsrColIndX[inzx];
                 auto const jc = jcol - min_colInd; // jc in [0, nc)
                 assert(jc >= 0); assert(jc < nc);
                 auto const jb = translate_jc2jb[jc]; // jb in [0, nb)
                 assert(jb >= 0); assert(jb < nb);
-                p->colindx[inzx] = jb; // or p->colindx.push_back(jb); // but then we need reserve instead of resize above
                 p->original_bsrColIndX[jb] = jcol; // retrieval information for debugging
+                p->colindx[inzx] = jb;
+                assert(jb == p->colindx[inzx] && "Failed to assign column index");
             } // inzx
 
             p->cpu_mem += p->colindx.size() * sizeof(uint16_t); // register host memory usage in Byte
             p->cpu_mem += p->original_bsrColIndX.size() * sizeof(int32_t); // register host memory usage in Byte
             p->nCols = nb; // store number of block columns
+
+            if (1) { // sanity check
+              //  how many rows are non-zero in B for a give column
+              //  Is there at least one non-zero block in B per non-zero column of X
+                std::vector<uint32_t> nRowsPerColB(nb, 0);
+                for (auto inzb = 0; inzb < nnzbB; ++jb) {
+                    auto const inzx = p->subset[inzb]; // load X-index from subset list
+                    auto const jcol = bsrColIndX[inzx];
+                    auto const jc = jcol - min_colInd; // jc in [0, nc)
+                    assert(jc >= 0); assert(jc < nc);
+                    auto const jb = translate_jc2jb[jc]; // jb in [0, nb)
+                    assert(jb >= 0); assert(jb < nb);
+                    ++nRowsPerColB[jb];
+                } // jb
+                unsigned n_zero_columns_B{0};
+                for (auto jb = 0; jb < nb; ++jb) {
+                    n_zero_columns_B += (nRowsPerColB[jb] < 1);
+                } // jb
+                if (n_zero_columns_B > 0) {
+                    if (echo > 0) std::printf("# %s: found %d zero columns in B!\n", __func__, n_zero_columns_B);
+                    return TFQMRGPU_B_HAS_A_ZERO_COLUMN + TFQMRGPU_CODE_LINE*n_zero_columns_B;
+                } // one or more columns of B are completely zero which will definitely lead to a breakdown
+            } // sanity check
+
         } // scope
 
         p->pBuffer = nullptr; // init pointer copy to device memory (which will be allocated by the user)
@@ -309,12 +342,9 @@
         p->flops_performed    = -1; // init impossible
         p->iterations_needed  = -1; // init impossible
 
-        debug_printf("# found %ld non-zero entries in X\n", p->colindx.size());
-        assert(p->colindx.size() == nnzbX);
-
         *plan = (tfqmrgpuBsrsvPlan_t) p; // cast into opaque pointer type
 
-        debug_printf("# done tfqmrgpu_bsrsv_createPlan(handle=%p, *plan=%p, [internal p=%p] ...)\n", handle, *plan, p);
+        if (echo > 8) std::printf("# done %s(handle=%p, *plan=%p, [internal p=%p] ...)\n", __func__, handle, *plan, p);
         return TFQMRGPU_STATUS_SUCCESS;
     } // analysis
 

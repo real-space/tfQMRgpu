@@ -50,6 +50,8 @@
             case TFQMRGPU_UNDOCUMENTED_ERROR:       std::snprintf(str, nc, "tfQMRgpu: Undocumented error at line %d!",     line); break;
             case TFQMRGPU_STATUS_LAUNCH_FAILED:     std::snprintf(str, nc, "tfQMRgpu: Device launch failed at line %d!",   line); break;
             case TFQMRGPU_DATALAYOUT_UNKNOWN:       std::snprintf(str, nc, "tfQMRgpu: Unknown data layout \'0x%2.2x\'!",   line); break;
+            case TFQMRGPU_B_IS_NOT_SUBSET_OF_X:     std::snprintf(str, nc, "tfQMRgpu: B is not a subset of X in row %d!",  line); break;
+            case TFQMRGPU_B_HAS_A_ZERO_COLUMN:      std::snprintf(str, nc, "tfQMRgpu: B has %d zero columns, will break!", line); break;
             case TFQMRGPU_BLOCKSIZE_MISSING:        std::snprintf(str, nc, "tfQMRgpu: Missing blocksize %d x %d!",         int(key),   line); break;
             case TFQMRGPU_TANSPOSITION_UNKNOWN:     std::snprintf(str, nc, "tfQMRgpu: Unknown transposition \'%c\' at line %d!",  key, line); break;
             case TFQMRGPU_VARIABLENAME_UNKNOWN:     std::snprintf(str, nc, "tfQMRgpu: Unknown variable name \'%c\' at line %d!",  key, line); break;
