@@ -216,7 +216,7 @@
                 } // inzy
             } // irow
 
-            if (echo > 6) std::printf("# found %ld pairs in A*X multiplication\n", p->pairs.size()/2); // log output
+            if (echo > 6) std::printf("# %s: found %ld pairs in A*X multiplication\n", __func__, p->pairs.size()/2); // log output
 
             p->pairs.shrink_to_fit(); // free unused host memory
 #ifdef DEBUG
@@ -344,7 +344,7 @@
 
         *plan = (tfqmrgpuBsrsvPlan_t) p; // cast into opaque pointer type
 
-        if (echo > 8) std::printf("# done %s(handle=%p, *plan=%p, [internal p=%p] ...)\n", __func__, handle, *plan, p);
+        if (echo > 8) std::printf("# %s(handle=%p, *plan=%p, [internal p=%p] ...) done\n", __func__, handle, *plan, p);
         return TFQMRGPU_STATUS_SUCCESS;
     } // analysis
 

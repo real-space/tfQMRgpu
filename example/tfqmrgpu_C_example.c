@@ -4,15 +4,16 @@
 #include <math.h> // sqrt
 #include <assert.h> // assert
 
+#define   DEBUG
 #ifdef    DEBUG
     #define debug_printf(...) printf(__VA_ARGS__)
 #else  // DEBUG
     #define debug_printf(...)
 #endif // DEBUG
 
-// #define   HAS_TFQMRGPU
 #ifdef    HAS_TFQMRGPU
-    #include "tfqmrgpu.h" // C-interface for the tfQMRgpu library
+    typedef size_t cudaStream_t;
+    #include "../tfQMRgpu/include/tfqmrgpu.h" // C-interface for the tfQMRgpu library
 #endif // HAS_TFQMRGPU
 
 int main(int const argc, char const *const argv[]) {
@@ -31,7 +32,7 @@ int main(int const argc, char const *const argv[]) {
     if (nRows < 1) {
         printf("# Usage: %s nRows>0 ldA=%d ldB=%d fillA=%.3f fillX=%.3f fillB=%.3f "
                "max_iterations=%d threshold=%.1e echo=%d nCols=nRows/2+1\n",
-               argv[0], ldA, ldB, pA*100, pX*100, pB*100, max_it, thres, echo);
+               argv[0], ldA, ldB, pA, pX, pB, max_it, thres, echo);
         return -1; // error
     }
 
@@ -133,7 +134,7 @@ int main(int const argc, char const *const argv[]) {
             rowPtrA, nnzbA, colIndA, Amat, 't',
             rowPtrX, nnzbX, colIndX, Xmat, 'n',
             rowPtrB, nnzbB, colIndB, Bmat, 'n', 
-            &iterations, &residual, echo);
+            &iterations, &residual, 0, echo);
 #else  // HAS_TFQMRGPU
     int const status = -1;
 #endif // HAS_TFQMRGPU
