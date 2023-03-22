@@ -186,7 +186,7 @@
 
             auto const nnzbY = nnzbX; // copy number of non-zero elements
             auto const estimate_n_pairs = (size_t(nnzbY) * nnzbA) / mb; // approximate number of block operations
-            if (echo > 8) std::printf("# tfqmrgpu_bsrsv_createPlan tries to reserve %ld pairs\n", estimate_n_pairs);
+            if (echo > 8) std::printf("# %s: tries to reserve %ld pairs\n", __func__, estimate_n_pairs);
             p->pairs.clear();
             p->pairs.reserve(estimate_n_pairs*2); // factor 2 as we always save pairs of indices
 

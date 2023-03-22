@@ -98,6 +98,11 @@ int main(int const argc, char const *const argv[]) {
                 for (int jic = 0; jic < ldA*ldA*2; ++jic) {
                     Amat[inzbA*ldA*ldA*2 + jic] = rand()*2*rand_denom - 1.; // in [-1., 1.]
                 }
+                if (nzA[i*nRows + j] > 1) {
+                    for (int ii = 0; ii < ldA; ++ii) {
+                        Amat[inzbA*ldA*ldA*2 + ii*ldA*2 + ii*2] += 3; // add to the real parts on the diagonal of the diagonal blocks
+                    }
+                }
                 ++inzbA;
             }
         }
