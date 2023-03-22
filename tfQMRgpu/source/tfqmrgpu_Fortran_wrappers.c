@@ -79,7 +79,7 @@ typedef tfqmrgpuDataLayout_t layout_t;
       int32_t const* bsrRowPtrA, int32_t const *nnzbA, int32_t const* bsrColIndA,
       int32_t const* bsrRowPtrX, int32_t const *nnzbX, int32_t const* bsrColIndX,
       int32_t const* bsrRowPtrB, int32_t const *nnzbB, int32_t const* bsrColIndB,
-      stat_t *stat) {
+      int32_t const* echo, stat_t *stat) {
       int32_t const FortranIndexOffset = 1;
       *plan = NULL;
 #ifdef  DEBUG
@@ -94,7 +94,7 @@ typedef tfqmrgpuDataLayout_t layout_t;
                bsrRowPtrA, *nnzbA, bsrColIndA,
                bsrRowPtrX, *nnzbX, bsrColIndX,
                bsrRowPtrB, *nnzbB, bsrColIndB,
-               FortranIndexOffset); // passed by value
+               FortranIndexOffset, *echo); // passed by value
       if (TFQMRGPU_STATUS_SUCCESS != *stat) tfqmrgpuPrintError(*stat);
 #ifdef  DEBUG
       printf("done tfqmrgpu_bsrsv_createplan_(handle=%p, *plan=%p, ...)\n", *handle, *plan);

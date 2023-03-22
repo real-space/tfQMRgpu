@@ -126,7 +126,7 @@ implicit none
   subroutine bsrsv_createPlan(handle, plan, &
                   mb, bsrRowPtrA, nnzbA, bsrColIndA, &
                       bsrRowPtrX, nnzbX, bsrColIndX, &
-                      bsrRowPtrB, nnzbB, bsrColIndB, ierr)
+                      bsrRowPtrB, nnzbB, bsrColIndB, echo, ierr)
     integer(kind=4), intent(out) :: ierr ! this is the return value in the C-API
     integer(kind=TFQMRGPU_HANDLE_KIND), intent(in) :: handle
     integer(kind=TFQMRGPU_PLAN_KIND), intent(out) :: plan
@@ -141,11 +141,12 @@ implicit none
     integer(kind=4), intent(in) :: nnzbB
     integer(kind=4), intent(in) :: bsrColIndB(*)
 !   integer, parameter :: indexOffset = 1 !! Fortran indices start from 1, this is fixed in the C-wrappers
+    integer(kind=4), intent(in) :: echo
     external :: tfqmrgpu_bsrsv_createplan
     call tfqmrgpu_bsrsv_createplan(handle, plan, &
                   mb, bsrRowPtrA, nnzbA, bsrColIndA, &
                       bsrRowPtrX, nnzbX, bsrColIndX, &
-                      bsrRowPtrB, nnzbB, bsrColIndB, ierr)
+                      bsrRowPtrB, nnzbB, bsrColIndB, echo, ierr)
   endsubroutine ! create
 
   subroutine bsrsv_destroyPlan(handle, plan, ierr)
@@ -357,7 +358,7 @@ implicit none
     call create(handle, plan, mb, &
            rowPtrA, size(colIndA), colIndA, &
            rowPtrX, size(colIndX), colIndX, &
-           rowPtrB, size(colIndB), colIndB, ierr)
+           rowPtrB, size(colIndB), colIndB, 9*debug, ierr)
     CheckError(ierr, "Failed to create the bsrsv plan")
 
     !! compute the size of the required GPU memory buffer

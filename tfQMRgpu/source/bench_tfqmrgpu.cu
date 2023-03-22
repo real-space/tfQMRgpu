@@ -90,7 +90,7 @@ namespace GPUbench {
            A->RowPtr.data(), A->nnzb, A->ColInd.data(), // block-sparse-row structure for A
            X->RowPtr.data(), X->nnzb, X->ColInd.data(), // block-sparse-row structure for X
            B->RowPtr.data(), B->nnzb, B->ColInd.data(), // block-sparse-row structure for B
-           0)  ) // indexOffset=0(C-style) or indexOffset=1(Fortran)
+           0, 9)  ) // indexOffset=0(C-style) or indexOffset=1(Fortran), echo=9
 
         // step 5: compute the GPU memory requirement based on block sizes
         size_t pBufferSize{0}; // in Bytes

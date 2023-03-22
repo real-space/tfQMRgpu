@@ -212,7 +212,7 @@
                         } // exists
                     } // inza
 
-                    p->starts[inzy] = p->pairs.size()/2;
+                    p->starts[inzy + 1] = p->pairs.size()/2;
                 } // inzy
             } // irow
 
@@ -289,10 +289,10 @@
             // now nb is the number of block columns after filtering out the empty columns
 
             if (echo > 5) std::printf("# %s: found %d empty columns and %d columns with entries\n", __func__, nempty, nb);
-            if (nempty > 0 && echo > 0) std::printf("# %s: found %d empty columns in X!\n", __func__, nempty, nb);
+            if (nempty > 0 && echo > 0) std::printf("# %s: found %d empty columns in X!\n", __func__, nempty);
             if (nb < 1) return TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__; // at least one non-empty column must be in X and B
             stats /= nb;
-            if (echo > 5) std::printf("# %s: X has %g +/- %g rows per column\n", __func__, stats, std::sqrt(std::max(0., stats2/nb - stats*stats))));
+            if (echo > 5) std::printf("# %s: X has %g +/- %g rows per column\n", __func__, stats, std::sqrt(std::max(0., stats2/nb - stats*stats)));
 
             p->colindx.resize(nnzbX); // exact size
             p->original_bsrColIndX.resize(nb); // exact size
@@ -315,7 +315,7 @@
               //  how many rows are non-zero in B for a give column
               //  Is there at least one non-zero block in B per non-zero column of X
                 std::vector<uint32_t> nRowsPerColB(nb, 0);
-                for (auto inzb = 0; inzb < nnzbB; ++jb) {
+                for (auto inzb = 0; inzb < nnzbB; ++inzb) {
                     auto const inzx = p->subset[inzb]; // load X-index from subset list
                     auto const jcol = bsrColIndX[inzx];
                     auto const jc = jcol - min_colInd; // jc in [0, nc)
@@ -733,7 +733,7 @@ namespace tfqmrgpu {
         stat = tfqmrgpu_bsrsv_createPlan(handle, &plan, mb
                                   , rowPtrA, nnzbA, colIndA
                                   , rowPtrX, nnzbX, colIndX
-                                  , rowPtrB, nnzbB, colIndB, indexOffset);
+                                  , rowPtrB, nnzbB, colIndB, indexOffset, echo);
         if (stat) { if (echo > 0) std::printf("# %s: tfqmrgpu_bsrsv_createPlan returned %d\n", __func__, stat); return stat; }
 
         size_t gpu_memory_size{0};
