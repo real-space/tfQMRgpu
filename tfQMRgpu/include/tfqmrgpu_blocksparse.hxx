@@ -2,8 +2,7 @@
 
 // #define FULLDEBUG
 
-#include "tfqmrgpu_plan.hxx" // bsrsv_plan_t
-#include "tfqmrgpu_memWindow.h" // memWindow_t
+#include "tfqmrgpu_plan.hxx" // bsrsv_plan_t, colIndex_t
 #include "tfqmrgpu_util.hxx" // take_gpu_memory<T>, copy_data_to_gpu<T>, print_array
 
 #ifndef HAS_NO_CUDA
@@ -71,7 +70,7 @@ class blocksparse_action_t {
     double multiply(
           real_t         (*devPtr y)[2][LM][LN] // result, y[nnzbY][Re:Im][LM][LN]
         , real_t   const (*devPtr x)[2][LM][LN] // input,  x[nnzbX][Re:Im][LM][LN]
-        , uint16_t const (*devPtr colIndex) // column indices, uint16_t allows up to 65,536 block columns
+        , colIndex_t const (*devPtr colIndex) // column indices, needed if the operator internally has reductions
         , uint32_t const nnzbY // == nnzbX
         , uint32_t const nCols=1
         , unsigned const l2nX=0
