@@ -5,8 +5,9 @@
 #endif // HAS_CUDA
 
 #include <cmath> // std::abs
+#include <limits> // std::numeric_limits
 
-#include "tfqmrgpu.hxx"           // includes cuda.h and tfqmrgpu.h
+#include "tfqmrgpu.hxx"           // includes cuda.h and tfqmrgpu.h, defines colIndex_t
 #include "tfqmrgpu_util.hxx"      // common utilities: FlopChar, copy_data_to_gpu, get_data_from_gpu, abs2, clear_on_gpu
 #include "bsr.hxx"                // bsr_t, find_in_array
 #include "tfqmrgpu_memWindow.h"   // memWindow_t
@@ -467,7 +468,7 @@ namespace tfqmrgpu {
           double       (*devPtr dots)[D2][LN] // result, dots[2^p*nCols][D2][LN], D2 is 2==Re:Im for v*w and 1 for norm |v|^2
         , real_t const (*devPtr v)[2][LM][LN] // input,    v[nnz][Re:Im][LM][LN]
         , float  const (*devPtr w)[2][LM][LN] // input,    w[nnz][Re:Im][LM][LN], only read if D2==2, always float
-        , uint16_t const (*devPtr ColInd) // column index
+        , colIndex_t const (*devPtr ColInd) // column index
         , uint32_t const nnz // number of nonzero blocks
         , uint32_t const nCols // number of block columns
     ) {
@@ -532,7 +533,7 @@ namespace tfqmrgpu {
           double       (*devPtr a)[2][LN]     // result, a[2^p*nCols][Re:Im]    [LN]
         , real_t const (*devPtr x)[2][LM][LN] // input,        x[nnz][Re:Im][LM][LN]
         , float  const (*devPtr y)[2][LM][LN] // input,        y[nnz][Re:Im][LM][LN]
-        , uint16_t const (*devPtr ColInd) // column index
+        , colIndex_t const (*devPtr ColInd) // column index
         , uint32_t const nnz // number of nonzero blocks
         , uint32_t const nCols // number of columns
         , uint32_t const p2 // number of reduction levels
@@ -576,7 +577,7 @@ namespace tfqmrgpu {
     double __host__ nrm2(
           double       (*devPtr a)[1][LN]     // result,  a[2^p*nCols][1]    [LN]
         , real_t const (*devPtr x)[2][LM][LN] // input,     x[nnz][Re:Im][LM][LN]
-        , uint16_t const (*devPtr ColInd) // column index
+        , colIndex_t const (*devPtr ColInd) // column index
         , uint32_t const nnz // number of nonzero blocks
         , uint32_t const nCols // number of columns
         , uint32_t const p2 // number of reduction levels
@@ -616,7 +617,7 @@ namespace tfqmrgpu {
           real_t       (*devPtr y)[2][LM][LN] // in/out,   y[nnz][Re:Im][LM][LN]
         , real_t const (*devPtr x)[2][LM][LN] // input,    x[nnz][Re:Im][LM][LN]
         , real_t const (*devPtr a)[2][LN]     // input,  a[nCols][Re:Im]    [LN]
-        , uint16_t const (*devPtr ColInd) // column index
+        , colIndex_t const (*devPtr ColInd) // column index
         , uint32_t const nnz // number of nonzero blocks
     ) { //
 #ifndef HAS_NO_CUDA
@@ -655,7 +656,7 @@ namespace tfqmrgpu {
           real_t       (*devPtr y)[2][LM][LN] // in/out,   y[nnz][Re:Im][LM][LN]
         , real_t const (*devPtr x)[2][LM][LN] // input,    x[nnz][Re:Im][LM][LN]
         , real_t const (*devPtr a)[2][LN]     // input,  a[nCols][Re:Im]    [LN]
-        , uint16_t const (*devPtr ColInd) // column index
+        , colIndex_t const (*devPtr ColInd) // column index
         , uint32_t const nnz // number of nonzero blocks
         , cudaStream_t const streamId
     ) {
@@ -674,7 +675,7 @@ namespace tfqmrgpu {
           real_t       (*devPtr y)[2][LM][LN] // in/out,   y[nnz][Re:Im][LM][LN]
         , real_t const (*devPtr a)[2][LN]     // input,  a[nCols][Re:Im]    [LN]
         , real_t const (*devPtr x)[2][LM][LN] // input,    x[nnz][Re:Im][LM][LN]
-        , uint16_t const (*devPtr ColInd) // column index
+        , colIndex_t const (*devPtr ColInd) // column index
         , uint32_t const nnz // number of nonzero blocks
         , cudaStream_t const streamId
     ) {

@@ -55,3 +55,4 @@ extern "C" {
     #define UNROLL
 #endif // __CUDA_ARCH__
 
+typedef uint16_t colIndex_t;

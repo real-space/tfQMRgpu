@@ -273,7 +273,7 @@
             } // inzx
 
             std::vector<int32_t> translate_jc2jb(nc);
-            unsigned nempty{0}, nb{0}; // number of block columns
+            uint32_t nempty{0}, nb{0}; // number of block columns
             double stats{0}, stats2{0};
             for (auto jc = 0; jc < nc; ++jc) {
                 if (0 == nRowsPerColX[jc]) {
@@ -307,13 +307,13 @@
                 assert(jb == p->colindx[inzx] && "Failed to assign column index");
             } // inzx
 
-            p->cpu_mem += p->colindx.size() * sizeof(uint16_t); // register host memory usage in Byte
+            p->cpu_mem += p->colindx.size() * sizeof(colIndex_t); // register host memory usage in Byte
             p->cpu_mem += p->original_bsrColIndX.size() * sizeof(int32_t); // register host memory usage in Byte
             p->nCols = nb; // store number of block columns
 
             if (1) { // sanity check
-              //  how many rows are non-zero in B for a give column
-              //  Is there at least one non-zero block in B per non-zero column of X
+                // How many rows are non-zero in B for a give column?
+                // Is there at least one non-zero block in B per non-zero column of X?
                 std::vector<uint32_t> nRowsPerColB(nb, 0);
                 for (auto inzb = 0; inzb < nnzbB; ++inzb) {
                     auto const inzx = p->subset[inzb]; // load X-index from subset list
@@ -324,7 +324,7 @@
                     assert(jb >= 0); assert(jb < nb);
                     ++nRowsPerColB[jb];
                 } // jb
-                unsigned n_zero_columns_B{0};
+                uint32_t n_zero_columns_B{0};
                 for (auto jb = 0; jb < nb; ++jb) {
                     n_zero_columns_B += (nRowsPerColB[jb] < 1);
                 } // jb

@@ -77,8 +77,8 @@ namespace tfqmrgpu {
       auto const tau  = take_gpu_memory<double[LN]>(buffer, nCols);
       auto const var  = take_gpu_memory<double[LN]>(buffer, nCols);
 
-      assert(nCols <= (1ul << 16)); // working with uint16_t as column indices, we hay at most have 65,536 block columns
-      auto const colindx = take_gpu_memory<uint16_t>(buffer, nnzbX, &(p->colindxwin), "colindx");
+      assert(nCols - 1 <= std::numeric_limits<colIndex_t>::max()); // working with colIndex_t=uint16_t as column indices, we have at most have 65,536 block columns
+      auto const colindx = take_gpu_memory<colIndex_t>(buffer, nnzbX, &(p->colindxwin), "colindx");
       auto const subset  = take_gpu_memory<uint32_t>(buffer, nnzbB, &(p->subsetwin), "subset");
       auto const status  = take_gpu_memory<int8_t[LN]>(buffer, nCols);
 
