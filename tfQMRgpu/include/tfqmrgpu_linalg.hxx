@@ -192,7 +192,7 @@ namespace tfqmrgpu {
                         debug_printf("# component in block %i element %i has tau= %g, d55= %g, var= %g\n", i, j, Tau, D55, Var);
                     #endif // FULLDEBUG
                     cosi = 1./(1. + Var);
-                    var[i][j] = Var; // store
+                    var[i][j] = Var; // store, do we need to store var in the 1st call to decT?
                     tau[i][j] = D55 * cosi; // store
                     r67 = real_t(Var * cosi);
                 } else {

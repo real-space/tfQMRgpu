@@ -210,7 +210,7 @@ namespace tfqmrgpu {
 
           AXPY(v6, v4, alfa); // v6 := alfa*v4 + v6
 
-          XPAY(v7, c67, v6); // v7 := v6 + c67*v7 // can be executed in parallel to the next A call
+          XPAY(v7, c67, v6); // v7 := v6 + c67*v7 // can be executed in parallel to the next A call, c67.imag() == 0
 
           // second half-step
 
