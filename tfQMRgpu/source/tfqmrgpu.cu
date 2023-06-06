@@ -567,6 +567,7 @@ namespace tfqmrgpu {
         unsigned const nthreads_x = std::min(nCols, 1024u), nthreads_y = std::min(nRows, 1024u/nthreads_x);
         unsigned line; // code line number of kernel launch for error message
         if (is_double) {
+            cudaFuncSetAttribute(tfqmrgpu::transpose_blocks_kernel<double>, cudaFuncAttributeMaxDynamicSharedMemorySize, byte_per_block);
             line = __LINE__ + 1;
             tfqmrgpu::transpose_blocks_kernel<double>
 #ifndef HAS_NO_CUDA
@@ -574,6 +575,7 @@ namespace tfqmrgpu {
 #endif // HAS_CUDA
                 ((double*)ptr, nnzb, 1, scal_imag, l_in, l_out, trans_in, trans_out, nRows, nCols, var);
         } else {
+            cudaFuncSetAttribute(tfqmrgpu::transpose_blocks_kernel<float >, cudaFuncAttributeMaxDynamicSharedMemorySize, byte_per_block);
             line = __LINE__ + 1;
             tfqmrgpu::transpose_blocks_kernel<float>
 #ifndef HAS_NO_CUDA
