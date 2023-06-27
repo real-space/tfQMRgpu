@@ -154,7 +154,7 @@ namespace GPUbench {
         // values come from Fortran, so we need to transpose the blocks of B
         callAndCheck(  tfqmrgpu_bsrsv_setMatrix(handle, plan, 'B', Bmat, precision, ln, lm, 't', TFQMRGPU_LAYOUT_RIRIRIRI)  )
 
-        // [optional ]step 8x: upload the values for the initial vectors X
+        // [optional] step 8x: upload the values for the initial vectors X
 
         // step 9: envoke the transpose-free Quasi Minimal Residual solver
         double solver_time = - getTime(); // start timer
@@ -196,8 +196,8 @@ namespace GPUbench {
                             )
                 std::printf("# GPU converged to %.1e in %d iterations\n", residuum_reached, iterations_needed);
                 char const fF = ('z' == (precision | IgnoreCase))? 'F' : 'f'; // 'F':double, 'f':float
-                double const TFlop = 1e-12*flops_performed;
-                double const performance = TFlop/std::max(solver_time, 1e-6);
+                auto const TFlop = 1e-12*flops_performed;
+                auto const performance = TFlop/std::max(solver_time, 1e-6);
                 std::printf("# GPU performed %.3f T%clop in %.3f seconds = %.3f T%clop/s\n",
                                             TFlop, fF, solver_time, performance, fF);
             } // maxdev

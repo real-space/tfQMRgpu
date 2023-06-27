@@ -108,14 +108,14 @@
 #endif // HAS_CUDA
         {
             char fmt[4] = " %f"; fmt[2] = format;
-            printf("\n# print array \'%c\' in format \"%s\" with %d rows of %d elements\n",
-                                      name,           fmt,       num,       Dim);
+            printf("\n# print array \'%c\' in format \"%s\" with %lld rows of %d elements\n",
+                                      name,            fmt,      num,         Dim);
             for(size_t i = 0; i < num; ++i) {
-                printf("# %c[%d] ", name, i);
+                printf("# %c[%lld]\t", name, i);
                 for(int d = 0; d < Dim; ++d) {
                     printf(fmt, array[i][d]);
                 } // d
-                printf(" \n");
+                printf("\n");
             } // i
         } // master
     } // print_array
