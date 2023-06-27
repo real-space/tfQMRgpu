@@ -77,13 +77,47 @@ class blocksparse_action_t {
         , cudaStream_t const streamId=0
         , bool const precondition=false
     ) {
-        // how to multiply the action onto x
+        // how to multiply the action A onto x
 #ifndef HAS_NO_CUDA
-
         // CUDA version
+
+        // int  constexpr TUNE = 2; // TUNE = 2 does not launch for 16x16 and 64x64
+        // int  constexpr TUNE = 1; // TUNE = 2 does not launch for 16x16 and 64x64
+        // int  constexpr TUNE = 4; // TUNE = 4 does not work for LM==6
+        int  constexpr TUNE = ((16 == LM) || (64 == LM)) ? 4 : 2; // fix
+        dim3 const     nblocks(nnzbY, 1, 1); // number of blocks
+        dim3 constexpr threads(LN, TUNE, 1); // threads per block
     #ifdef  FULLDEBUG
-        bool constexpr show_A_X_and_Y = true;
-        if (show_A_X_and_Y) {
+    
+        { // scope: check if a kernel before this one failed
+            auto const err = cudaGetLastError();
+            if (cudaSuccess != err) {
+                auto const errString = cudaGetErrorString(err);
+                printf("[ERROR] in %s:%d cudaError \"%s\" in last kernel before gemmNxNf\n", __FILE__, __LINE__, errString);
+            } // error
+        } // scope
+    
+        printf("# [info] launch gemmNxNf <real_t=%s,LM=%d,LN=%d,LM/TUNE=%d,double_t=%s> "
+               "<<< nblocks=(%d,%d,%d), threads=(%d,%d,%d) >>>\n",
+               (8 == sizeof(real_t))?"double":"float", LM, LN, LM/TUNE, (8 == sizeof(double_t))?"double":"float",
+               nblocks.x, nblocks.y, nblocks.z, threads.x, threads.y, threads.z);
+//      printf("# [info] launch gemmNxNf(y=%p, matA_d=%p, x=%p, pairs_d=%p, starts_d=%p);\n",
+//             y, matA_d, x, pairs_d, starts_d);
+        cudaDeviceSynchronize();
+    #endif // FULLDEBUG
+
+        gemmNxNf <real_t,LM,LN,LM/TUNE,double_t> <<< nblocks, threads, 0, streamId >>> (y, matA_d, x, pairs_d, starts_d);
+
+    #ifdef  FULLDEBUG
+        // cudaDeviceSynchronize(); // necessary?
+        // auto const err = cudaGetLastError();
+        auto const err = cudaDeviceSynchronize();
+        if (cudaSuccess != err) {
+            auto const errString = cudaGetErrorString(err);
+            printf("[ERROR] in %s:%d cudaError \"%s\" after kernel call!\n", __FILE__, __LINE__, errString);
+        } else {
+            cudaDeviceSynchronize(); // necessary?
+          #ifdef  EXTREMEDEBUG
             printf("\n\n# multiply:\n");
             for(int i{0}; i < nnzbY; ++i) {
                 printf("# from [%d to %d)\n", p->starts[i], p->starts[i + 1]);
@@ -91,31 +125,16 @@ class blocksparse_action_t {
                     printf("#   pair %i %i\n", p->pairs[2*j], p->pairs[2*j + 1]);
                 } // j
             } // i
-            print_array<real_t, LM> <<< 1, 1, 0, streamId >>> (matA_d[0][0], p->nnzbA*2*LM, 'A');
-            print_array<uint32_t,1> <<< 1, 1, 0, streamId >>> ((uint32_t(*)[1])starts_d, nnzbY+1, 's', 'i');
+            print_array<uint32_t,1> <<< 1, 1, 0, streamId >>> ((uint32_t(*)[1])starts_d, nnzbY + 1, 's', 'i');
             print_array<uint32_t,2> <<< 1, 1, 0, streamId >>> ((uint32_t(*)[2])pairs_d, p->starts[nnzbY], 'p', 'i');
-            print_array<real_t, LN> <<< 1, 1, 0, streamId >>> (x[0][0], nnzbY*2*LM, 'x');
-        } // show_A_X_and_Y
-    #endif // FULLDEBUG
-
-        int  constexpr TUNE = 2; // TUNE = 4 does not work for LM==6
-        dim3 constexpr threads(LN, TUNE, 1);
-        gemmNxNf <real_t,LM,LN,LM/TUNE,double_t> <<< nnzbY, threads, 0, streamId >>> (y, matA_d, x, pairs_d, starts_d);
-
-    #ifdef  FULLDEBUG
-        cudaDeviceSynchronize(); // necessary?
-        auto const err = cudaGetLastError();
-        if (cudaSuccess != err) {
-            auto const errString = cudaGetErrorString(err);
-            printf("[ERROR] in %s:%d cudaError \"%s\" after kernel call!\n", __FILE__, __LINE__, errString);
-        } // error
-
-        if (show_A_X_and_Y) {
+            print_array<real_t, LM> <<< 1, 1, 0, streamId >>> (matA_d[0][0], p->nnzbA*2*LM, 'A', 'g');
+            print_array<real_t, LN> <<< 1, 1, 0, streamId >>> (x[0][0], nnzbY*2*LM, 'x', 'g');
             cudaDeviceSynchronize(); // necessary?
-            print_array<real_t, LN> <<< 1, 1, 0, streamId >>> (y[0][0], nnzbY*2*LM, 'y');
+            print_array<real_t, LN> <<< 1, 1, 0, streamId >>> (y[0][0], nnzbY*2*LM, 'y', 'g');
             cudaDeviceSynchronize(); // necessary?
             printf("\n");
-        } // show_A_X_and_Y
+          #endif // EXTREMEDEBUG
+        } // true or false
     #endif // FULLDEBUG
 
 
@@ -175,7 +194,7 @@ class blocksparse_action_t {
 
 #endif // HAS_CUDA
 
-        return p->pairs.size()*.5*LM*8.*LM*LN; // returns the number of Flops: 8 per complex
+        return p->pairs.size()*.5*LM*8.*LM*LN; // returns the number of Flops or flops: 8 per complex
     } // multiply
 
     bsrsv_plan_t* get_plan() const { return p; }

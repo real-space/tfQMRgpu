@@ -157,7 +157,13 @@ namespace tfqmrgpu {
 
           // ToDo: split this part into two: allocation on CPU and transfer to the CPU, can be done when setMatrix('B')
           get_data_from_gpu<double[LN]>(invBn2_h, tau, nCols, streamId, "norm2_of_B"); // inverse_norm2_of_B
-          for(auto rhs = 0; rhs < nRHSs; ++rhs) { invBn2_h[0][rhs] = 1./invBn2_h[0][rhs]; } // invert in-place on the host
+          double min_norm2{9e99}, max_norm2{-1};
+          for(auto rhs = 0; rhs < nRHSs; ++rhs) {
+              min_norm2 = std::min(min_norm2, invBn2_h[0][rhs]);
+              max_norm2 = std::max(max_norm2, invBn2_h[0][rhs]);
+              invBn2_h[0][rhs] = 1./invBn2_h[0][rhs]; // invert in-place on the host
+          } // rhs
+          std::printf("# norms of B within [%g, %g]\n", std::sqrt(min_norm2), std::sqrt(max_norm2)); // ToDo: make this debug_printf
       } // rhs_trivial
 
       tfqmrgpuStatus_t return_status{TFQMRGPU_STATUS_MAX_ITERATIONS}; // preliminary result

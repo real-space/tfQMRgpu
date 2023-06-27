@@ -14,7 +14,8 @@
 #include "tfqmrgpu_plan.hxx"      // bsrsv_plan_t
 #include "tfqmrgpu_handle.hxx"    // tfq_handle_t
 
-// #define DEBUG
+#define DEBUG
+// #define FULLDEBUG
 
 #ifdef  DEBUG
     #define debug_printf(...) std::printf(__VA_ARGS__)
@@ -57,7 +58,7 @@ namespace tfqmrgpu {
                     bet[i][0][j] = 0; bet[i][1][j] = 0; // beta := 0
                     rho[i][0][j] = 0; rho[i][1][j] = 0; // rho  := 0
                     #ifdef  FULLDEBUG
-                        debug_printf("# tfQMRdec35 status[%i][%i]= -1, |z35|^2= %.1e, |rho|^2= %.1e\n", i, j, abs2z35, abs2rho);
+                        debug_printf("# tfQMRdec35[%i][%i] status= -1  |z35|^2= %.1e  |rho|^2= %.1e\n", i, j, abs2z35, abs2rho);
                     #endif // FULLDEBUG
                 } else {
                     auto const rho_denom = 1./abs2rho;
@@ -66,6 +67,10 @@ namespace tfqmrgpu {
                     bet[i][1][j] = real_t((z35_Im*rho_Re - z35_Re*rho_Im) * rho_denom);
                     // rho := z35
                     rho[i][0][j] = z35_Re; rho[i][1][j] = z35_Im;
+                    #ifdef  FULLDEBUG
+                        debug_printf("# tfQMRdec35[%i][%i] status= %i  beta= %g,%g  rho= %g,%g\n",
+                            i, j, status[i][j], bet[i][0][j], bet[i][1][j], rho[i][0][j], rho[i][1][j]);
+                    #endif // FULLDEBUG
                 }
             } // threads j
         } // blocks i
@@ -86,6 +91,7 @@ namespace tfqmrgpu {
 #endif // HAS_CUDA
               (status, rho, bet, z35, nCols);
     } // tfQMRdec35
+
 
     template <typename real_t, int LN>
     void __global__ tfQMRdec34_kernel( // GPU kernel, must be launched with <<< nCols, LN >>>
@@ -118,10 +124,9 @@ namespace tfqmrgpu {
                     alf[i][0][j] = 0; alf[i][1][j] = 0; // alfa := 0
                     c67[i][0][j] = 0; c67[i][1][j] = 0; // c67 := 0
                     #ifdef  FULLDEBUG
-                        debug_printf("# tfQMRdec34 status[%i][%i]= -2, |z34|^2= %.1e, |rho|^2= %.1e\n", i, j, abs2z34, abs2rho);
+                        debug_printf("# tfQMRdec34[%i][%i] status= -2  |z34|^2= %.1e  |rho|^2= %.1e\n", i, j, abs2z34, abs2rho);
                     #endif // FULLDEBUG
                 } else {
-//                  debug_printf("# tfQMRdec34 status[%i][%i] = %i\n", i, j, status[i][j]);
                     auto const eta_Re = double(eta[i][0][j]),
                                eta_Im = double(eta[i][1][j]); // load eta
 
@@ -138,6 +143,10 @@ namespace tfqmrgpu {
                     // c67 := z34 * (var * eta / rho) = z34 * tmp, complex multiplication
                     c67[i][0][j] = real_t(z34_Re*tmp_Re - z34_Im*tmp_Im);
                     c67[i][1][j] = real_t(z34_Im*tmp_Re + z34_Re*tmp_Im);
+                    #ifdef  FULLDEBUG
+                        debug_printf("# tfQMRdec34[%i][%i] status= %i  alfa= %g,%g  c67= %g,%g\n",
+                            i, j, status[i][j], alf[i][0][j], alf[i][1][j], c67[i][0][j], c67[i][1][j]);
+                    #endif // FULLDEBUG
                 }
             } // threads j
         } // blocks i
@@ -188,20 +197,21 @@ namespace tfqmrgpu {
                 if (std::abs(Tau) > EPSILON) {
                     auto const D55 = d55[i][0][j]; // load
                     auto const Var = D55 / Tau;
-                    #ifdef  FULLDEBUG
-                        debug_printf("# component in block %i element %i has tau= %g, d55= %g, var= %g\n", i, j, Tau, D55, Var);
-                    #endif // FULLDEBUG
                     cosi = 1./(1. + Var);
                     var[i][j] = Var; // store
                     tau[i][j] = D55 * cosi; // store
                     r67 = real_t(Var * cosi);
-                } else {
                     #ifdef  FULLDEBUG
-                        debug_printf("# component in block %i element %i has tau = 0\n", i, j);
+                        debug_printf("# tfQMRdecT[%i][%i] tau= %g  d55= %g  var= %g  cosi= %g  new tau= %g\n",
+                            i, j, Tau, D55, Var, cosi, tau[i][j]);
                     #endif // FULLDEBUG
+                } else {
                     status[i][j] = -3; // early convergence or breakdown(stagnation)
                     var[i][j] = 0; // store
                     tau[i][j] = 0; // store
+                    #ifdef  FULLDEBUG
+                        debug_printf("# tfQMRdecT[%i][%i] status= -3\n", i, j);
+                    #endif // FULLDEBUG
                 }
 
                 if (status[i][j] < 0) {
@@ -216,6 +226,9 @@ namespace tfqmrgpu {
                     c67[i][0][j] = r67;
                     c67[i][1][j] = 0; // no imaginary part given
                 }
+                #ifdef  FULLDEBUG
+                    debug_printf("# tfQMRdecT[%i][%i] eta= %g,%g  c67= %g\n", i, j, eta[i][0][j], eta[i][1][j], r67);
+                #endif // FULLDEBUG
             } // threads j
         } // blocks i
     } // tfQMRdecT_kernel

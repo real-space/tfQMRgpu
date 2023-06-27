@@ -567,6 +567,7 @@ namespace tfqmrgpu {
         unsigned const nthreads_x = std::min(nCols, 1024u), nthreads_y = std::min(nRows, 1024u/nthreads_x);
         unsigned line; // code line number of kernel launch for error message
         if (is_double) {
+            // https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#shared-memory-7-x
             cudaFuncSetAttribute(tfqmrgpu::transpose_blocks_kernel<double>, cudaFuncAttributeMaxDynamicSharedMemorySize, byte_per_block);
             line = __LINE__ + 1;
             tfqmrgpu::transpose_blocks_kernel<double>

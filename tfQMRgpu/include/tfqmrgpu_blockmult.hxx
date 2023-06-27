@@ -69,6 +69,7 @@
                     double_t const Aik_im = A_sk[1][iLM];
  
 //                  full_debug_printf("# %s block=%i threads=%i %i adds %g * %g for k=%i\n", __func__, blockIdx.x, iLM, jLN, Aik_re, Xkj_re, kLM);
+// std::printf("# %s Y[%i][%i][%i] += %g * %g for k=%i\n", __func__, iYmat, iLM, jLN, Aik_re, Xkj_re, kLM); // real part only
 
                     // complex multiplication, 8 Flop
                     Yij_re[ia] += Aik_re * Xkj_re - Aik_im * Xkj_im; // Real part
@@ -85,6 +86,7 @@
             auto const iLM = ilm*NA + ia;
             Y[iYmat][0][iLM][jLN] = Yij_re[ia];
             Y[iYmat][1][iLM][jLN] = Yij_im[ia];
+// std::printf("# %s Y[%i][%i][%i]= %g\n", __func__, iYmat, iLM, jLN, Y[iYmat][0][iLM][jLN]); // real part only
         } // ia
 
     } // gemmNxNf

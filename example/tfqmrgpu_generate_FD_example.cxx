@@ -211,7 +211,7 @@ extern "C" {
       std::fprintf(f, "    <DataTensor type=\"%s\"", type);
       std::fprintf(f, " rank=\"3\" dimensions=\"%ld %d %d\"", nblocks, BS, BS);
       if (op.scale_data != 1) {
-          std::fprintf(f, " scale=\"%.15e\"", op.scale_data);
+          std::fprintf(f, " scale=\"%.16e\"", op.scale_data);
       } // scaling
       std::fprintf(f, ">\n");
       for (size_t iblock = 0; iblock < nblocks; ++iblock) {
@@ -219,7 +219,7 @@ extern "C" {
           assert(nullptr != block);
           for (int i = 0; i < BS; ++i) {
               for (int j = 0; j < BS; ++j) {
-                  std::fprintf(f, "%g ",   double(std::real(block->data[i][j])));
+                  std::fprintf(f, "%.15g ",   double(std::real(block->data[i][j])));
                   if (is_complex)
                   std::fprintf(f, " %g  ", double(std::imag(block->data[i][j])));
               } // j
@@ -313,7 +313,7 @@ extern "C" {
       assert(Dimension > 0 && Dimension < 4);
       int constexpr BS = BlockEdge * ((Dimension > 1)? BlockEdge : 1)
                                    * ((Dimension > 2)? BlockEdge : 1);
-      BlockSparseOperator<BS, int32_t> A('A'); // for nFD <= 8 the scaled stencil can be represented by int32_t
+      BlockSparseOperator<BS, int64_t> A('A'); // for nFD <= 8 the scaled stencil can be represented by int64_t
       BlockSparseOperator<BS,  int8_t> B('B'); // B only contains 0s and 1s, so the smallest data type is ok
       BlockSparseOperator<BS,   float> X('X'); // float as we do not need a high precision to compare if the solution is about right
 
@@ -380,7 +380,7 @@ extern "C" {
       if (1 == nFD) {
           // already set, no warning
       } else {
-          if (echo > 0) std::cout << "# warning nFD=" << nFD << " but only {1,4,6} implemented, set nFD=1" << std::endl;
+          if (echo > 0) std::cout << "# warning nFD=" << nFD << " but only {1,4,6,8} implemented, set nFD=1" << std::endl;
           nFD = 1;
       }
 
@@ -388,7 +388,7 @@ extern "C" {
           int64_t checksum{0};
           if (echo > 2) std::cout << "# use " << nFD << " finite-difference neighbors with coefficients:" << std::endl;
           for (int iFD = 0; iFD <= nFD; ++iFD) {
-              if (echo > 2) std::printf("# %i\t%9d/%d =%16.12f\n", iFD, FDcoeff[iFD], FDdenom, FDcoeff[iFD]/double(FDdenom));
+              if (echo > 2) std::printf("# %i\t%12d/%d =%16.12f\n", iFD, FDcoeff[iFD], FDdenom, FDcoeff[iFD]/double(FDdenom));
               checksum += FDcoeff[iFD] * (1ll + (iFD > 0)); // all but the central coefficient are added with a factor 2;
           } // iFD
           if (echo > 2) std::cout << std::endl;
@@ -410,7 +410,7 @@ extern "C" {
       int iob{0};
       { // scope: create a finite-difference stencil in units of blocks
           int const sr = stencil_range;
-          if (echo > 1) std::cout << "# stencil range " << sr << " blocks"
+          if (echo > 1) std::cout << "# stencil range is " << sr << " blocks"
               " of " << BlockEdge << "^" << Dimension << " = " << BS << " grid points" << std::endl;
           assert(sr < 16 && "finite-difference order is too large for origin_block_index[32][32][32]");
           for (int isr = 0; isr <= sr; ++isr) {
@@ -437,9 +437,9 @@ extern "C" {
       if (echo > 1) std::cout << "# " << nob << " nonzero stencil blocks" << std::endl;
 
       // the stencil has integer coefficients if we do not divide by the finite-difference denominator
-      std::vector<DenseBlock<BS, int32_t>> Stencil(nob);
+      std::vector<DenseBlock<BS, int64_t>> Stencil(nob);
 
-      int32_t const sub_diagonal_term = std::round(FDdenom*energy);
+      int64_t const sub_diagonal_term = std::round(FDdenom*energy);
       double const energy_used = sub_diagonal_term/double(FDdenom);
       if (echo > 1) std::printf("# use energy shift %.15e\n", energy_used);
 
@@ -843,6 +843,7 @@ extern "C" {
           } // isrc
 #else
           std::cerr << __FILE__ << " needs -D HAS_LAPACK to create a reference solution!" << std::endl;
+          std::cout << __FILE__ << " needs -D HAS_LAPACK to create a reference solution!" << std::endl;
 #endif // HAS_LAPACK
       } // create a reference solution using LAPACK
 
