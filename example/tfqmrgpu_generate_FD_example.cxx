@@ -94,7 +94,7 @@
 #include <complex> // std::complex<T>
 #include <vector> // std::vector<T>
 
-#ifdef    HAS_LAPACK
+#ifdef HAS_LAPACK
   // use the definition of the Block-compressed Sparse Row format from the include path
   #include "bsr.hxx" // bsr_t, find_in_array
 
@@ -103,7 +103,7 @@ extern "C" {
                 int ipiv[], double b[], int const *ldb, int *info);
 } // extern "C"
 
-#else  // HAS_LAPACK
+#else
 
   struct bsr_t {
       // sparse matrix structure
@@ -219,11 +219,7 @@ extern "C" {
           assert(nullptr != block);
           for (int i = 0; i < BS; ++i) {
               for (int j = 0; j < BS; ++j) {
-                  auto const r = std::real(block->data[i][j]);
-                  if (int64_t(r) == r)
-                  std::fprintf(f, "%lld ", int64_t(r));
-                  else
-                  std::fprintf(f, "%g ", double(r));
+                  std::fprintf(f, "%g ",   double(std::real(block->data[i][j])));
                   if (is_complex)
                   std::fprintf(f, " %g  ", double(std::imag(block->data[i][j])));
               } // j
@@ -384,7 +380,7 @@ extern "C" {
       if (1 == nFD) {
           // already set, no warning
       } else {
-          if (echo > 0) std::cout << "# warning nFD=" << nFD << " but only {1,4,6,8} implemented, set nFD=1" << std::endl;
+          if (echo > 0) std::cout << "# warning nFD=" << nFD << " but only {1,4,6} implemented, set nFD=1" << std::endl;
           nFD = 1;
       }
 
@@ -392,7 +388,7 @@ extern "C" {
           int64_t checksum{0};
           if (echo > 2) std::cout << "# use " << nFD << " finite-difference neighbors with coefficients:" << std::endl;
           for (int iFD = 0; iFD <= nFD; ++iFD) {
-              if (echo > 2) std::printf("# %i\t%11lld/%lld =%16.12f\n", iFD, FDcoeff[iFD], FDdenom, FDcoeff[iFD]/double(FDdenom));
+              if (echo > 2) std::printf("# %i\t%9d/%d =%16.12f\n", iFD, FDcoeff[iFD], FDdenom, FDcoeff[iFD]/double(FDdenom));
               checksum += FDcoeff[iFD] * (1ll + (iFD > 0)); // all but the central coefficient are added with a factor 2;
           } // iFD
           if (echo > 2) std::cout << std::endl;
@@ -414,7 +410,7 @@ extern "C" {
       int iob{0};
       { // scope: create a finite-difference stencil in units of blocks
           int const sr = stencil_range;
-          if (echo > 1) std::cout << "# stencil range " << sr << " blocks"
+          if (echo > 1) std::cout << "# stencil range is " << sr << " blocks"
               " of " << BlockEdge << "^" << Dimension << " = " << BS << " grid points" << std::endl;
           assert(sr < 16 && "finite-difference order is too large for origin_block_index[32][32][32]");
           for (int isr = 0; isr <= sr; ++isr) {
@@ -718,7 +714,7 @@ extern "C" {
       // reference solution
       std::vector<std::vector<DenseBlock<BS, float>>> X_data(n_sources);
       if ('n' != (ref | 32)) {
-#ifdef    HAS_LAPACK
+#ifdef  HAS_LAPACK
           if (echo > 0) std::cout << "# create a reference solution ..." << std::endl;
           X.blocks.resize(X.bsr.nnzb); // here, we only allocate pointers...
           for (int isrc = 0; isrc < n_sources; ++isrc) {
@@ -845,11 +841,10 @@ extern "C" {
               } // info
 
           } // isrc
-#else  // HAS_LAPACK
+#else
           std::cerr << __FILE__ << " needs -D HAS_LAPACK to create a reference solution!" << std::endl;
+          std::cout << __FILE__ << " needs -D HAS_LAPACK to create a reference solution!" << std::endl;
 #endif // HAS_LAPACK
-      } else { // create a reference solution using LAPACK
-          std::cout << "# please select reference=yes for creating a reference data array of X" << std::endl;
       } // create a reference solution using LAPACK
 
       delete[] row_index;
