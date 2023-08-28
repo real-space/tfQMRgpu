@@ -1,3 +1,5 @@
+// This file is part of tfQMRgpu under MIT-License
+
 #include <stdio.h> // printf
 #include <stdint.h> // int32_t, int8_t
 #include <stdlib.h> // atoi, atof, rand, RAND_MAX

@@ -1,3 +1,5 @@
+// This file is part of tfQMRgpu under MIT-License
+
 #include <cstdio> // std::printf, ::fflush, stdout
 #include <vector> // std::vector<T>
 #include <cassert> // assert

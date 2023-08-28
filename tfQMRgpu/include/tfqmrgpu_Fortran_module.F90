@@ -1,3 +1,5 @@
+!! This file is part of tfQMRgpu under MIT-License
+
 #define DEBUG
 
 !! The Fortran API is based on subroutines

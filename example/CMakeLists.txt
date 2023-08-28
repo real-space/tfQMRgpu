@@ -1,3 +1,5 @@
+# This file is part of tfQMRgpu under MIT-License
+
 # CMake 3.18 required for LAPACK::LAPACK and BLAS::BLAS
 # Earlier versions possible if using LAPACK_LIBRARIES or LAPACK95_LIBRARIES, see FindLAPACK documentation (same for BLAS)
 cmake_minimum_required(VERSION 3.18)

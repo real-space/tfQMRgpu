@@ -1,3 +1,5 @@
+// This file is part of tfQMRgpu under MIT-License
+
 /*
  *  This program generates an example problem 
  *  stored in the extendable markup languange (XML format)

@@ -1,3 +1,5 @@
+# This file is part of tfQMRgpu under MIT-License
+
 cmake_minimum_required(VERSION 3.11.4)
 
 # set the project name and version

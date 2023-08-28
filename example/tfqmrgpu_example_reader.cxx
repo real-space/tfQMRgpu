@@ -1,3 +1,5 @@
+// This file is part of tfQMRgpu under MIT-License
+
 // This code tests the legacy input reader for tfQMRgpu
 // g++ -std=c++11 -I../include tfqmrgpu_example_reader.cxx && ./a.out tfqmrgpu_problem.0
 

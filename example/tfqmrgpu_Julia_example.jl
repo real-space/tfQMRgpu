@@ -1,4 +1,6 @@
 #!/usr/bin/env julia
+# This file is part of tfQMRgpu under MIT-License
+
 ##############################################
 ### tfqmrgpu_Julia_example.jl
 ##############################################

@@ -1,3 +1,4 @@
+!! This file is part of tfQMRgpu under MIT-License
 
 !     !! error codes are default kind integers
       integer(kind=4), parameter :: TFQMRGPU_STATUS_SUCCESS = 0

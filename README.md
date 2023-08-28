@@ -112,3 +112,5 @@ Purpose
     `tfQMRgpu/include/tfqmrgpu_blocksparse.hxx` to see the 
     interfaces of the member functions that a user defined 
     action of A needs to provide.
+
+# This file is part of tfQMRgpu under MIT-License

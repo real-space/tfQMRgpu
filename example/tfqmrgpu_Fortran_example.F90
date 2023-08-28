@@ -1,3 +1,5 @@
+!! This file is part of tfQMRgpu under MIT-License
+
 !! include "../tfQMRgpu/include/tfqmrgpu_Fortran_module.F90"
 
 #define DEBUG

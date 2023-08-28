@@ -1,3 +1,5 @@
+// This file is part of tfQMRgpu under MIT-License
+
 #include <cstdio> // std::printf
 #include <cstdlib> // std::atoi
 #include <iostream> // std::cout, ::endl

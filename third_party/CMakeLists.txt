@@ -1,3 +1,5 @@
+# This file is part of tfQMRgpu under MIT-License
+
 # CMake file for RapidXML
 add_library(RapidXML INTERFACE)
 target_include_directories(RapidXML INTERFACE

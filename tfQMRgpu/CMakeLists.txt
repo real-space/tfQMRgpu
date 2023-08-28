@@ -1,5 +1,5 @@
-# Main tfQMRgpu library
-# TODO: git commit to version?
+# This file is part of tfQMRgpu under MIT-License
+
 set(tfQMRgpu_version 0.0.1)
 
 # For cuRAND

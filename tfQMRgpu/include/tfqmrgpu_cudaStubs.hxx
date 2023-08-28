@@ -1,4 +1,6 @@
 #pragma once
+// This file is part of tfQMRgpu under MIT-License
+
 //
 // cudaStubs: replacement for CUDA infrastructure functions when compiling without CUDA
 //

@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of tfQMRgpu under MIT-License
 
 #ifndef HAS_NO_CUDA
     #include <curand.h> // random number generator for CUDA

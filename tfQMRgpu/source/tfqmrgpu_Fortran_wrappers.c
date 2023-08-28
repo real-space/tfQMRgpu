@@ -1,3 +1,5 @@
+// This file is part of tfQMRgpu under MIT-License
+
 /* This wrapper performs the following forwarding
  * The lowercase names with underscore on the left are 
  *      void functions with a status variable as last argument, 

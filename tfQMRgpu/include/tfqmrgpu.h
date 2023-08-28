@@ -1,5 +1,6 @@
 #ifndef TFQMRGPU_H
 #define TFQMRGPU_H
+// This file is part of tfQMRgpu under MIT-License
 
     typedef int32_t tfqmrgpuStatus_t; // return codes
     // opaque structs

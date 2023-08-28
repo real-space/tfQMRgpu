@@ -1,3 +1,5 @@
+// This file is part of tfQMRgpu under MIT-License
+
 #ifndef __NO_MAIN__
     // To compile a standalone executable tool that decyphers tfQMRgpu error codes:
     // g++ -g -O0 -Wall -Werror -I include -D __MAIN__ source/tfqmrgpu_error_tool.cxx

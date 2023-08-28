@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# This file is part of tfQMRgpu under MIT-License
+
 ##############################################
 ### tfqmrgpu_python_example.py
 ### Marc P Vandelle

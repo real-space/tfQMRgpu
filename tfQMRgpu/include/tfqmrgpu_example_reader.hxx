@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of tfQMRgpu under MIT-License
 
 #include <iostream> // std::cout
 #include <cstdint> // uint64_t

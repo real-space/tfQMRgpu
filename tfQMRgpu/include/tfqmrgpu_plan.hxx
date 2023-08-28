@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of tfQMRgpu under MIT-License
 
 #include <cstdint> // uint16_t, uint32_t, int32_t
 #include <vector> // std::vector<T>

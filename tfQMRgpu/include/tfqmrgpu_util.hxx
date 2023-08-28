@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of tfQMRgpu under MIT-License
 
 #include "tfqmrgpu_memWindow.h" // memWindow_t
 
