@@ -1,3 +1,5 @@
+# This file is part of tfQMRgpu under MIT-License
+
 # CMake 3.18 required for LAPACK::LAPACK and BLAS::BLAS
 # Earlier versions possible if using LAPACK_LIBRARIES or LAPACK95_LIBRARIES, see FindLAPACK documentation (same for BLAS)
 cmake_minimum_required(VERSION 3.18)
@@ -34,8 +36,11 @@ add_executable(test_xml_reader tfqmrgpu_example_xml_reader.cxx)
 
 add_executable(test_legacy_reader tfqmrgpu_example_reader.cxx)
 
+add_executable(tfqmrgpu_C_example tfqmrgpu_C_example.c ../tfQMRgpu/include/tfqmrgpu.h)
+target_compile_definitions(tfqmrgpu_C_example PRIVATE -DHAS_TFQMRGPU)
+
 # link our tfQMRgpu library, also adds the include dir
-foreach(example generate_FD_example test_xml_reader test_legacy_reader)
+foreach(example generate_FD_example test_xml_reader test_legacy_reader tfqmrgpu_C_example)
     target_link_libraries(${example} tfQMRgpu)
 endforeach()
 
@@ -56,6 +61,7 @@ set(tfqmrgpu_example_targets
                 generate_FD_example 
                 test_xml_reader
                 test_legacy_reader
+                tfqmrgpu_C_example
                 tfqmrgpu_Fortran_example)
 
 # install examples

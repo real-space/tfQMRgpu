@@ -1,4 +1,5 @@
 #pragma once
+// This file is part of tfQMRgpu under MIT-License
 
 #include "tfqmrgpu_memWindow.h" // memWindow_t
 
@@ -13,7 +14,7 @@
     // Helper /////////////////////////////////////////////////////////////////////
 
     #define CCheck(err) __cudaSafeCall((err), __FILE__, __LINE__)
-    inline void __cudaSafeCall(cudaError const err, char const *const file, int const line) {
+    inline void __cudaSafeCall(cudaError_t const err, char const *const file, int const line) {
 #ifndef NDEBUG
         if (cudaSuccess != err) {
             printf("[ERROR] CUDA call in %s:%d failed, cudaErrorString= %s\n", file, line, cudaGetErrorString(err));
@@ -25,11 +26,11 @@
 #ifndef HAS_NO_CUDA
     inline void __device__ check_launch_params(dim3 const grid, dim3 const blk) {
 #ifdef  DEBUG
-        assert(grid.x == gridDim.x); 
-        assert(grid.y == gridDim.y); 
+        assert(grid.x == gridDim.x);
+        assert(grid.y == gridDim.y);
         assert(grid.z == gridDim.z);
-        assert(blk.x == blockDim.x); 
-        assert(blk.y == blockDim.y); 
+        assert(blk.x == blockDim.x);
+        assert(blk.y == blockDim.y);
         assert(blk.z == blockDim.z);
 #endif // DEBUG
     } // check_launch_params
@@ -98,24 +99,24 @@
     /////////////////////////////////////// debug helpers //////////////////////////////////
     template <typename T, int Dim>
     void __global__ print_array( // GPU kernel, must be launched with <<< 1, 1 >>>
-          T const (*devPtr array)[Dim] // any array[][Dim]
-        , int const num
-        , char const name // only a single character!
-        , char const format='f'
+          T const (*devPtr array)[Dim] // any array[num][Dim]
+        , size_t const num
+        , char const name // only a single character for the array name!
+        , char const format='f' // only a single character for the format!
     ) {
 #ifndef HAS_NO_CUDA
         if (0 == threadIdx.x)
 #endif // HAS_CUDA
         {
             char fmt[4] = " %f"; fmt[2] = format;
-            printf("\n# print array \'%c\' in format \"%s\" with %d rows of %d elements\n",
-                                      name,           fmt,       num,       Dim); 
-            for(auto i = 0; i < num; ++i) {
-                printf("# %c[%d] ", name, i); 
-                for(auto d = 0; d < Dim; ++d) {
-                    printf(fmt, array[i][d]); 
+            printf("\n# print array \'%c\' in format \"%s\" with %lld rows of %d elements\n",
+                                      name,            fmt,      num,         Dim);
+            for(size_t i = 0; i < num; ++i) {
+                printf("# %c[%lld]\t", name, i);
+                for(int d = 0; d < Dim; ++d) {
+                    printf(fmt, array[i][d]);
                 } // d
-                printf(" \n"); 
+                printf("\n");
             } // i
         } // master
     } // print_array

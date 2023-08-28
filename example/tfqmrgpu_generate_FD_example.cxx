@@ -1,3 +1,5 @@
+// This file is part of tfQMRgpu under MIT-License
+
 /*
  *  This program generates an example problem 
  *  stored in the extendable markup languange (XML format)
@@ -57,7 +59,7 @@
  *  Due to the stencil structure of the differential operator, 
  *  data blocks of A use an indirection list to avoid storing 
  *  duplicates of the stencil blocks.
- *  
+ *
  *  Similarly, an indirection list is used for the unit entries in B.
  *  The generator code could be extended to also use indirection for 
  *  the reference solution X.
@@ -145,12 +147,12 @@ extern "C" {
       char id[2] = {'?', '\0'};
   }; // BlockSparseOperator
 
-  
+
   template <typename complex_t> inline char const * complex_name()     { return "real"; }
   template <> inline char const * complex_name<std::complex<double>>() { return "complex64"; }
   template <> inline char const * complex_name<std::complex<float >>() { return "complex32"; }
 
-  
+
   void xml_export_bsr(
         FILE* f
       , bsr_t const & bsr
@@ -177,7 +179,7 @@ extern "C" {
       std::fprintf(f, "\n%s    </ColumnIndex>\n", spaces);
 
       std::fprintf(f, "%s  </CompressedSparseRow>\n", spaces);
-      
+
       if (indirection) {
           std::fprintf(f, "%s  <Indirection nonzeros=\"%ld\">", spaces, bsr.ColInd.size());
           for (size_t i = 0; i < bsr.ColInd.size(); ++i) {
@@ -189,8 +191,8 @@ extern "C" {
 
       std::fprintf(f, "%s</SparseMatrix>\n", spaces);
   } // xml_export_bsr
-  
-  
+
+
   template <class operator_t>
   void xml_export_operator(
         FILE* f
@@ -211,7 +213,7 @@ extern "C" {
       std::fprintf(f, "    <DataTensor type=\"%s\"", type);
       std::fprintf(f, " rank=\"3\" dimensions=\"%ld %d %d\"", nblocks, BS, BS);
       if (op.scale_data != 1) {
-          std::fprintf(f, " scale=\"%.15e\"", op.scale_data);
+          std::fprintf(f, " scale=\"%.16e\"", op.scale_data);
       } // scaling
       std::fprintf(f, ">\n");
       for (size_t iblock = 0; iblock < nblocks; ++iblock) {
@@ -219,7 +221,7 @@ extern "C" {
           assert(nullptr != block);
           for (int i = 0; i < BS; ++i) {
               for (int j = 0; j < BS; ++j) {
-                  std::fprintf(f, "%g ",   double(std::real(block->data[i][j])));
+                  std::fprintf(f, "%.15g ",   double(std::real(block->data[i][j])));
                   if (is_complex)
                   std::fprintf(f, " %g  ", double(std::imag(block->data[i][j])));
               } // j
@@ -231,7 +233,7 @@ extern "C" {
       std::fprintf(f, "  </BlockSparseMatrix>\n");
   } // xml_export_operator
 
-  
+
   union index4_t {
       // Beware, this is a union, not a struct,
       // so the following 4 lines refer to the same 4 Byte in memory
@@ -263,7 +265,7 @@ extern "C" {
       auto const rad2 = pow2(radius);
       int8_t minima[3] = { 127,  127,  127};
       int8_t maxima[3] = {-128, -128, -128};
-      int limits[3][2] = {{0,0}, {0,0}, {0,0}};
+      int limits[3][2] = {{0,0}, {0,0}, {0,0}}; // borders inclusive
       for (int dir = 0; dir < Dimension; ++dir) {
           limits[dir][0] = center[dir] - irad;
           limits[dir][1] = center[dir] + irad;
@@ -297,13 +299,14 @@ extern "C" {
       return nblocks;
   } // create_cluster
 
-  
+
   template <int BlockEdge, int Dimension=3>
   int generate(
         float const rsb
       , float const rtb
       , double const energy
-      , char const ref
+      , char const ref // 'n' or 'N' --> no, otherwise yes
+      , int nFD // range of the FD stencil
       , int const echo=0
       , float const tolerance=1e-9
       , char const *filename="FD_problem.xml"
@@ -312,9 +315,9 @@ extern "C" {
       assert(Dimension > 0 && Dimension < 4);
       int constexpr BS = BlockEdge * ((Dimension > 1)? BlockEdge : 1)
                                    * ((Dimension > 2)? BlockEdge : 1);
-      BlockSparseOperator<BS, int32_t> A('A');
-      BlockSparseOperator<BS,  int8_t> B('B');
-      BlockSparseOperator<BS,   float> X('X');
+      BlockSparseOperator<BS, int64_t> A('A'); // for nFD <= 8 the scaled stencil can be represented by int64_t
+      BlockSparseOperator<BS,  int8_t> B('B'); // B only contains 0s and 1s, so the smallest data type is ok
+      BlockSparseOperator<BS,   float> X('X'); // float as we do not need a high precision to compare if the solution is about right
 
 //            DENOM,          0,      1,      2,    3,    4,  5,  6,
 // ==================================================================================================  
@@ -326,21 +329,69 @@ extern "C" {
 //            25200,     -73766,  42000,  -6000, 1000, -125,  8,  0, & ! 10th order
 //           831600,   -2480478,1425600,-222750,44000,-7425,864,-50  & ! 12th order
 
-#ifdef HIGHER_FINITE_DIFFERENCE_ORDER      
-      int constexpr nFD = 6; // number of finite-difference neighbors
-      int32_t const FDdenom = 831600;
-      int32_t const FDcoeff[1 + nFD] = {2480478, -1425600, 222750, -44000, 7425, -864, 50}; // minus Laplacian (as appearing in electrostatics)
-#else
-      int constexpr nFD = 4; // number of finite-difference neighbors
-      int32_t const FDdenom = 5040;
-      int32_t const FDcoeff[1 + nFD] = {14350, -8064, 1008, -128, 9}; // minus Laplacian (as appearing in electrostatics)
-#endif
+//       double const norm = prefactor/5040.; // {-14350, 8064, -1008, 128, -9}/5040. --> 8th order
+        // FD16th = [-924708642, 538137600, -94174080, 22830080, -5350800, 1053696, -156800, 15360, -735] / 302702400
+
+        // FD24th
+            // c[12] = -1./(194699232.*h2);
+            // c[11] = 12./(81800719.*h2);
+            // c[10] = -3./(1469650.*h2);
+            // c[9] = 44./(2380833.*h2);
+            // c[8] = -33./(268736.*h2);
+            // c[7] = 132./(205751.*h2);
+            // c[6] = -11./(3978.*h2);
+            // c[5] = 396./(38675.*h2);
+            // c[4] = -99./(2912.*h2);
+            // c[3] = 88./(819.*h2);
+            // c[2] = -33./(91.*h2);
+            // c[1] = 24./(13.*h2);
+            // c[0] = -240505109./(76839840.*h2);
+
+      int64_t FDdenom{1};
+      int64_t FDcoeff[16] = {2,-1,0,0 , 0,0,0,0 , 0,0,0,0 , 0,0,0,0};
+      if (8 == nFD) {
+          FDdenom = 302702400;
+          FDcoeff[0] = 924708642;
+          FDcoeff[1] = -538137600;
+          FDcoeff[2] = 94174080;
+          FDcoeff[3] = -22830080; 
+          FDcoeff[4] = 5350800;
+          FDcoeff[5] = -1053696;
+          FDcoeff[6] = 156800;
+          FDcoeff[7] = -15360;
+          FDcoeff[8] = 735;
+      } else
+      if (6 == nFD) {
+          FDdenom = 831600;
+          FDcoeff[0] = 2480478;
+          FDcoeff[1] = -1425600;
+          FDcoeff[2] = 222750;
+          FDcoeff[3] = -44000; 
+          FDcoeff[4] = 7425;
+          FDcoeff[5] = -864;
+          FDcoeff[6] = 50; // minus Laplacian (as appearing in electrostatics)
+      } else
+      if (4 == nFD) {
+          FDdenom = 5040;
+          FDcoeff[0] = 14350;
+          FDcoeff[1] = -8064;
+          FDcoeff[2] = 1008;
+          FDcoeff[3] = -128; 
+          FDcoeff[4] = 9; // minus Laplacian (as appearing in electrostatics)
+      } else
+      if (1 == nFD) {
+          // already set, no warning
+      } else {
+          if (echo > 0) std::cout << "# warning nFD=" << nFD << " but only {1,4,6,8} implemented, set nFD=1" << std::endl;
+          nFD = 1;
+      }
+
       { // scope: check consistency of FD coefficients
           int64_t checksum{0};
           if (echo > 2) std::cout << "# use " << nFD << " finite-difference neighbors with coefficients:" << std::endl;
           for (int iFD = 0; iFD <= nFD; ++iFD) {
-              if (echo > 2) std::printf("# %i\t%9d/%d =%16.12f\n", iFD, FDcoeff[iFD], FDdenom, FDcoeff[iFD]/double(FDdenom));
-              checksum += FDcoeff[iFD] * (1 + (iFD > 0));
+              if (echo > 2) std::printf("# %i\t%12d/%d =%16.12f\n", iFD, FDcoeff[iFD], FDdenom, FDcoeff[iFD]/double(FDdenom));
+              checksum += FDcoeff[iFD] * (1ll + (iFD > 0)); // all but the central coefficient are added with a factor 2;
           } // iFD
           if (echo > 2) std::cout << std::endl;
           assert(0 == checksum);
@@ -361,7 +412,7 @@ extern "C" {
       int iob{0};
       { // scope: create a finite-difference stencil in units of blocks
           int const sr = stencil_range;
-          if (echo > 1) std::cout << "# stencil range " << sr << " blocks"
+          if (echo > 1) std::cout << "# stencil range is " << sr << " blocks"
               " of " << BlockEdge << "^" << Dimension << " = " << BS << " grid points" << std::endl;
           assert(sr < 16 && "finite-difference order is too large for origin_block_index[32][32][32]");
           for (int isr = 0; isr <= sr; ++isr) {
@@ -380,17 +431,17 @@ extern "C" {
                           ++iob;
                       } // ob_ind
                   } // dir
-              } // ipm
+              } // ipm in {1, -1}
           } // isr
           assert(iob < StencilBlockZero && "stencil extent is too large");
       } // scope
       int const nob = iob;
       if (echo > 1) std::cout << "# " << nob << " nonzero stencil blocks" << std::endl;
 
-      // the stencil has integer coefficients if we do not apply the finite-difference denominator
-      std::vector<DenseBlock<BS, int32_t>> Stencil(nob);
+      // the stencil has integer coefficients if we do not divide by the finite-difference denominator
+      std::vector<DenseBlock<BS, int64_t>> Stencil(nob);
 
-      int32_t const sub_diagonal_term = std::round(FDdenom*energy);
+      int64_t const sub_diagonal_term = std::round(FDdenom*energy);
       double const energy_used = sub_diagonal_term/double(FDdenom);
       if (echo > 1) std::printf("# use energy shift %.15e\n", energy_used);
 
@@ -436,11 +487,11 @@ extern "C" {
                   Stencil[job].data[ib][ib] -= sub_diagonal_term;
               } // ib
           } // scope
-          
+
       }}} // x y z
       delete[] origin_block_index;
 
-      
+
       // create a cluster of source blocks (Right Hand Sides)
       if (echo > 4) std::cout << "# radius_source_blocks= " << rsb << std::endl;
       std::vector<uint32_t> source_block_index;
@@ -480,7 +531,7 @@ extern "C" {
       } // i
       auto const nrows = row_coord.size();
       if (echo > 3) std::cout << "# " << nrows << " nonzero rows" << std::endl;
-      
+
       auto const average_target_blocks_per_row = n_all_targets/double(nrows);
 
       // translate the data from target_block_index[isrc][jtrg] --> X_column_index[irow][jnz] using row_index[][][]
@@ -512,7 +563,7 @@ extern "C" {
       X.bsr.RowPtr.resize(X.bsr.nRows + 1, 0);
       X.bsr.ColInd.resize(X.bsr.nnzb);
 
-  
+
       // fill the bsr structures with data
       size_t n_all_targets_prefix{0};
       for (uint32_t irow = 0; irow < nrows; ++irow) {
@@ -536,14 +587,14 @@ extern "C" {
 
 
       // ========= construct sparsity pattern for B
-      
+
       // create the BSR structure for B (identity operator)
       B.bsr.nRows = nrows;
       B.bsr.nCols = n_sources;
       B.bsr.nnzb  = n_sources; // identity operator has exactly one nonzero block per row
       B.bsr.RowPtr.resize(B.bsr.nRows + 1, 0);
       B.bsr.ColInd.resize(B.bsr.nnzb);
-      
+
       // translate the data from source_block_index[isrc] --> row_index
       std::vector<int32_t> isource_row(nrows, -1);
       for (int32_t isrc = 0; isrc < n_sources; ++isrc) {
@@ -595,14 +646,14 @@ extern "C" {
           if (echo > 0) std::cout << "# data blocks of B are simple unit matrices" << std::endl;
       } // fill_B_with_data
 
-      
-      
-      
-      
+
+
+
+
       // now construct the A operator
 
       // ========= construct sparsity pattern for A
-      
+
       // create the BSR structure for A (block sparse action)
       A.bsr.nRows = nrows;
       A.bsr.nCols = nrows; // A must be a logically square operator
@@ -660,8 +711,8 @@ extern "C" {
           } // echo and histogram nonzero
       } // h
 
-      
-      
+
+
       // reference solution
       std::vector<std::vector<DenseBlock<BS, float>>> X_data(n_sources);
       if ('n' != (ref | 32)) {
@@ -794,6 +845,7 @@ extern "C" {
           } // isrc
 #else
           std::cerr << __FILE__ << " needs -D HAS_LAPACK to create a reference solution!" << std::endl;
+          std::cout << __FILE__ << " needs -D HAS_LAPACK to create a reference solution!" << std::endl;
 #endif // HAS_LAPACK
       } // create a reference solution using LAPACK
 
@@ -804,10 +856,10 @@ extern "C" {
       if (nullptr != filename) {
           auto const f = std::fopen(filename, "w");
           assert(nullptr != f && "failed to open existing file for writing!");
-        
+
           std::fprintf(f, "<?xml version=\"%.1f\"?>\n", 1.0);
           std::fprintf(f, "<LinearProblem problem_kind=\"A*X==B\"\n"
-                          "               generator_version=\"%.1f\" tolerance=\"%.3e\">\n", 0.0, tolerance);
+                          "               generator_version=\"%.1f\" tolerance=\"%.3e\">\n", 0.1, tolerance);
           std::fprintf(f, "  <!-- input: radius_source_blocks=%g", rsb);
           std::fprintf(f,              " radius_target_blocks=%g", rtb);
           std::fprintf(f,        "\n\t\t block_edge=%d", BlockEdge);
@@ -821,7 +873,7 @@ extern "C" {
 
           std::fprintf(f, "</LinearProblem>\n");
           std::fclose(f);
-          
+
           if (echo > 1) std::cout << "# file \"" << filename << "\" written" << std::endl;
       } else {
           if (echo > 1) std::cout << "# filename empty, no file written" << std::endl;
@@ -837,14 +889,15 @@ extern "C" {
       , float const rtb
       , double const energy
       , char const ref
+      , int const nFD // range of the FD stencil
       , int const echo=0
   ) {
       // resolve non-type template parameter BlockEdge
       switch(block_edge) {
-        case 1: return generate<1,Dimension>(rsb, rtb, energy, ref, echo);
-        case 2: return generate<2,Dimension>(rsb, rtb, energy, ref, echo);
-        case 4: return generate<4,Dimension>(rsb, rtb, energy, ref, echo);
-        case 8: return generate<8,Dimension>(rsb, rtb, energy, ref, echo);
+        case 1: return generate<1,Dimension>(rsb, rtb, energy, ref, nFD, echo);
+        case 2: return generate<2,Dimension>(rsb, rtb, energy, ref, nFD, echo);
+        case 4: return generate<4,Dimension>(rsb, rtb, energy, ref, nFD, echo);
+        case 8: return generate<8,Dimension>(rsb, rtb, energy, ref, nFD, echo);
         default:
           int constexpr line_to_modify = __LINE__ - 3;
           assert(block_edge > 0 && "block_edge must be a positive integer!");
@@ -865,8 +918,9 @@ extern "C" {
       int const BlockEdge      = (argc > 3) ? std::atoi(argv[3]) : 2;
       int const dimension      = (argc > 4) ? std::atoi(argv[4]) : 3;
       double const energy      = (argc > 5) ? std::atof(argv[5]) : 0.0;
-      char const ref           = (argc > 6) ?          *argv[6]  : 'n';
+      char const ref           = (argc > 6) ?          *argv[6]  : 'n'; // 'n':no, otherwise yes
       int const echo           = (argc > 7) ? std::atoi(argv[7]) : 5;
+      int const nFD            = (argc > 8) ? std::atoi(argv[8]) : 4; // range of the FD stencil
 
       if (echo > 2) std::cout << std::endl;
       if (echo > 2) std::cout << "# ========================================" << std::endl;
@@ -882,15 +936,17 @@ extern "C" {
                     << "  energy= " << energy
                     << "  reference= " << ref
                     << "  echo= " << echo
+                    << "  finite_difference= " << nFD
                     << std::endl << std::endl;
       } // echo
 
       switch (dimension) {
-        case  1: return generate<1>(BlockEdge, rsb, rtb, energy, ref, echo);
-        case  2: return generate<2>(BlockEdge, rsb, rtb, energy, ref, echo);
-        case  3: return generate<3>(BlockEdge, rsb, rtb, energy, ref, echo);
+        case  1: return generate<1>(BlockEdge, rsb, rtb, energy, ref, nFD, echo);
+        case  2: return generate<2>(BlockEdge, rsb, rtb, energy, ref, nFD, echo);
+        case  3: return generate<3>(BlockEdge, rsb, rtb, energy, ref, nFD, echo);
         default: std::cout << "Error, dimension must be in {1,2,3}!" << std::endl;
-      }
+      } // dimension
+
       return 0;
   } // main
 #endif // __MAIN__

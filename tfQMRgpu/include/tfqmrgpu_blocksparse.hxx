@@ -1,33 +1,32 @@
 #pragma once
+// This file is part of tfQMRgpu under MIT-License
 
 // #define FULLDEBUG
 
-#include "tfqmrgpu_plan.hxx" // bsrsv_plan_t
-#include "tfqmrgpu_memWindow.h" // memWindow_t
+#include "tfqmrgpu_plan.hxx" // bsrsv_plan_t, colIndex_t
 #include "tfqmrgpu_util.hxx" // take_gpu_memory<T>, copy_data_to_gpu<T>, print_array
 
 #ifndef HAS_NO_CUDA
-    #include "tfqmrgpu_blockmult.hxx" // gemmNxNf, gemmNxNf1
+    #include "tfqmrgpu_blockmult.hxx" // gemmNxNf
 #endif // HAS_CUDA
 
-template <typename floating_point_t, int block_size>
+template <typename floating_point_t, int block_rows, int block_cols, typename double_t=floating_point_t>
 class blocksparse_action_t {
   public:
       typedef floating_point_t real_t;
-      static int constexpr LM = block_size;
-  // 
+      static int constexpr LM = block_rows,
+                           LN = block_cols; // in principle only multiply depends on LN, so one could move that template there
+  //
   // This action is an explicit block-sparse matrix multiplication.
-  // Blocks are sized [LM][LM].
-  // Arithmetic according to complex<real_t> 
+  // Blocks of A are sized [LM][LM].
+  // Blocks of X are sized [LM][LN].
+  // Arithmetic according to complex<real_t>
   // with real_t either float or double
   //
 
   private: // private members
 
     bsrsv_plan_t* p; // ToDo: would it be better to have a reference here?
-//  std::vector<uint32_t> p->pairs; // [nPairs*2], each pair is one block-times-block multiplication
-//  std::vector<uint32_t> p->starts; // [nnzbX + 1] number of target elements plus one
-//  uint32_t p->nnzbA; // number of non-zero block in block-sparse operator A
 
     real_t (* matA_d)[2][LM][LM]; // matrix data in GPU memory
     // ToDo: try how fast it is with pairs and starts in managed memory (UVM)
@@ -39,7 +38,9 @@ class blocksparse_action_t {
     blocksparse_action_t(bsrsv_plan_t* const plan) : p(plan) {
         assert(nullptr != p);
         assert(LM == p->LM);
-        p->doublePrecision = (sizeof(real_t) > 4)? 'z' : 'c';
+        assert(LM > 0);
+        assert(LN >= LM); // this constraint is only for the block-sparse operator and stems from the specific implementation of the kernel gemmNxNf
+        p->precision = (sizeof(real_t) == 8) ? 'z' : 'c';
     } // constructor
 
     void take_memory(char* &buffer) {
@@ -59,6 +60,7 @@ class blocksparse_action_t {
         printf("# buffer +  pairswin.offset = %p\n", buffer + p-> pairswin.offset);
         fflush(stdout);
     #endif // DEBUG
+        // matA_d is filled during setMatrix operation
         copy_data_to_gpu<char>(buffer + p->startswin.offset, (char*)(p->starts.data()), p->startswin.length, streamId, "starts");
         copy_data_to_gpu<char>(buffer + p-> pairswin.offset, (char*)(p-> pairs.data()), p-> pairswin.length, streamId,  "pairs");
     } // transfer
@@ -66,23 +68,57 @@ class blocksparse_action_t {
     bool has_preconditioner() const { return false; }
 
     // driver
-    double multiply( 
-          real_t         (*devPtr y)[2][LM][LM] // result, y[nnzbY][2][LM][LM]
-        , real_t   const (*devPtr x)[2][LM][LM] // input,  x[nnzbX][2][LM][LM]
-        , uint16_t const (*devPtr colIndex) // column indices, uint16_t allows up to 65,536 block columns
+    double multiply(
+          real_t         (*devPtr y)[2][LM][LN] // result, y[nnzbY][Re:Im][LM][LN]
+        , real_t   const (*devPtr x)[2][LM][LN] // input,  x[nnzbX][Re:Im][LM][LN]
+        , colIndex_t const (*devPtr colIndex) // column indices, needed if the operator internally has reductions
         , uint32_t const nnzbY // == nnzbX
         , uint32_t const nCols=1
         , unsigned const l2nX=0
         , cudaStream_t const streamId=0
         , bool const precondition=false
     ) {
-        // how to multiply the action onto x
+        // how to multiply the action A onto x
 #ifndef HAS_NO_CUDA
-
         // CUDA version
+
+        // int  constexpr TUNE = 2; // TUNE = 2 does not launch for 16x16 and 64x64
+        // int  constexpr TUNE = 1; // TUNE = 2 does not launch for 16x16 and 64x64
+        // int  constexpr TUNE = 4; // TUNE = 4 does not work for LM==6
+        int  constexpr TUNE = ((16 == LM) || (64 == LM)) ? 4 : 2; // fix
+        dim3 const     nblocks(nnzbY, 1, 1); // number of blocks
+        dim3 constexpr threads(LN, TUNE, 1); // threads per block
     #ifdef  FULLDEBUG
-        bool constexpr show_A_X_and_Y = true;
-        if (show_A_X_and_Y) {
+    
+        { // scope: check if a kernel before this one failed
+            auto const err = cudaGetLastError();
+            if (cudaSuccess != err) {
+                auto const errString = cudaGetErrorString(err);
+                printf("[ERROR] in %s:%d cudaError \"%s\" in last kernel before gemmNxNf\n", __FILE__, __LINE__, errString);
+            } // error
+        } // scope
+    
+        printf("# [info] launch gemmNxNf <real_t=%s,LM=%d,LN=%d,LM/TUNE=%d,double_t=%s> "
+               "<<< nblocks=(%d,%d,%d), threads=(%d,%d,%d) >>>\n",
+               (8 == sizeof(real_t))?"double":"float", LM, LN, LM/TUNE, (8 == sizeof(double_t))?"double":"float",
+               nblocks.x, nblocks.y, nblocks.z, threads.x, threads.y, threads.z);
+//      printf("# [info] launch gemmNxNf(y=%p, matA_d=%p, x=%p, pairs_d=%p, starts_d=%p);\n",
+//             y, matA_d, x, pairs_d, starts_d);
+        cudaDeviceSynchronize();
+    #endif // FULLDEBUG
+
+        gemmNxNf <real_t,LM,LN,LM/TUNE,double_t> <<< nblocks, threads, 0, streamId >>> (y, matA_d, x, pairs_d, starts_d);
+
+    #ifdef  FULLDEBUG
+        // cudaDeviceSynchronize(); // necessary?
+        // auto const err = cudaGetLastError();
+        auto const err = cudaDeviceSynchronize();
+        if (cudaSuccess != err) {
+            auto const errString = cudaGetErrorString(err);
+            printf("[ERROR] in %s:%d cudaError \"%s\" after kernel call!\n", __FILE__, __LINE__, errString);
+        } else {
+            cudaDeviceSynchronize(); // necessary?
+          #ifdef  EXTREMEDEBUG
             printf("\n\n# multiply:\n");
             for(int i{0}; i < nnzbY; ++i) {
                 printf("# from [%d to %d)\n", p->starts[i], p->starts[i + 1]);
@@ -90,31 +126,16 @@ class blocksparse_action_t {
                     printf("#   pair %i %i\n", p->pairs[2*j], p->pairs[2*j + 1]);
                 } // j
             } // i
-            print_array<real_t, LM> <<< 1, 1, 0, streamId >>> (matA_d[0][0], p->nnzbA*2*LM, 'A');
-            print_array<uint32_t,1> <<< 1, 1, 0, streamId >>> ((uint32_t(*)[1])starts_d, nnzbY+1, 's', 'i');
+            print_array<uint32_t,1> <<< 1, 1, 0, streamId >>> ((uint32_t(*)[1])starts_d, nnzbY + 1, 's', 'i');
             print_array<uint32_t,2> <<< 1, 1, 0, streamId >>> ((uint32_t(*)[2])pairs_d, p->starts[nnzbY], 'p', 'i');
-            print_array<real_t, LM> <<< 1, 1, 0, streamId >>> (x[0][0], nnzbY*2*LM, 'x');
-        } // show_A_X_and_Y
-    #endif // FULLDEBUG
-
-        int  constexpr TUNE = 4;
-        dim3 constexpr threads(LM, TUNE, 1);
-        gemmNxNf <real_t,LM,LM/TUNE> <<< nnzbY, threads, 0, streamId >>> (y, matA_d, x, pairs_d, starts_d);
-
-    #ifdef  FULLDEBUG
-        cudaDeviceSynchronize(); // necessary?
-        auto const err = cudaGetLastError();
-        if (cudaSuccess != err) {
-            auto const errString = cudaGetErrorString(err);
-            printf("[ERROR] in %s:%d cudaError \"%s\" after kernel call!\n", __FILE__, __LINE__, errString);
-        } // error
-
-        if (show_A_X_and_Y) {
+            print_array<real_t, LM> <<< 1, 1, 0, streamId >>> (matA_d[0][0], p->nnzbA*2*LM, 'A', 'g');
+            print_array<real_t, LN> <<< 1, 1, 0, streamId >>> (x[0][0], nnzbY*2*LM, 'x', 'g');
             cudaDeviceSynchronize(); // necessary?
-            print_array<real_t,LM> <<< 1, 1, 0, streamId >>> (y[0][0], nnzbY*2*LM, 'y');
+            print_array<real_t, LN> <<< 1, 1, 0, streamId >>> (y[0][0], nnzbY*2*LM, 'y', 'g');
             cudaDeviceSynchronize(); // necessary?
             printf("\n");
-        } // show_A_X_and_Y
+          #endif // EXTREMEDEBUG
+        } // true or false
     #endif // FULLDEBUG
 
 
@@ -124,27 +145,29 @@ class blocksparse_action_t {
         auto const A = matA_d; // works since host and device memory are the same if HAS_CUDA is not defined
         for(int iYmat = 0; iYmat < nnzbY; ++iYmat) {
 
-            real_t Yb[2][LM][LM]; // temporary for a block of result operator Y
-            for(int cij = 0; cij < 2*LM*LM; ++cij) {
+            real_t Yb[2][LM][LN]; // temporary for a block of result operator Y
+            for(int cij = 0; cij < 2*LM*LN; ++cij) {
                 Yb[0][0][cij] = 0;
             } // cij
 
+//          // WARNING: BLAS-version using dgemm_ so far cannot treat LM != LN
 //          char const tA = 'n', tx = 'n';
 //          int32_t const n = LM;
 //          real_t const alpha = 1, minus = -1;
 //          real_t beta{0};
+
             for(auto ipair = p->starts[iYmat]; ipair < p->starts[iYmat + 1]; ++ipair) { // contract over block elements
                 auto const iAmat = p->pairs[ipair*2 + 0];
                 auto const iXmat = p->pairs[ipair*2 + 1];
     #if 1
                 for(int i = 0; i < LM; ++i) {
-                    for(int j = 0; j < LM; ++j) {
+                    for(int j = 0; j < LN; ++j) {
                         real_t Yre{0}, Yim{0};
                         for(int k = 0; k < LM; ++k) { // contract over k
-                            real_t const Are = A[iAmat][0][i][k],
-                                         Aim = A[iAmat][1][i][k];
-                            real_t const Xre = x[iXmat][0][k][j],
-                                         Xim = x[iXmat][1][k][j];
+                            auto const Are = A[iAmat][0][i][k], // ToDo: check block transposition of A
+                                       Aim = A[iAmat][1][i][k];
+                            auto const Xre = x[iXmat][0][k][j],
+                                       Xim = x[iXmat][1][k][j];
                             // complex multiplication, 8 Flop
                             Yre += Are * Xre - Aim * Xim; // Real part
                             Yim += Are * Xim + Aim * Xre; // Imag part
@@ -163,23 +186,16 @@ class blocksparse_action_t {
             } // ipair
 
             // copy block into result array
-            for(int cij = 0; cij < 2*LM*LM; ++cij) {
+            for(int cij = 0; cij < 2*LM*LN; ++cij) {
                 y[iYmat][0][0][cij] = Yb[0][0][cij];
             } // cij
 
         } // iYmat
         // end of CPU version
-        
+
 #endif // HAS_CUDA
 
-
-
-
-
-
-
-
-        return p->pairs.size()*.5*LM*8.*LM*LM; // returns the number of Flops: 8 per complex
+        return p->pairs.size()*.5*LM*8.*LM*LN; // returns the number of Flops or flops: 8 per complex
     } // multiply
 
     bsrsv_plan_t* get_plan() const { return p; }

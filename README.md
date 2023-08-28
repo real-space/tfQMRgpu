@@ -1,4 +1,4 @@
-tfQMRgpu 
+tfQMRgpu
 ========
 
 ![tfQMRgpu Logo](docs/logo/tf_QMR.png)
@@ -62,8 +62,10 @@ Purpose
 ### Details on the Block-compressed Spare Row (BSR) format
     The BSR format is a variant of the Compressed Sparse Row 
     format (CSR) with matrix blocks replacing the scalar values.
-    The dimension of the square matrix blocks is a compile time 
-    constant which facilitates tuning for performance.
+    The dimensions of the matrix blocks are compile time
+    constants which facilitates tuning for performance.
+    The blocks of operator A are square while the blocks of
+    operators X and B can be rectangular.
     C++ non-type template arguments allow to provide
     objects with more than one matrix dimension precompiled.
     A possible extension to runtime compilation can be thought of.
@@ -71,6 +73,7 @@ Purpose
     `int32_t` as we expect the block indices not to exceed 2,147,483,647
     except for the column indices. The current configuration forsees 
     `uint16_t`, i.e. there can be at most 65,536 block columns.
+![block-compressed sparse row format](docs/pics/rowBSR.png)
 
 ### How to get started with C or C++?
     You need read access to the C-header file `tfQMRgpu/include/tfqmrgpu.h`.
@@ -109,3 +112,5 @@ Purpose
     `tfQMRgpu/include/tfqmrgpu_blocksparse.hxx` to see the 
     interfaces of the member functions that a user defined 
     action of A needs to provide.
+
+# This file is part of tfQMRgpu under MIT-License

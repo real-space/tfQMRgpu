@@ -1,4 +1,6 @@
 #pragma once
+// This file is part of tfQMRgpu under MIT-License
+
 /*
  *  This program reads example problems
  *  stored in the extendable markup languange (XML)
@@ -9,17 +11,16 @@
  *
  */
 
-#include <cstdio> // std::printf
-#include <cstdio> // std::fBSMen, std::fprintf, std::fclose
+#include <cstdio> // std::printf, ::fopen, ::fprintf, ::fclose
 #include <cassert> // assert
 #include <complex> // std::complex<T>
 #include <vector> // std::vector<T>
 #include <cerrno> // errno, ERANGE
 #include <numeric> // std::iota
-#include <algorithm> // std::max_element, std::min_element
+#include <algorithm> // std::max_element, ::min_element
 
 #ifndef HAS_NO_RAPIDXML
-  #include <cstdlib> // std::atof, std::strtod
+  #include <cstdlib> // std::atof, ::strtod
   #include <cstring> // std::strcmp
 
   // git clone https://github.com/dwd/rapidxml
@@ -102,9 +103,9 @@ namespace tfqmrgpu_example_xml_reader {
   } // read_sequence
 
   inline double read_in( // returns tolerance
-        bsr_t ABX[3]
-      , char const *const filename
-      , int const echo=0
+        bsr_t ABX[3] // result: complex block sparse operators
+      , char const *const filename // name of XML file
+      , int const echo=0 // log-level
   ) {
       double tolerance{0}; // init return value
       if (nullptr == filename) {
@@ -147,6 +148,8 @@ namespace tfqmrgpu_example_xml_reader {
 //         </ColumnIndex>
 //       </CompressedSparseRow>
 //     </SparseMatrix>
+//   </BlockSparseMatrix>
+// </LinearProblem>
 
       double scale_values[] = {1, 1, 1};
       std::vector<unsigned> indirect[3];
@@ -218,7 +221,7 @@ namespace tfqmrgpu_example_xml_reader {
                   assert(indirect[abx].size() == bsr.nnzb);
                   // highest_index = *std::max_element(indirect[abx].begin(), indirect[abx].end());
               } else {
-                  indirect[abx] = std::vector<unsigned>(bsr.nnzb);
+                  indirect[abx].resize(bsr.nnzb);
                   // create a trivial indirection vector, i.e. 0,1,2,3,...
                   std::iota(indirect[abx].begin(), indirect[abx].end(), 0);
               } // Indirection
@@ -228,19 +231,19 @@ namespace tfqmrgpu_example_xml_reader {
                       assert(i < bsr.nnzb);
                       ++stats[i];
                   } // i
-                  std::vector<unsigned> occurence(96, 0);
+                  std::vector<unsigned> occurrence(96, 0);
                   for (auto s : stats) {
-                      if (s >= occurence.size()) occurence.resize(s + 1);
-                      ++occurence[s];
+                      if (s >= occurrence.size()) occurrence.resize(s + 1);
+                      ++occurrence[s];
                   } // s
-                  for (int h = 0; h < occurence.size(); ++h) {
-                      if (occurence[h] > 0) {
-                          std::printf("# %s occurence[%i] = %d\n", id, h, occurence[h]);
+                  for (int h = 0; h < occurrence.size(); ++h) {
+                      if (occurrence[h] > 0) {
+                          std::printf("# %s occurrence[%i] = %d\n", id, h, occurrence[h]);
                       } // occurred at least once
                   } // h
                   if (!Indirection) {
                       // the result of std::iota or other permutations must produce each number exactly once
-                      assert(occurence[1] == bsr.nnzb);
+                      assert(occurrence[1] == bsr.nnzb);
                   } // no indirection
               } // analysis
 
@@ -265,7 +268,7 @@ namespace tfqmrgpu_example_xml_reader {
               auto const target_size = size_t(bsr.nnzb) * block2;
               auto const data = read_sequence<double>(DataTensor->value(), echo, source_size*r1c2);
               assert(data.size() == source_size*r1c2);
-              bsr.mat = std::vector<double>(target_size*2, 0.0); // always complex (in RIRIRIRI data layout)
+              bsr.mat.resize(target_size*2, 0.0); // always complex (in RIRIRIRI data layout)
               if (dims[0] < 1) {
                   std::printf("# DataTensor[%d] has no elements for operator %s\n", dims[0], id);
               } else {
