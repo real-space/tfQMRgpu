@@ -2,6 +2,8 @@ tfQMRgpu
 ========
 
 [![DOI](https://zenodo.org/badge/349082089.svg)](https://zenodo.org/badge/latestdoi/349082089)
+[![DOI](https://img.shields.io/badge/GitHub-MIT-informational)](https://github.com/real-space/tfQMRgpu)
+
 ![tfQMRgpu Logo](docs/logo/tf_QMR.png)
 
 The transpose-free Quasi Minimal Resdiual library for GPUs
