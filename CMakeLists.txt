@@ -5,20 +5,6 @@ cmake_minimum_required(VERSION 3.11.4)
 # set the project name and version
 project(tfqmrgpu VERSION 1.0 LANGUAGES C CXX)
 
-option(WITH_CUDA "Try to find a CUDA compiler" ON)
-if(WITH_CUDA)
-    find_package(CUDA)
-    if(CUDA_FOUND)
-        option(HAS_CUDA "Using the CUDA programming model for GPUs" ON )
-        enable_language(CUDA)
-    else(CUDA_FOUND)
-        option(HAS_CUDA "Using the CUDA programming model for GPUs" OFF)
-    endif(CUDA_FOUND)
-else(WITH_CUDA)
-    option(HAS_CUDA     "Using the CUDA programming model for GPUs" OFF)
-endif(WITH_CUDA)
-
-
 option(HAS_COMPILED_LIB "Providing a compiled shared/static library for a selected block sizes" ON )
 
 # specify the C++ standard
@@ -29,6 +15,18 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
 if(HAS_COMPILED_LIB)
+
+    option(WITH_CUDA "Try to find a CUDA compiler" ON)
+    if(WITH_CUDA)
+        find_package(CUDA)
+        if(CUDA_FOUND)
+            option(HAS_CUDA "Using the CUDA programming model for GPUs" ON )
+        else(CUDA_FOUND)
+            option(HAS_CUDA "Using the CUDA programming model for GPUs" OFF)
+        endif(CUDA_FOUND)
+    else(WITH_CUDA)
+            option(HAS_CUDA "Using the CUDA programming model for GPUs" OFF)
+    endif(WITH_CUDA)
 
     ### include debug symbols e.g. for GDB
     # set(CMAKE_BUILD_TYPE Debug)

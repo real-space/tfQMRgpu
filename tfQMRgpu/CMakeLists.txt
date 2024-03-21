@@ -33,6 +33,7 @@ set(tfQMRgpu_headers ${tfQMRgpu_internal_headers} ${tfQMRgpu_public_headers})
 
 set(tfQMRgpu_sources source/tfqmrgpu_error_tool.cxx)
 if(HAS_CUDA)
+		enable_language(CUDA)
 		# For cuRAND
 		find_package(CUDAToolkit REQUIRED)
 		set(tfQMRgpu_sources ${tfQMRgpu_sources} source/tfqmrgpu.cu )
