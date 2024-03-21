@@ -1,11 +1,9 @@
 # This file is part of tfQMRgpu under MIT-License
 
-set(tfQMRgpu_version 0.0.1)
+set(tfQMRgpu_version 1.0.0)
 
-# For cuRAND
-find_package(CUDAToolkit REQUIRED)
-
-set(tfQMRgpu_sources source/tfqmrgpu.cu source/tfqmrgpu_error_tool.cxx)
+# default installation paths
+include(GNUInstallDirs)
 
 # Explicitly depend on the headers to trigger rebuilds on changes
 set(tfQMRgpu_public_headers 
@@ -29,11 +27,21 @@ set(tfQMRgpu_public_headers
 		     )
 
 # TODO: split into public and private headers
-# TODO: split out C++ header-only interface library
 
 set(tfQMRgpu_internal_headers )
 
 set(tfQMRgpu_headers ${tfQMRgpu_internal_headers} ${tfQMRgpu_public_headers})
+
+option(HAS_COMPILED_LIB "Providing a compiled shared/static library for a selected block sizes" ON )
+
+if(HAS_COMPILED_LIB)
+####################### HAS_COMPILED_LIB #################################
+
+# For cuRAND
+find_package(CUDAToolkit REQUIRED)
+
+
+set(tfQMRgpu_sources source/tfqmrgpu.cu source/tfqmrgpu_error_tool.cxx)
 
 # build shared library
 add_library(tfQMRgpu SHARED ${tfQMRgpu_sources} ${tfQMRgpu_headers})
@@ -89,8 +97,6 @@ target_link_libraries(tfqmrgpu_error_tool tfQMRgpu)
 set(tfqmrgpu_targets ${tfqmrgpu_targets} tfqmrgpu_error_tool)
 
 
-# default installation paths
-include(GNUInstallDirs)
 
 # install library
 install(TARGETS ${tfqmrgpu_targets}
@@ -100,6 +106,10 @@ install(TARGETS ${tfqmrgpu_targets}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+
+####################### HAS_COMPILED_LIB #################################
+endif(HAS_COMPILED_LIB)
+
 
 #install public headers
 install(FILES ${tfQMRgpu_public_headers} 
@@ -126,9 +136,7 @@ configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in
 set_property(TARGET tfQMRgpu PROPERTY VERSION ${tfQMRgpu_version})
 set_property(TARGET tfQMRgpu PROPERTY SOVERSION 1)
 set_property(TARGET tfQMRgpu PROPERTY INTERFACE_tfQMRgpu_MAJOR_VERSION 1)
-set_property(TARGET tfQMRgpu APPEND PROPERTY
-	COMPATIBLE_INTERFACE_STRING tfQMRgpu_MAJOR_VERSION
-	)
+set_property(TARGET tfQMRgpu APPEND PROPERTY COMPATIBLE_INTERFACE_STRING tfQMRgpu_MAJOR_VERSION)
 
 # generate the version file for the config file, we are specifying that any newer version will be compatible
 write_basic_package_version_file(

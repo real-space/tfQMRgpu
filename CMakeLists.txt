@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.11.4)
 
 # set the project name and version
-project(tfqmrgpu VERSION 0.1 LANGUAGES C CXX CUDA)
+project(tfqmrgpu VERSION 1.0 LANGUAGES C CXX CUDA)
 
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 11)
@@ -20,7 +20,7 @@ set(CMAKE_C_STANDARD_REQUIRED True)
 ###     fortran --> small Fortran test
 ###     tfQMRgpu --> main library
 ###     tfQMRgpu/include --> header-only library
-###     tfQMRgpu/source  --> C-interfaced static/shared library for block-sparse
+###     tfQMRgpu/source  --> C-interfaced static/shared library for block-sparse [optional]
 
 # external dependencies provided in source tree
 add_subdirectory(third_party)
