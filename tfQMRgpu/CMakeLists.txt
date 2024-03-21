@@ -6,49 +6,48 @@ set(tfQMRgpu_version 1.0.0)
 include(GNUInstallDirs)
 
 # Explicitly depend on the headers to trigger rebuilds on changes
-set(tfQMRgpu_public_headers 
-		     include/bsr.hxx
-		     include/tfqmrgpu_blockmult.hxx
-		     include/tfqmrgpu_blocksparse.hxx
-		     include/tfqmrgpu_core.hxx
-		     include/tfqmrgpu_cudaStubs.hxx
-		     include/tfqmrgpu_example_reader.hxx
-		     include/tfqmrgpu_example_xml_reader.hxx
-		     include/tfqmrgpu_Fortran.h
-		     include/tfqmrgpu.h
-		     include/tfqmrgpu_handle.hxx
-		     include/tfqmrgpu.hxx
-		     include/tfqmrgpu_linalg.hxx
-		     include/tfqmrgpu_memWindow.h
-		     include/tfqmrgpu_plan.hxx
-		     include/tfqmrgpu_util.hxx
-		     include/bsr.hxx
-		     include/allowed_block_sizes.h
-		     )
+set(tfQMRgpu_public_headers
+		include/tfqmrgpu.hxx
+		include/tfqmrgpu_memWindow.h
+		include/tfqmrgpu_bsr.hxx
+		include/tfqmrgpu_linalg.hxx
+		include/tfqmrgpu_util.hxx
+		include/tfqmrgpu_core.hxx
+		include/tfqmrgpu_cudaStubs.hxx
+		)
 
-# TODO: split into public and private headers
-
-set(tfQMRgpu_internal_headers )
+set(tfQMRgpu_internal_headers
+		include/tfqmrgpu.h
+		include/tfqmrgpu_plan.hxx
+		include/tfqmrgpu_blockmult.hxx
+		include/tfqmrgpu_allowed_block_sizes.h
+		include/tfqmrgpu_blocksparse.hxx
+		include/tfqmrgpu_example_reader.hxx
+		include/tfqmrgpu_example_xml_reader.hxx
+		include/tfqmrgpu_handle.hxx
+		include/tfqmrgpu_Fortran.h
+		)
 
 set(tfQMRgpu_headers ${tfQMRgpu_internal_headers} ${tfQMRgpu_public_headers})
 
-option(HAS_COMPILED_LIB "Providing a compiled shared/static library for a selected block sizes" ON )
 
-if(HAS_COMPILED_LIB)
-####################### HAS_COMPILED_LIB #################################
-
-# For cuRAND
-find_package(CUDAToolkit REQUIRED)
-
-
-set(tfQMRgpu_sources source/tfqmrgpu.cu source/tfqmrgpu_error_tool.cxx)
+set(tfQMRgpu_sources source/tfqmrgpu_error_tool.cxx)
+if(HAS_CUDA)
+		# For cuRAND
+		find_package(CUDAToolkit REQUIRED)
+		set(tfQMRgpu_sources ${tfQMRgpu_sources} source/tfqmrgpu.cu )
+else(HAS_CUDA)
+		add_definitions(-DHAS_NO_CUDA)
+		set(tfQMRgpu_sources ${tfQMRgpu_sources} source/tfqmrgpu.cxx)
+endif(HAS_CUDA)
 
 # build shared library
 add_library(tfQMRgpu SHARED ${tfQMRgpu_sources} ${tfQMRgpu_headers})
 
-# CUDA architectures 70=Volta, 75=Turing, 80=Ampere
-set_property(TARGET tfQMRgpu PROPERTY CUDA_ARCHITECTURES 70)
-
+if(HAS_CUDA)
+		# CUDA architectures 70=Volta, 75=Turing, 80=Ampere
+		set_property(TARGET tfQMRgpu PROPERTY CUDA_ARCHITECTURES 70)
+endif(HAS_CUDA)
 
 # Make the source find the headers
 # tfQMRgpu is a library, so we use PUBLIC, this way any target that depends on tfQMRgpu will know to add this include
@@ -62,14 +61,19 @@ target_include_directories(tfQMRgpu PUBLIC
 	)
 
 # Public libraries = libraries the dependents are also linked against
-target_link_libraries(tfQMRgpu PUBLIC RapidXML CUDA::curand)
+target_link_libraries(tfQMRgpu PUBLIC RapidXML)
+if(HAS_CUDA)
+		target_link_libraries(tfQMRgpu PUBLIC CUDA::curand)
+endif(HAS_CUDA)
 
 option(HAS_OPENMP "Usage of OpenMP" ON)
 if(HAS_OPENMP)
     # add OpenMP support
     find_package(OpenMP REQUIRED)
-    # switch OpenMP on for CUDA
-    SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler=${OpenMP_CXX_FLAGS}") 
+		if(HAS_CUDA)
+		    # switch OpenMP on for CUDA
+    		SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler=${OpenMP_CXX_FLAGS}")
+		endif(HAS_CUDA)
     # switch OpenMP on for C and C++
     target_link_libraries(tfQMRgpu PUBLIC OpenMP::OpenMP_CXX OpenMP::OpenMP_C)
 endif(HAS_OPENMP)
@@ -85,8 +89,12 @@ set(tfqmrgpu_targets ${tfqmrgpu_targets} tfQMRgpu_Fortran)
 option(HAS_BENCHMARK "generates bench_tfqmrgpu for multiplication and full_solver performance tests" ON)
 
 if(HAS_BENCHMARK)
-    add_executable(bench_tfqmrgpu source/bench_tfqmrgpu.cu)
-    set_property(TARGET bench_tfqmrgpu PROPERTY CUDA_ARCHITECTURES 70 80)
+		if(HAS_CUDA)
+		    add_executable(bench_tfqmrgpu source/bench_tfqmrgpu.cu )
+    		set_property(TARGET bench_tfqmrgpu PROPERTY CUDA_ARCHITECTURES 70 80)
+		else(HAS_CUDA)
+				add_executable(bench_tfqmrgpu source/bench_tfqmrgpu.cxx)
+		endif(HAS_CUDA)
     target_link_libraries(bench_tfqmrgpu tfQMRgpu)
     set(tfqmrgpu_targets ${tfqmrgpu_targets} bench_tfqmrgpu)
 endif(HAS_BENCHMARK)
@@ -97,7 +105,6 @@ target_link_libraries(tfqmrgpu_error_tool tfQMRgpu)
 set(tfqmrgpu_targets ${tfqmrgpu_targets} tfqmrgpu_error_tool)
 
 
-
 # install library
 install(TARGETS ${tfqmrgpu_targets}
 	EXPORT tfQMRgpuTargets
@@ -106,9 +113,6 @@ install(TARGETS ${tfqmrgpu_targets}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
-
-####################### HAS_COMPILED_LIB #################################
-endif(HAS_COMPILED_LIB)
 
 
 #install public headers

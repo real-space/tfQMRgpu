@@ -10,7 +10,7 @@
 #include <cmath> // std::sqrt
 #include <cassert> // assert
 
-#include "bsr.hxx" // bsr_t
+#include "tfqmrgpu_bsr.hxx" // bsr_t
 
 namespace tfqmrgpu_example_reader {
 

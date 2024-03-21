@@ -12,7 +12,7 @@
 // #define DEBUG
 
 #include "tfqmrgpu.hxx" // includes cuda.h (or tfqmrgpu_cudaStubs.hxx) and tfqmrgpu.h
-#include "bsr.hxx" // bsr_t [block-sparse row matrices]
+#include "tfqmrgpu_bsr.hxx" // bsr_t [block-sparse row matrices]
 #include "tfqmrgpu_example_reader.hxx" // ::read_in()
 #include "tfqmrgpu_example_xml_reader.hxx" // ::read_in()
 

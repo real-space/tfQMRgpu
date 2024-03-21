@@ -6,7 +6,6 @@ cmake_minimum_required(VERSION 3.18)
 
 enable_language(Fortran)
 
-
 # set the project name and version
 add_executable(tfqmrgpu_Fortran_example ../tfQMRgpu/include/tfqmrgpu_Fortran_module.F90 tfqmrgpu_Fortran_example.F90)
 
@@ -68,4 +67,3 @@ set(tfqmrgpu_example_targets
 install(TARGETS ${tfqmrgpu_example_targets}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
-

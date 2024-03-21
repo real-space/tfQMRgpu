@@ -1,9 +1,10 @@
 #pragma once
 // This file is part of tfQMRgpu under MIT-License
 
-#ifndef HAS_NO_CUDA
+#ifndef   HAS_NO_CUDA
+
     #include <cuda.h>
-    #ifdef USE_NVTX
+    #ifdef    USE_NVTX
         #include "nvToolsExt.h"
 
         #define POP_RANGE() nvtxRangePop();
@@ -19,17 +20,18 @@
             nvtxRangePushEx(&eventAttrib); \
         }
 
-    #else // USE_NVTX
+    #else  // USE_NVTX
 
         #define PUSH_RANGE(name)
         #define POP_RANGE()
 
     #endif // USE_NVTX
-#else  // HAS_CUDA
+
+#else  // HAS_NO_CUDA
 
     #include "tfqmrgpu_cudaStubs.hxx" // replaces cuda.h
 
-#endif // HAS_CUDA
+#endif // HAS_NO_CUDA
 
 extern "C" {
     #include "tfqmrgpu.h" // C-interface for tfqmrgpu
@@ -38,19 +40,18 @@ extern "C" {
 // // mark device pointers == pointers to GPU memory
 #define devPtr const __restrict__
 
-#ifdef _OPENMP
+
+#ifdef    _OPENMP
     #include <omp.h> // OpenMP threading library
     #define getTime omp_get_wtime // use the OpenMP internal timer
 #else  // _OPENMP
     #include <ctime> // clock
     inline double getTime() { return double(clock())/double(CLOCKS_PER_SEC); }
-#endif // _OPENMP
-
-#ifndef _OPENMP
     inline int omp_get_num_threads() { return 1; }
 #endif // _OPENMP
 
-#ifdef __CUDA_ARCH__
+
+#ifdef    __CUDA_ARCH__
     #define UNROLL _Pragma("unroll")
 #else  // __CUDA_ARCH__
     #define UNROLL

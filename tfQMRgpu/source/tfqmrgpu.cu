@@ -58,7 +58,7 @@
             case   LM*1000 + LN: return mysolve_LM_LN<LM,LN>(streamId, p, tolerance, MaxIterations, memcount)
 
             // list all the allowed block sizes here as allow_block_size(ldA, ldB);
-#include   "allowed_block_sizes.h"
+#include   "tfqmrgpu_allowed_block_sizes.h"
 //          allow_block_size( 4, 4);
 //          allow_block_size( 8, 8);
 //          allow_block_size( 8,32); // blocks in X and B are rectangular
@@ -86,7 +86,7 @@
         {
 #define     allow_block_size(LM,LN) \
             ++n; if (2*n < arrayLength) { blockSizes[2*i] = LM; blockSizes[2*i + 1] = LN; ++i; }
-#include   "allowed_block_sizes.h" // as above, but with a different definition of allow_block_size(LM,LN)
+#include   "tfqmrgpu_allowed_block_sizes.h" // as above, but with a different definition of allow_block_size(LM,LN)
 #undef      allow_block_size
         }
         return (n == i) ?  TFQMRGPU_STATUS_SUCCESS : (TFQMRGPU_UNDOCUMENTED_ERROR + TFQMRGPU_CODE_LINE*__LINE__); // probably arrayLength was too short
@@ -99,7 +99,7 @@
         {
 #define     allow_block_size(LM,LN) \
             if (LM == ldA && LN == ldB) return 0;
-#include   "allowed_block_sizes.h" // as above, but with a different definition of allow_block_size(LM,LN)
+#include   "tfqmrgpu_allowed_block_sizes.h" // as above, but with a different definition of allow_block_size(LM,LN)
 #undef      allow_block_size
         }
         return TFQMRGPU_BLOCKSIZE_MISSING + TFQMRGPU_CODE_CHAR*ldA + TFQMRGPU_CODE_LINE*ldB; // also say which blocksize was requested

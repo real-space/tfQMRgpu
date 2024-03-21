@@ -10,7 +10,7 @@
 
 #include "tfqmrgpu.hxx"           // includes cuda.h and tfqmrgpu.h, defines colIndex_t
 #include "tfqmrgpu_util.hxx"      // common utilities: FlopChar, copy_data_to_gpu, get_data_from_gpu, abs2, clear_on_gpu
-#include "bsr.hxx"                // bsr_t, find_in_array
+#include "tfqmrgpu_bsr.hxx"       // bsr_t, find_in_array
 #include "tfqmrgpu_memWindow.h"   // memWindow_t
 #include "tfqmrgpu_plan.hxx"      // bsrsv_plan_t
 #include "tfqmrgpu_handle.hxx"    // tfq_handle_t

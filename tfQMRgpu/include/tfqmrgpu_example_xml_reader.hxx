@@ -31,7 +31,7 @@
 #endif // HAS_RAPIDXML
 
 // use the definition of the Block-compressed Sparse Row format from the include path
-#include "bsr.hxx" // bsr_t
+#include "tfqmrgpu_bsr.hxx" // bsr_t
 
 namespace tfqmrgpu_example_xml_reader {
 

@@ -390,7 +390,7 @@ extern "C" {
           int64_t checksum{0};
           if (echo > 2) std::cout << "# use " << nFD << " finite-difference neighbors with coefficients:" << std::endl;
           for (int iFD = 0; iFD <= nFD; ++iFD) {
-              if (echo > 2) std::printf("# %i\t%12d/%d =%16.12f\n", iFD, FDcoeff[iFD], FDdenom, FDcoeff[iFD]/double(FDdenom));
+              if (echo > 2) std::printf("# %i\t%12lld/%lld =%16.12f\n", iFD, FDcoeff[iFD], FDdenom, FDcoeff[iFD]/double(FDdenom));
               checksum += FDcoeff[iFD] * (1ll + (iFD > 0)); // all but the central coefficient are added with a factor 2;
           } // iFD
           if (echo > 2) std::cout << std::endl;

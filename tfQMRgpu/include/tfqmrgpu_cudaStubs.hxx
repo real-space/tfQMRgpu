@@ -66,6 +66,11 @@ inline void __syncthreads(void) {}
 inline void PUSH_RANGE(char const *name) {}
 inline void POP_RANGE(void) {}
 
+int constexpr cudaFuncAttributeMaxDynamicSharedMemorySize = 0;
+
+template <class WhatEver>
+inline void cudaFuncSetAttribute(WhatEver, int, size_t) {}
+
 #define __global__
 #define __device__
 #define __host__
