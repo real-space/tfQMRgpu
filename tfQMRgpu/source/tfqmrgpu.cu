@@ -24,7 +24,7 @@
   #include "tfqmrgpu_error_tool.cxx" // definition of tfqmrgpuPrintError
 #undef  __NO_MAIN__
 
-    template <typename real_t, int LM, int LN=LM, typename double_t=real_t>
+    template <typename real_t, unsigned LM, unsigned LN=LM, typename double_t=real_t>
     tfqmrgpuStatus_t mysolve_real_LM_LN (
           cudaStream_t const streamId // stream
         , bsrsv_plan_t* p // plan
@@ -37,7 +37,7 @@
     } // mysolve_real_LM_LN
 
 
-    template <int LM, int LN=LM>
+    template <unsigned LM, unsigned LN=LM>
     tfqmrgpuStatus_t mysolve_LM_LN (
           cudaStream_t const streamId // stream
         , bsrsv_plan_t* p // plan

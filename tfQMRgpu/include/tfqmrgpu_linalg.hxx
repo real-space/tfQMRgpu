@@ -27,7 +27,7 @@ namespace tfqmrgpu {
 #define EPSILON 2.5e-308
 
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __global__ tfQMRdec35_kernel( // GPU kernel, must be launched with <<< nCols, LN >>>
           int8_t       (*devPtr status)[LN] // tfQMR status (out)
         , real_t       (*devPtr rho)[2][LN] // rho  (inout)
@@ -73,7 +73,7 @@ namespace tfqmrgpu {
         } // blocks i
     } // tfQMRdec35_kernel
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __host__ tfQMRdec35( // driver
           int8_t       (*devPtr status)[LN] // tfQMR status (out)
         , real_t       (*devPtr rho)[2][LN] // rho  (inout)
@@ -90,7 +90,7 @@ namespace tfqmrgpu {
     } // tfQMRdec35
 
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __global__ tfQMRdec34_kernel( // GPU kernel, must be launched with <<< nCols, LN >>>
           int8_t       (*devPtr status)[LN] // tfQMR status (out)
         , real_t       (*devPtr c67)[2][LN] // c67  (out)
@@ -149,7 +149,7 @@ namespace tfqmrgpu {
         } // blocks i
     } // tfQMRdec34_kernel
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __host__ tfQMRdec34( // driver
           int8_t       (*devPtr status)[LN] // tfQMR status (out)
         , real_t       (*devPtr c67)[2][LN] // c67  (out)
@@ -169,7 +169,7 @@ namespace tfqmrgpu {
     } // tfQMRdec34
 
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __global__ tfQMRdecT_kernel( // GPU kernel, must be launched with <<< nCols, LN >>>
           int8_t       (*devPtr status)[LN] // tfQMR status (inout)
         , real_t       (*devPtr c67)[2][LN] // c67 (optional out)
@@ -230,7 +230,7 @@ namespace tfqmrgpu {
         } // blocks i
     } // tfQMRdecT_kernel
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __host__ tfQMRdecT( // driver
           int8_t       (*devPtr status)[LN] // tfQMR status (inout)
         , real_t       (*devPtr c67)[2][LN] // c67 (optional out)
@@ -376,7 +376,7 @@ namespace tfqmrgpu {
     } // transpose_blocks_kernel
 
 #ifndef HAS_NO_CUDA
-    template <typename real_t, int LM, int LN>
+    template <typename real_t, unsigned LM, unsigned LN>
     void __global__ add_RHS_kernel( // GPU kernel, must be launched with <<< { any, 1, 1 }, { LN, 1, 1 } >>>
           real_t       (*devPtr v)[2][LM][LN] // result, v[nnzv][Re:Im][LM][LN]
         , real_t const (*devPtr b)[2][LM][LN] // input,  b[nnzb][Re:Im][LM][LN]
@@ -400,7 +400,7 @@ namespace tfqmrgpu {
     } // add_RHS_kernel
 #endif // HAS_CUDA
 
-    template <typename real_t, int LM, int LN>
+    template <typename real_t, unsigned LM, unsigned LN>
     void __host__ add_RHS(
           real_t       (*devPtr v)[2][LM][LN] // result, v[nnzv][Re:Im][LM][LN]
         , real_t const (*devPtr b)[2][LM][LN] // input,  b[nnzb][Re:Im][LM][LN]
@@ -425,7 +425,7 @@ namespace tfqmrgpu {
 
 
 
-    template <typename real_t, int LM, int LN>
+    template <typename real_t, unsigned LM, unsigned LN>
     void __global__ set_unit_blocks_kernel( // GPU kernel, must be launched with <<< { nnzb, 1, 1 }, { LN, 1, 1 } >>>
           real_t       (*devPtr v)[2][LM][LN] // result, v[nnzb][Re:Im][LM][LN]
         , real_t   const real_part
@@ -451,7 +451,7 @@ namespace tfqmrgpu {
     } // set_unit_blocks_kernel
 
 
-    template <typename real_t, int LM, int LN>
+    template <typename real_t, unsigned LM, unsigned LN>
     void __host__ set_unit_blocks(
           real_t       (*devPtr v)[2][LM][LN] // result, v[nnzb][2][LM][LN]
         , uint32_t const nnzb // number of nonzero blocks in B
@@ -473,7 +473,7 @@ namespace tfqmrgpu {
 
 #ifndef HAS_NO_CUDA
 
-    template <typename real_t, int LM, int LN, int D2>
+    template <typename real_t, unsigned LM, unsigned LN, unsigned D2>
     void __global__ col_inner( // GPU kernel, must be launched with <<< { anypowerof2, 1, 1 }, { LN, 1, 1 } >>>
           double       (*devPtr dots)[D2][LN] // result, dots[2^p*nCols][D2][LN], D2 is 2==Re:Im for v*w and 1 for norm |v|^2
         , real_t const (*devPtr v)[2][LM][LN] // input,    v[nnz][Re:Im][LM][LN]
@@ -518,7 +518,7 @@ namespace tfqmrgpu {
 
     } // col_inner
 
-    template <typename real_t, int LN, int D2>
+    template <typename real_t, unsigned LN, unsigned D2>
     void __global__ col_reduction( // GPU kernel, must be launched with <<< { nCols, 2^(p-1), 1 }, { LN, 1, D2 } >>>
           double (*devPtr a)[D2][LN] // in/out, a[2^p*nCols][D2][LN], D2 is 2==Re:Im for v*w and 1 for norm |v|^2
         , uint32_t const nCols // number of block columns
@@ -538,7 +538,7 @@ namespace tfqmrgpu {
 
 #endif // HAS_CUDA
 
-    template <typename real_t, int LM, int LN> inline
+    template <typename real_t, unsigned LM, unsigned LN> inline
     double __host__ dotp(
           double       (*devPtr a)[2][LN]     // result, a[2^p*nCols][Re:Im]    [LN]
         , real_t const (*devPtr x)[2][LM][LN] // input,        x[nnz][Re:Im][LM][LN]
@@ -583,7 +583,7 @@ namespace tfqmrgpu {
         return nnz*4.*D2*LM*LN; // returns the number of Flops
     } // dotp = <x|y>
 
-    template <typename real_t, int LM, int LN> inline
+    template <typename real_t, unsigned LM, unsigned LN> inline
     double __host__ nrm2(
           double       (*devPtr a)[1][LN]     // result,  a[2^p*nCols][1]    [LN]
         , real_t const (*devPtr x)[2][LM][LN] // input,     x[nnz][Re:Im][LM][LN]
@@ -622,7 +622,7 @@ namespace tfqmrgpu {
     } // nrm2 = <x|x>
 
 
-    template <typename real_t, int LM, int LN, bool ScaleX>
+    template <typename real_t, unsigned LM, unsigned LN, bool ScaleX>
     void __global__ col_axpay( // GPU kernel, must be launched with <<< { any, 1, 1 }, { LN, 1, 1 } >>>
           real_t       (*devPtr y)[2][LM][LN] // in/out,   y[nnz][Re:Im][LM][LN]
         , real_t const (*devPtr x)[2][LM][LN] // input,    x[nnz][Re:Im][LM][LN]
@@ -661,7 +661,7 @@ namespace tfqmrgpu {
         } // inz
     } // col_axpay
 
-    template <typename real_t, int LM, int LN> inline
+    template <typename real_t, unsigned LM, unsigned LN> inline
     double __host__ axpy(
           real_t       (*devPtr y)[2][LM][LN] // in/out,   y[nnz][Re:Im][LM][LN]
         , real_t const (*devPtr x)[2][LM][LN] // input,    x[nnz][Re:Im][LM][LN]
@@ -680,7 +680,7 @@ namespace tfqmrgpu {
         return nnz*8.*LM*LN; // returns the number of Flops
     } // axpy   y := a*x + y
 
-    template <typename real_t, int LM, int LN> inline
+    template <typename real_t, unsigned LM, unsigned LN> inline
     double __host__ xpay(
           real_t       (*devPtr y)[2][LM][LN] // in/out,   y[nnz][Re:Im][LM][LN]
         , real_t const (*devPtr a)[2][LN]     // input,  a[nCols][Re:Im]    [LN]
@@ -703,7 +703,7 @@ namespace tfqmrgpu {
     // basis linear algebra level 3 kernels ////////////////////////////////////////////////////////////////////////
 
 #ifndef HAS_NO_CUDA
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __global__ set_complex_value_kernel(
           real_t (*devPtr array)[2][LN] // 1D launch with correct size
         , real_t const real_part
@@ -716,7 +716,7 @@ namespace tfqmrgpu {
     } // set_complex_value_kernel
 #endif // HAS_CUDA
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __host__ set_complex_value(
           real_t (*devPtr array)[2][LN] // array[nblocks][2][LN]
         , uint32_t const nblocks
@@ -739,7 +739,7 @@ namespace tfqmrgpu {
 
 
 #ifndef HAS_NO_CUDA
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __global__ set_real_value_kernel(
           real_t (*devPtr array)[LN] // 1D launch with matching size
         , real_t const value
@@ -750,7 +750,7 @@ namespace tfqmrgpu {
     } // set_real_value_kernel
 #endif // HAS_CUDA
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __host__ set_real_value(
           real_t (*devPtr array)[LN] // array[nblocks][LN]
         , uint32_t const nblocks

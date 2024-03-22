@@ -35,8 +35,8 @@ namespace tfqmrgpu {
       PUSH_RANGE("tfQMR preparation"); // NVTX
 
       using real_t = typename action_t::real_t; // abbreviate
-      auto constexpr LM = action_t::LM; // abbreviate block rows
-      auto constexpr LN = action_t::LN; // abbreviate block cols
+      static unsigned constexpr LM = action_t::LM; // abbreviate block rows
+      static unsigned constexpr LN = action_t::LN; // abbreviate block cols
       assert(LN >= LM && "tfQMRgpu: rectangular feature supports only more columns than rows!");
 
       auto const p = action.get_plan(); // get pointer to plan, plan gets modified

@@ -6,7 +6,7 @@
 #define devPtr const __restrict__
 
     /* GPU kernel that accepts real and imaginary part split --> coalesced loads possible, uses shared memory */
-    template <typename real_t, int LM, int LN, int NA, typename double_t=real_t> // NA=number of accumulators
+    template <typename real_t, unsigned LM, unsigned LN, unsigned NA, typename double_t=real_t> // NA=number of accumulators
     void __global__ gemmNxNf( // GPU kernel, must be launched with <<< {nnzbY, 1, 1}, { LN, LM/NA, 1 } >>>
           real_t         (*devPtr Y)[2][LM][LN] // result, real and imaginary parts are split
         , real_t   const (*devPtr A)[2][LM][LM] // scalar argument, conjugated (A^t)
