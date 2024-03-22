@@ -11,6 +11,14 @@
 #include "tfqmrgpu_core.hxx"   // tfqmrgpu::solve<action_t>
 #include "tfqmrgpu_blocksparse.hxx" // blocksparse_action_t
 #include "tfqmrgpu_util.hxx" // IgnoreCase
+#include "tfqmrgpu_handle.hxx" // tfq_handle_t
+#include "tfqmrgpu_bsr.hxx" // find_in_array
+
+#ifdef   DEBUG
+    #define tfqmrgpu_debug_printf(...) std::printf(__VA_ARGS__)
+#else  // DEBUG
+    #define tfqmrgpu_debug_printf(...)
+#endif // DEBUG
 
 #define __NO_MAIN__
   #include "tfqmrgpu_error_tool.cxx" // definition of tfqmrgpuPrintError
@@ -389,7 +397,7 @@
             default : p->precision = 'z'; // default double precision complex
         } // precision
         if (precision != p->precision) {
-            debug_printf("# convert precision= \'%c\' to \'%c\'\n", precision, p->precision);
+            tfqmrgpu_debug_printf("# convert precision= \'%c\' to \'%c\'\n", precision, p->precision);
         }
 
         p->LM = LM; // store the block size and precision information in the plan
@@ -406,8 +414,8 @@
         auto const status = mysolve(streamId, p, 0.0, 0, memcount); // call the solver in memcount-mode
 
         *pBufferSizeInBytes = p->gpu_mem; // requested minimum number of Bytes in device memory
-        debug_printf("# plan for precision= \'%c\' and LM= %d, LN= %d needs %.3f MByte device memory\n",
-                        p->precision,         p->LM,  p->LN,    p->gpu_mem*1e-6);
+        tfqmrgpu_debug_printf("# plan for precision= \'%c\' and LM= %d, LN= %d needs %.3f MByte device memory\n",
+                                       p->precision,         p->LM,  p->LN,    p->gpu_mem*1e-6);
         return status;
     } // bufferSize
 
@@ -430,13 +438,13 @@
         { // random number generation scope
             auto const n_floats_in_v3 = p->vec3win.length/sizeof(float);
             auto const v3 = (float*)(p->pBuffer + p->vec3win.offset);
-            debug_printf("# v3 has address %p\n", (void*)v3);
+            tfqmrgpu_debug_printf("# v3 has address %p\n", (void*)v3);
             auto const stat = tfqmrgpu::create_random_numbers(v3, n_floats_in_v3, streamId);
             {
                 float first{0}, flast{0};
                 get_data_from_gpu<float>(&first, v3, 1, 0, "first of v3");
                 get_data_from_gpu<float>(&flast, &v3[n_floats_in_v3 - 1], 1, 0, "last of v3");
-                debug_printf("# v3 has values %g ... %g\n", first, flast);
+                tfqmrgpu_debug_printf("# v3 has values %g ... %g\n", first, flast);
             }
             if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
         } // scope
@@ -475,8 +483,8 @@ namespace tfqmrgpu {
         , char       *const values_out=nullptr   // pointer to values, pointer is casted to float* or double*
     ) {
         bool const is_get = (nullptr != values_out);
-        debug_printf("# tfqmrgpu::%cetMatrix for operator \'%c\', values=%p\n",
-                            is_get?'g':'s', var, is_get?values_out:values_in);
+        tfqmrgpu_debug_printf("# tfqmrgpu::%cetMatrix for operator \'%c\', values=%p\n",
+                                     is_get?'g':'s', var, is_get?values_out:values_in);
         {
             switch (layout) {
                 case TFQMRGPU_LAYOUT_RRRRIIII: break; // native for this GPU solver
@@ -515,7 +523,7 @@ namespace tfqmrgpu {
                     if ('n' == trans) { trans = 't'; } else // this flip could be written as trans = int('n') + int('t') - trans;
                     if ('t' == trans) { trans = 'n'; } else
                     { return TFQMRGPU_TANSPOSITION_UNKNOWN + TFQMRGPU_CODE_CHAR*trans + TFQMRGPU_CODE_LINE*__LINE__; }
-                    debug_printf("# tfqmrgpu_bsrsv_setMatrix: flip transposition "
+                    tfqmrgpu_debug_printf("# tfqmrgpu_bsrsv_setMatrix: flip transposition "
                       "'%c' to internal '%c' for operator '%c'\n", transposition, trans, var);
                 break;
                 case 'b':
@@ -560,9 +568,9 @@ namespace tfqmrgpu {
             l_in = layout;
             l_out = TFQMRGPU_LAYOUT_RRRRIIII;
             trans_out = ('t' == trans);
-            debug_printf("# start asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
+            tfqmrgpu_debug_printf("# start asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
             copy_data_to_gpu<char>(ptr, values_in, size, streamId);
-            debug_printf("#  done asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
+            tfqmrgpu_debug_printf("#  done asynchronous memory transfer from the host to the GPU for operator '%c'\n", var);
         } // get or set
 
         // for each block change data layout and (if necessary) transpose in-place on the GPU
@@ -588,15 +596,15 @@ namespace tfqmrgpu {
         } // is_double
         auto const err = cudaGetLastError();
         if (cudaSuccess != err) {
-            debug_printf("\n# failed to launch transpose_blocks_kernel with %d x %d threads per block, %.3f kByte shared memory"
+            tfqmrgpu_debug_printf("\n# failed to launch transpose_blocks_kernel with %d x %d threads per block, %.3f kByte shared memory"
                          ", Error=\"%s\"\n", nthreads_y, nthreads_x, byte_per_block*1e-3, cudaGetErrorString(err));
             return TFQMRGPU_STATUS_LAUNCH_FAILED + TFQMRGPU_CODE_LINE*line;
         } // launch error
 
         if (is_get) {
-            debug_printf("# start asynchronous memory transfer from the GPU to the host for operator '%c'\n", var);
+            tfqmrgpu_debug_printf("# start asynchronous memory transfer from the GPU to the host for operator '%c'\n", var);
             get_data_from_gpu<char>(values_out, ptr, size, streamId);
-            debug_printf("#  done asynchronous memory transfer from the GPU to the host for operator '%c'\n", var);
+            tfqmrgpu_debug_printf("#  done asynchronous memory transfer from the GPU to the host for operator '%c'\n", var);
         } // get
 
         return TFQMRGPU_STATUS_SUCCESS;

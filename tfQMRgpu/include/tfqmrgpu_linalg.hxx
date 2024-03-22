@@ -1,19 +1,15 @@
 #pragma once
 // This file is part of tfQMRgpu under MIT-License
 
+#include <cmath> // std::abs
+#include <limits> // std::numeric_limits
+
 #ifndef HAS_NO_CUDA
     #include <curand.h> // random number generator for CUDA
 #endif // HAS_CUDA
 
-#include <cmath> // std::abs
-#include <limits> // std::numeric_limits
-
-#include "tfqmrgpu.hxx"           // includes cuda.h and tfqmrgpu.h, defines colIndex_t
-#include "tfqmrgpu_util.hxx"      // common utilities: FlopChar, copy_data_to_gpu, get_data_from_gpu, abs2, clear_on_gpu
-#include "tfqmrgpu_bsr.hxx"       // bsr_t, find_in_array
-// #include "tfqmrgpu_memWindow.h"   // memWindow_t
-// #include "tfqmrgpu_plan.hxx"      // bsrsv_plan_t
-// #include "tfqmrgpu_handle.hxx"    // tfq_handle_t
+#include "tfqmrgpu.hxx"      // includes cuda.h and tfqmrgpu.h, defines colIndex_t
+#include "tfqmrgpu_util.hxx" // common utilities: FlopChar, copy_data_to_gpu, get_data_from_gpu, abs2, clear_on_gpu
 
 // #define DEBUG
 // #define FULLDEBUG
