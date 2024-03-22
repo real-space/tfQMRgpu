@@ -13,7 +13,13 @@
         // dotp, nrm2, xpay, axpy, ...
         // tfQMRdec*, add_RHS, set_unit_blocks
         // create_random_numbers
-        // debug_printf
+
+#ifdef  DEBUG
+    #define tfqmrgpu_core_debug_printf(...) std::printf(__VA_ARGS__)
+#else  // DEBUG
+    #define tfqmrgpu_core_debug_printf(...)
+#endif // DEBUG
+
 
 namespace tfqmrgpu {
 
@@ -29,18 +35,19 @@ namespace tfqmrgpu {
       PUSH_RANGE("tfQMR preparation"); // NVTX
 
       using real_t = typename action_t::real_t; // abbreviate
-      auto constexpr LM = action_t::LM; // abbreviate block rows
-      auto constexpr LN = action_t::LN; // abbreviate block cols
+      static unsigned constexpr LM = action_t::LM; // abbreviate block rows
+      static unsigned constexpr LN = action_t::LN; // abbreviate block cols
       assert(LN >= LM && "tfQMRgpu: rectangular feature supports only more columns than rows!");
 
       auto const p = action.get_plan(); // get pointer to plan, plan gets modified
+      assert(nullptr != p && "pointer to plan must not be null");
 //    auto const precond = int(action.has_preconditioner());
 
       // abbreviations
       auto const nnzbB = p->subset.size(); // number of non-zero blocks in B
       auto const nnzbX = p->colindx.size(); // number of non-zero blocks in X
       auto const nCols = p->nCols; // number of block columns
-      debug_printf("\n# nnzbB=%lu nnzbX=%lu nCols=%u\n\n", nnzbB, nnzbX, nCols);
+      tfqmrgpu_core_debug_printf("\n# nnzbB=%lu nnzbX=%lu nCols=%u\n\n", nnzbB, nnzbX, nCols);
 
       char* buffer{gpu_memory_buffer}; // memcount-mode computes the ...
       // ... total memory requirement and creates the memory window descriptors
@@ -58,7 +65,7 @@ namespace tfqmrgpu {
 
       // random number vector, random values are generated outside of this routine
       auto const v3 = take_gpu_memory<float[2][LM][LN]>(buffer, nnzbX, &(p->vec3win), "v3"); // v3 is always of type float as this stores only random numbers
-      debug_printf("# v3 has address %s%p\n", buffer_start?"":"buffer + ", (void*)v3);
+      tfqmrgpu_core_debug_printf("# v3 has address %s%p\n", buffer_start?"":"buffer + ", (void*)v3);
 
       // matrix B
       auto const v2 = take_gpu_memory<real_t[2][LM][LN]>(buffer, nnzbB, &(p->matBwin), "B"); // usually small
@@ -93,7 +100,7 @@ namespace tfqmrgpu {
 
       if (nullptr == gpu_memory_buffer) { // memcount-mode
           p->gpu_mem = buffer - buffer_start + (1ull << TFQMRGPU_MEMORY_ALIGNMENT); // add safety
-          debug_printf("# GPU memory requirement = %.9f GByte\n", p->gpu_mem*1e-9);
+          tfqmrgpu_core_debug_printf("# GPU memory requirement = %.9f GByte\n", p->gpu_mem*1e-9);
           POP_RANGE(); // end of NVTX range
           return TFQMRGPU_STATUS_SUCCESS; // return early as we only counted the device memory requirement
       } // memcount
@@ -178,8 +185,8 @@ namespace tfqmrgpu {
 
       while (iteration < MaxIterations) {
           ++iteration;
-#ifdef FULL_DEBUG
-          debug_printf("# iteration %i of %d\n", iteration, MaxIterations);
+#ifdef    FULL_DEBUG
+          tfqmrgpu_core_debug_printf("# iteration %i of max %d\n", iteration, MaxIterations);
 #endif // FULL_DEBUG
 
           // =============================
@@ -246,14 +253,14 @@ namespace tfqmrgpu {
               breakdown5 += (-1 == status_h[0][rhs]); // breakdown detected in dec35
           } // rhs
           if (0 == (iteration & 0xf)) { // every 16th iteration
-              debug_printf("# in iteration %d, min_bound2 = %g, max_bound2 = %g * %d = %g, target_bound2 = %g\n", iteration,
-                  min_bound2, max_bound2, 2*iteration + 1, max_bound2*(2*iteration + 1), target_bound2);
+              tfqmrgpu_core_debug_printf("# in iteration %d, min_bound2 = %g, max_bound2 = %g * %d = %g, target_bound2 = %g\n",
+                       iteration, min_bound2, max_bound2, 2*iteration + 1, max_bound2*(2*iteration + 1), target_bound2);
           }
           max_bound2 *= (2*iteration + 1); // multiply with 2 times the iteration number
 
           bool probe{(max_bound2 <= target_bound2 || iteration >= MaxIterations)};
           if (nRHSs == breakdown5 + breakdown4) {
-              debug_printf("# in iteration %d, all %d+%d of %d components broke down!\n", iteration, breakdown5, breakdown4, nRHSs);
+              tfqmrgpu_core_debug_printf("# in iteration %d, all %d+%d of %d components broke down!\n", iteration, breakdown5, breakdown4, nRHSs);
               iteration += MaxIterations; // stop the loop
               return_status = TFQMRGPU_STATUS_BREAKDOWN;
               probe = false;
@@ -288,8 +295,8 @@ namespace tfqmrgpu {
 // std::printf("#in_iteration %d residual_reached= %g\n", iteration, std::sqrt(residual2_reached)); // show the residual every time for a convergence plot
 
               target_bound2 = (max_bound2 / max_residual2) * tol2; // for the next iteration
-              debug_printf("# in iteration %d, max_res2 = %g, min_res2 = %g, new target_bound2 = %g\n", 
-                                 iteration,    max_residual2, min_residual2,     target_bound2);
+              tfqmrgpu_core_debug_printf("# in iteration %d, max_res2 = %g, min_res2 = %g, new target_bound2 = %g\n", 
+                                               iteration,    max_residual2, min_residual2,     target_bound2);
 
               if (isDone) {
                   p->iterations_needed = iteration;
@@ -309,8 +316,8 @@ namespace tfqmrgpu {
 
 #pragma omp single
       { // single
-          debug_printf("# ran %d iterations\n", (iteration - 1)%std::max(1, MaxIterations) + 1);
-          debug_printf("# GPU performed %.6f T%clop\n", nFlop*1e-12, FlopChar<real_t>());
+          tfqmrgpu_core_debug_printf("# ran %d iterations\n", (iteration - 1)%std::max(1, MaxIterations) + 1);
+          tfqmrgpu_core_debug_printf("# GPU performed %.6f T%clop\n", nFlop*1e-12, FlopChar<real_t>());
       } // single
 
 #undef  MULT
@@ -336,3 +343,4 @@ namespace tfqmrgpu {
 
 } // tfqmrgpu
 
+#undef  tfqmrgpu_core_debug_printf

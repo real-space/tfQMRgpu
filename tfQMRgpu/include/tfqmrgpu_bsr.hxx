@@ -3,7 +3,7 @@
 
 #include <vector> // std::vector<T>
 #include <string> // std::string
-#ifdef  FULL_DEBUG
+#ifdef    FULL_DEBUG
   #include <cstdio> // std::printf
 #endif // FULL_DEBUG
 
@@ -27,7 +27,7 @@ struct bsr_t {
     template <typename int_t>
     inline int find_in_array(int const begin, int const end, int const value,
                              int_t const *array, int const not_found=-1) {
-#ifdef  FULL_DEBUG
+#ifdef    FULL_DEBUG
         std::printf("find_in_array(begin=%d, end=%d, value=%d, array=%p)\n", begin, end, value, array);
 #endif // FULL_DEBUG
 

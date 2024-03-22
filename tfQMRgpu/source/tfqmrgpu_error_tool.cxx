@@ -8,9 +8,9 @@
     #include <cstdio> // std::printf
 
     #define cudaStream_t int64_t // needed to include tfqmrgpu.h without cuda.h
-    #include "tfqmrgpu.h" // declaration of tfqmrgpuPrintError
+    #include "tfqmrgpu.h" // contains C-interface declaration of tfqmrgpuPrintError
 
-    #define debug_printf std::printf
+    #define tfqmrgpu_error_tool_debug_printf(...) std::printf(__VA_ARGS__)
     // To compile a standalone executable tool that decyphers tfQMRgpu error codes
     int main(int argc, char **argv) {
 
@@ -21,13 +21,15 @@
         } else {
             char const *const arg1 = argv[1]; // first argument
             int const error_code = std::atoi(arg1);
-            debug_printf("# %s %s --> %i\n", exe, arg1, error_code);
+            tfqmrgpu_error_tool_debug_printf("# %s %s --> %i\n", exe, arg1, error_code);
             int const stat = tfqmrgpuPrintError(error_code);
             if (TFQMRGPU_STATUS_SUCCESS != stat) std::printf("# %s tfqmrgpuPrintError returned status %i\n\n", __FILE__, stat);
             return error_code;
         } // argument given
 
     } // main
+#else
+    #define tfqmrgpu_error_tool_debug_printf(...)
 #endif // __NO_MAIN__
 
     char const* tfqmrgpuGetErrorString(tfqmrgpuStatus_t const status) {
@@ -39,7 +41,7 @@
         stat -= key * TFQMRGPU_CODE_CHAR;
         uint32_t const line = stat / TFQMRGPU_CODE_LINE;
         stat -= line * TFQMRGPU_CODE_LINE;
-        debug_printf("# tfqmrgpuGetErrorString: status= %d, key= \'%c\', line= %d, stat= %i!\n", status, key, line, stat);
+        tfqmrgpu_error_tool_debug_printf("# tfqmrgpuGetErrorString: status= %d, key= \'%c\', line= %d, stat= %i!\n", status, key, line, stat);
         switch (stat) {
             case TFQMRGPU_STATUS_SUCCESS:           for (int c = 0; c < nc; ++c) { str[c] = '\0'; } break; // clear the string
             case TFQMRGPU_STATUS_MAX_ITERATIONS:    std::snprintf(str, nc, "tfQMRgpu: Max number of iterations exceeded!");       break;
@@ -67,7 +69,7 @@
     tfqmrgpuStatus_t tfqmrgpuPrintError(tfqmrgpuStatus_t const status) {
         std::fflush(stdout);
         if (TFQMRGPU_STATUS_SUCCESS == status) {
-            debug_printf("# tfQMRgpu: Success!\n");
+            tfqmrgpu_error_tool_debug_printf("# tfQMRgpu: Success!\n");
         } else {
             std::printf("\n%s\n\n", tfqmrgpuGetErrorString(status));
         }
@@ -75,3 +77,4 @@
         return TFQMRGPU_STATUS_SUCCESS;
     } // printError
 
+#undef tfqmrgpu_error_tool_debug_printf

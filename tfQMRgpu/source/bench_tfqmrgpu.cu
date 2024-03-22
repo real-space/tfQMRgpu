@@ -21,6 +21,17 @@
     #include "tfqmrgpu_blockmult.hxx" // gemmNxNf
 #endif // HAS_CUDA
 
+
+#ifdef    _OPENMP
+    #include <omp.h> // OpenMP threading library
+    #define getTime omp_get_wtime // use the OpenMP internal timer
+#else  // _OPENMP
+    #include <ctime> // clock
+    inline double getTime() { return double(clock())/double(CLOCKS_PER_SEC); }
+    inline int omp_get_num_threads() { return 1; }
+#endif // _OPENMP
+
+
 #ifdef DEBUG
     #define debug_printf(...) std::printf(__VA_ARGS__)
 #else  // DEBUG
@@ -272,7 +283,7 @@ namespace GPUbench {
     } // create_on_cpu
 
 #ifndef HAS_NO_CUDA
-    template <typename real_t, int LM, int LN>
+    template <typename real_t, unsigned LM, unsigned LN>
     void __global__ // GPU kernel, must be launched with <<< {nmat, 1, 1}, {LN, any, 1} >>>
     fill_cos_sin(real_t (*devPtr c)[2][LM][LN]) {
         // fill GPU arrays with non-trivial but deterministic values
@@ -286,7 +297,7 @@ namespace GPUbench {
     } // fill_cos_sin
 #endif // HAS_CUDA
 
-    template <typename real_t, int LM, int LN=LM, typename double_t=real_t, int TUNE=2>
+    template <typename real_t, unsigned LM, unsigned LN=LM, typename double_t=real_t, unsigned TUNE=2>
     double bench_multi( // returns the average time needed per kernel call
           unsigned const nnzbY
         , uint32_t const starts_h[]

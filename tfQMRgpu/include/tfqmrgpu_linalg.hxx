@@ -1,27 +1,23 @@
 #pragma once
 // This file is part of tfQMRgpu under MIT-License
 
+#include <cmath> // std::abs
+#include <limits> // std::numeric_limits
+
 #ifndef HAS_NO_CUDA
     #include <curand.h> // random number generator for CUDA
 #endif // HAS_CUDA
 
-#include <cmath> // std::abs
-#include <limits> // std::numeric_limits
+#include "tfqmrgpu.hxx"      // includes cuda.h and tfqmrgpu.h, defines colIndex_t
+#include "tfqmrgpu_util.hxx" // common utilities: FlopChar, copy_data_to_gpu, get_data_from_gpu, abs2, clear_on_gpu
 
-#include "tfqmrgpu.hxx"           // includes cuda.h and tfqmrgpu.h, defines colIndex_t
-#include "tfqmrgpu_util.hxx"      // common utilities: FlopChar, copy_data_to_gpu, get_data_from_gpu, abs2, clear_on_gpu
-#include "tfqmrgpu_bsr.hxx"       // bsr_t, find_in_array
-#include "tfqmrgpu_memWindow.h"   // memWindow_t
-#include "tfqmrgpu_plan.hxx"      // bsrsv_plan_t
-#include "tfqmrgpu_handle.hxx"    // tfq_handle_t
-
-#define DEBUG
+// #define DEBUG
 // #define FULLDEBUG
 
 #ifdef  DEBUG
-    #define debug_printf(...) std::printf(__VA_ARGS__)
+    #define tfqmrgpu_linalg_debug_printf(...) std::printf(__VA_ARGS__)
 #else  // DEBUG
-    #define debug_printf(...)
+    #define tfqmrgpu_linalg_debug_printf(...)
 #endif // DEBUG
 
 namespace tfqmrgpu {
@@ -31,7 +27,7 @@ namespace tfqmrgpu {
 #define EPSILON 2.5e-308
 
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __global__ tfQMRdec35_kernel( // GPU kernel, must be launched with <<< nCols, LN >>>
           int8_t       (*devPtr status)[LN] // tfQMR status (out)
         , real_t       (*devPtr rho)[2][LN] // rho  (inout)
@@ -59,7 +55,7 @@ namespace tfqmrgpu {
                     bet[i][0][j] = 0; bet[i][1][j] = 0; // beta := 0
                     rho[i][0][j] = 0; rho[i][1][j] = 0; // rho  := 0
                     #ifdef  FULLDEBUG
-                        debug_printf("# tfQMRdec35[%i][%i] status= -1  |z35|^2= %.1e  |rho|^2= %.1e\n", i, j, abs2z35, abs2rho);
+                        tfqmrgpu_linalg_debug_printf("# tfQMRdec35[%i][%i] status= -1  |z35|^2= %.1e  |rho|^2= %.1e\n", i, j, abs2z35, abs2rho);
                     #endif // FULLDEBUG
                 } else {
                     auto const rho_denom = 1./abs2rho;
@@ -69,7 +65,7 @@ namespace tfqmrgpu {
                     // rho := z35
                     rho[i][0][j] = z35_Re; rho[i][1][j] = z35_Im;
                     #ifdef  FULLDEBUG
-                        debug_printf("# tfQMRdec35[%i][%i] status= %i  beta= %g,%g  rho= %g,%g\n",
+                        tfqmrgpu_linalg_debug_printf("# tfQMRdec35[%i][%i] status= %i  beta= %g,%g  rho= %g,%g\n",
                             i, j, status[i][j], bet[i][0][j], bet[i][1][j], rho[i][0][j], rho[i][1][j]);
                     #endif // FULLDEBUG
                 }
@@ -77,7 +73,7 @@ namespace tfqmrgpu {
         } // blocks i
     } // tfQMRdec35_kernel
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __host__ tfQMRdec35( // driver
           int8_t       (*devPtr status)[LN] // tfQMR status (out)
         , real_t       (*devPtr rho)[2][LN] // rho  (inout)
@@ -94,7 +90,7 @@ namespace tfqmrgpu {
     } // tfQMRdec35
 
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __global__ tfQMRdec34_kernel( // GPU kernel, must be launched with <<< nCols, LN >>>
           int8_t       (*devPtr status)[LN] // tfQMR status (out)
         , real_t       (*devPtr c67)[2][LN] // c67  (out)
@@ -125,7 +121,7 @@ namespace tfqmrgpu {
                     alf[i][0][j] = 0; alf[i][1][j] = 0; // alfa := 0
                     c67[i][0][j] = 0; c67[i][1][j] = 0; // c67 := 0
                     #ifdef  FULLDEBUG
-                        debug_printf("# tfQMRdec34[%i][%i] status= -2  |z34|^2= %.1e  |rho|^2= %.1e\n", i, j, abs2z34, abs2rho);
+                        tfqmrgpu_linalg_debug_printf("# tfQMRdec34[%i][%i] status= -2  |z34|^2= %.1e  |rho|^2= %.1e\n", i, j, abs2z34, abs2rho);
                     #endif // FULLDEBUG
                 } else {
                     auto const eta_Re = double(eta[i][0][j]),
@@ -145,7 +141,7 @@ namespace tfqmrgpu {
                     c67[i][0][j] = real_t(z34_Re*tmp_Re - z34_Im*tmp_Im);
                     c67[i][1][j] = real_t(z34_Im*tmp_Re + z34_Re*tmp_Im);
                     #ifdef  FULLDEBUG
-                        debug_printf("# tfQMRdec34[%i][%i] status= %i  alfa= %g,%g  c67= %g,%g\n",
+                        tfqmrgpu_linalg_debug_printf("# tfQMRdec34[%i][%i] status= %i  alfa= %g,%g  c67= %g,%g\n",
                             i, j, status[i][j], alf[i][0][j], alf[i][1][j], c67[i][0][j], c67[i][1][j]);
                     #endif // FULLDEBUG
                 }
@@ -153,7 +149,7 @@ namespace tfqmrgpu {
         } // blocks i
     } // tfQMRdec34_kernel
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __host__ tfQMRdec34( // driver
           int8_t       (*devPtr status)[LN] // tfQMR status (out)
         , real_t       (*devPtr c67)[2][LN] // c67  (out)
@@ -173,7 +169,7 @@ namespace tfqmrgpu {
     } // tfQMRdec34
 
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __global__ tfQMRdecT_kernel( // GPU kernel, must be launched with <<< nCols, LN >>>
           int8_t       (*devPtr status)[LN] // tfQMR status (inout)
         , real_t       (*devPtr c67)[2][LN] // c67 (optional out)
@@ -203,7 +199,7 @@ namespace tfqmrgpu {
                     tau[i][j] = D55 * cosi; // store
                     r67 = real_t(Var * cosi);
                     #ifdef  FULLDEBUG
-                        debug_printf("# tfQMRdecT[%i][%i] tau= %g  d55= %g  var= %g  cosi= %g  new tau= %g\n",
+                        tfqmrgpu_linalg_debug_printf("# tfQMRdecT[%i][%i] tau= %g  d55= %g  var= %g  cosi= %g  new tau= %g\n",
                             i, j, Tau, D55, Var, cosi, tau[i][j]);
                     #endif // FULLDEBUG
                 } else {
@@ -211,7 +207,7 @@ namespace tfqmrgpu {
                     var[i][j] = 0; // store
                     tau[i][j] = 0; // store
                     #ifdef  FULLDEBUG
-                        debug_printf("# tfQMRdecT[%i][%i] status= -3\n", i, j);
+                        tfqmrgpu_linalg_debug_printf("# tfQMRdecT[%i][%i] status= -3\n", i, j);
                     #endif // FULLDEBUG
                 }
 
@@ -228,13 +224,13 @@ namespace tfqmrgpu {
                     c67[i][1][j] = 0; // no imaginary part given
                 }
                 #ifdef  FULLDEBUG
-                    debug_printf("# tfQMRdecT[%i][%i] eta= %g,%g  c67= %g\n", i, j, eta[i][0][j], eta[i][1][j], r67);
+                    tfqmrgpu_linalg_debug_printf("# tfQMRdecT[%i][%i] eta= %g,%g  c67= %g\n", i, j, eta[i][0][j], eta[i][1][j], r67);
                 #endif // FULLDEBUG
             } // threads j
         } // blocks i
     } // tfQMRdecT_kernel
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __host__ tfQMRdecT( // driver
           int8_t       (*devPtr status)[LN] // tfQMR status (inout)
         , real_t       (*devPtr c67)[2][LN] // c67 (optional out)
@@ -336,7 +332,7 @@ namespace tfqmrgpu {
         auto const temp = (real_t*) shared_buffer; // cast pointer
         for(auto inzb = blockIdx.x; inzb < nnzb; inzb += gridDim.x) { // grid stride loop over non-zero blocks
 #else  // HAS_CUDA
-        debug_printf("# %s for operator \'%c\'  in: %d*i + %d*j + %d*c,  out: %d*i + %d*j + %d*c\n",
+        tfqmrgpu_linalg_debug_printf("# %s for operator \'%c\'  in: %d*i + %d*j + %d*c,  out: %d*i + %d*j + %d*c\n",
                         __func__, var, iNi, iNj, iNc, oNi, oNj, oNc);
         std::vector<real_t> temp(blockSize);
         for(uint32_t inzb = 0; inzb < nnzb; ++inzb) { // if OpenMP-parallel, move temp inside
@@ -380,7 +376,7 @@ namespace tfqmrgpu {
     } // transpose_blocks_kernel
 
 #ifndef HAS_NO_CUDA
-    template <typename real_t, int LM, int LN>
+    template <typename real_t, unsigned LM, unsigned LN>
     void __global__ add_RHS_kernel( // GPU kernel, must be launched with <<< { any, 1, 1 }, { LN, 1, 1 } >>>
           real_t       (*devPtr v)[2][LM][LN] // result, v[nnzv][Re:Im][LM][LN]
         , real_t const (*devPtr b)[2][LM][LN] // input,  b[nnzb][Re:Im][LM][LN]
@@ -404,7 +400,7 @@ namespace tfqmrgpu {
     } // add_RHS_kernel
 #endif // HAS_CUDA
 
-    template <typename real_t, int LM, int LN>
+    template <typename real_t, unsigned LM, unsigned LN>
     void __host__ add_RHS(
           real_t       (*devPtr v)[2][LM][LN] // result, v[nnzv][Re:Im][LM][LN]
         , real_t const (*devPtr b)[2][LM][LN] // input,  b[nnzb][Re:Im][LM][LN]
@@ -429,7 +425,7 @@ namespace tfqmrgpu {
 
 
 
-    template <typename real_t, int LM, int LN>
+    template <typename real_t, unsigned LM, unsigned LN>
     void __global__ set_unit_blocks_kernel( // GPU kernel, must be launched with <<< { nnzb, 1, 1 }, { LN, 1, 1 } >>>
           real_t       (*devPtr v)[2][LM][LN] // result, v[nnzb][Re:Im][LM][LN]
         , real_t   const real_part
@@ -455,7 +451,7 @@ namespace tfqmrgpu {
     } // set_unit_blocks_kernel
 
 
-    template <typename real_t, int LM, int LN>
+    template <typename real_t, unsigned LM, unsigned LN>
     void __host__ set_unit_blocks(
           real_t       (*devPtr v)[2][LM][LN] // result, v[nnzb][2][LM][LN]
         , uint32_t const nnzb // number of nonzero blocks in B
@@ -477,7 +473,7 @@ namespace tfqmrgpu {
 
 #ifndef HAS_NO_CUDA
 
-    template <typename real_t, int LM, int LN, int D2>
+    template <typename real_t, unsigned LM, unsigned LN, unsigned D2>
     void __global__ col_inner( // GPU kernel, must be launched with <<< { anypowerof2, 1, 1 }, { LN, 1, 1 } >>>
           double       (*devPtr dots)[D2][LN] // result, dots[2^p*nCols][D2][LN], D2 is 2==Re:Im for v*w and 1 for norm |v|^2
         , real_t const (*devPtr v)[2][LM][LN] // input,    v[nnz][Re:Im][LM][LN]
@@ -522,7 +518,7 @@ namespace tfqmrgpu {
 
     } // col_inner
 
-    template <typename real_t, int LN, int D2>
+    template <typename real_t, unsigned LN, unsigned D2>
     void __global__ col_reduction( // GPU kernel, must be launched with <<< { nCols, 2^(p-1), 1 }, { LN, 1, D2 } >>>
           double (*devPtr a)[D2][LN] // in/out, a[2^p*nCols][D2][LN], D2 is 2==Re:Im for v*w and 1 for norm |v|^2
         , uint32_t const nCols // number of block columns
@@ -542,7 +538,7 @@ namespace tfqmrgpu {
 
 #endif // HAS_CUDA
 
-    template <typename real_t, int LM, int LN> inline
+    template <typename real_t, unsigned LM, unsigned LN> inline
     double __host__ dotp(
           double       (*devPtr a)[2][LN]     // result, a[2^p*nCols][Re:Im]    [LN]
         , real_t const (*devPtr x)[2][LM][LN] // input,        x[nnz][Re:Im][LM][LN]
@@ -587,7 +583,7 @@ namespace tfqmrgpu {
         return nnz*4.*D2*LM*LN; // returns the number of Flops
     } // dotp = <x|y>
 
-    template <typename real_t, int LM, int LN> inline
+    template <typename real_t, unsigned LM, unsigned LN> inline
     double __host__ nrm2(
           double       (*devPtr a)[1][LN]     // result,  a[2^p*nCols][1]    [LN]
         , real_t const (*devPtr x)[2][LM][LN] // input,     x[nnz][Re:Im][LM][LN]
@@ -626,7 +622,7 @@ namespace tfqmrgpu {
     } // nrm2 = <x|x>
 
 
-    template <typename real_t, int LM, int LN, bool ScaleX>
+    template <typename real_t, unsigned LM, unsigned LN, bool ScaleX>
     void __global__ col_axpay( // GPU kernel, must be launched with <<< { any, 1, 1 }, { LN, 1, 1 } >>>
           real_t       (*devPtr y)[2][LM][LN] // in/out,   y[nnz][Re:Im][LM][LN]
         , real_t const (*devPtr x)[2][LM][LN] // input,    x[nnz][Re:Im][LM][LN]
@@ -665,7 +661,7 @@ namespace tfqmrgpu {
         } // inz
     } // col_axpay
 
-    template <typename real_t, int LM, int LN> inline
+    template <typename real_t, unsigned LM, unsigned LN> inline
     double __host__ axpy(
           real_t       (*devPtr y)[2][LM][LN] // in/out,   y[nnz][Re:Im][LM][LN]
         , real_t const (*devPtr x)[2][LM][LN] // input,    x[nnz][Re:Im][LM][LN]
@@ -684,7 +680,7 @@ namespace tfqmrgpu {
         return nnz*8.*LM*LN; // returns the number of Flops
     } // axpy   y := a*x + y
 
-    template <typename real_t, int LM, int LN> inline
+    template <typename real_t, unsigned LM, unsigned LN> inline
     double __host__ xpay(
           real_t       (*devPtr y)[2][LM][LN] // in/out,   y[nnz][Re:Im][LM][LN]
         , real_t const (*devPtr a)[2][LN]     // input,  a[nCols][Re:Im]    [LN]
@@ -707,7 +703,7 @@ namespace tfqmrgpu {
     // basis linear algebra level 3 kernels ////////////////////////////////////////////////////////////////////////
 
 #ifndef HAS_NO_CUDA
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __global__ set_complex_value_kernel(
           real_t (*devPtr array)[2][LN] // 1D launch with correct size
         , real_t const real_part
@@ -720,7 +716,7 @@ namespace tfqmrgpu {
     } // set_complex_value_kernel
 #endif // HAS_CUDA
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __host__ set_complex_value(
           real_t (*devPtr array)[2][LN] // array[nblocks][2][LN]
         , uint32_t const nblocks
@@ -743,7 +739,7 @@ namespace tfqmrgpu {
 
 
 #ifndef HAS_NO_CUDA
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __global__ set_real_value_kernel(
           real_t (*devPtr array)[LN] // 1D launch with matching size
         , real_t const value
@@ -754,7 +750,7 @@ namespace tfqmrgpu {
     } // set_real_value_kernel
 #endif // HAS_CUDA
 
-    template <typename real_t, int LN>
+    template <typename real_t, unsigned LN>
     void __host__ set_real_value(
           real_t (*devPtr array)[LN] // array[nblocks][LN]
         , uint32_t const nblocks
@@ -794,13 +790,13 @@ namespace tfqmrgpu {
         /* Cleanup */
         CURAND_CALL(curandDestroyGenerator(gen));
         #undef  CURAND_CALL
-        debug_printf("# generated %lld random floats using cuRAND\n", length);
+        tfqmrgpu_linalg_debug_printf("# generated %lld random floats using cuRAND\n", length);
 #else  // HAS_CUDA
         float const denom = 1./RAND_MAX;
         for(size_t i = 0; i < length; ++i) {
             v3[i] = rand()*denom;
         } // i
-        debug_printf("# generated %ld random floats\n", length);
+        tfqmrgpu_linalg_debug_printf("# generated %ld random floats\n", length);
 #endif // HAS_CUDA
         return TFQMRGPU_STATUS_SUCCESS;
     } // create_random_numbers
@@ -828,3 +824,5 @@ namespace tfqmrgpu {
     } // highestbit
 
 } // namespace tfqmrgpu
+
+#undef tfqmrgpu_linalg_debug_printf

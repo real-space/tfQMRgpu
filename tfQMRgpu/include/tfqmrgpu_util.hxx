@@ -97,7 +97,7 @@
     } // clear_on_gpu
 
     /////////////////////////////////////// debug helpers //////////////////////////////////
-    template <typename T, int Dim>
+    template <typename T, unsigned Dim>
     void __global__ print_array( // GPU kernel, must be launched with <<< 1, 1 >>>
           T const (*devPtr array)[Dim] // any array[num][Dim]
         , size_t const num

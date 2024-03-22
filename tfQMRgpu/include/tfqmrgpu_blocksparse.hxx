@@ -10,12 +10,12 @@
     #include "tfqmrgpu_blockmult.hxx" // gemmNxNf
 #endif // HAS_CUDA
 
-template <typename floating_point_t, int block_rows, int block_cols, typename double_t=floating_point_t>
+template <typename floating_point_t, unsigned block_rows, unsigned block_cols, typename double_t=floating_point_t>
 class blocksparse_action_t {
   public:
       typedef floating_point_t real_t;
-      static int constexpr LM = block_rows,
-                           LN = block_cols; // in principle only multiply depends on LN, so one could move that template there
+      static unsigned constexpr LM = block_rows,
+                                LN = block_cols; // in principle only multiply depends on LN, so one could move that template there
   //
   // This action is an explicit block-sparse matrix multiplication.
   // Blocks of A are sized [LM][LM].
