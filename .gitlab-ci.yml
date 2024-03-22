@@ -1,0 +1,35 @@
+# This is a GitLab CI/CD configuration file for tfQMRgpu
+
+stages:     # List of stages for jobs, and their order of execution
+  - build
+  - test
+
+build_on_JUSUF:
+  stage: build
+  script:
+    - echo "Set module environment"
+    - module --force purge && module load Stages/2024 Intel/2023.2.1 CUDA/12 CMake Julia
+    - echo "Start build system..."
+    - rm -rf build
+    - cmake . -B build -DCMAKE_INSTALL_PREFIX=~/tfQMRgpu-install -DHAS_COMPILED_LIB=ON
+    - echo "Compiling the code..."
+    - make -j
+    - make install
+    - echo "Compile complete."
+    - ls ~/tfQMRgpu-install
+  tags:         # Set tags such that we can use the shared runners of the JSC gitlab
+    - jacamar
+    - jusuf 
+    - login     # Compile on login node
+    - shell
+
+test_on_JUSUF:
+  stage: test
+  script:
+    - echo "Run tfQMRgpu unit tests..."
+    - echo "ToDo."
+  tags:
+    - jacamar
+    - jusuf 
+    - login
+    - shell
