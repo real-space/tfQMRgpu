@@ -53,7 +53,7 @@ Purpose
     cd ~/tfQMRgpu
     mkdir build
     cd build
-    cmake .. -DCMAKE_INSTALL_PREFIX=~/tfQMRgpu -DCMAKE_PREFIX_PATH=~/tfQMRgpu
+    cmake .. -DHAS_COMPILED_LIB=ON -DCMAKE_INSTALL_PREFIX=~/tfQMRgpu -DCMAKE_PREFIX_PATH=~/tfQMRgpu
     make -j
     make install
     cd ../test/multiplication
