@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.11.4)
 
 # set the project name and version
 project(tfqmrgpu VERSION 1.0 LANGUAGES C CXX)
+# CUDA will be enabled if present
 
 option(HAS_COMPILED_LIB "Providing a compiled shared/static library for a selected block sizes" OFF)
 
