@@ -178,7 +178,7 @@ namespace tfqmrgpu {
 
       while (iteration < MaxIterations) {
           ++iteration;
-#ifdef FULL_DEBUG
+#ifdef    FULL_DEBUG
           debug_printf("# iteration %i of %d\n", iteration, MaxIterations);
 #endif // FULL_DEBUG
 

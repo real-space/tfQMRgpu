@@ -11,17 +11,17 @@
 #include "tfqmrgpu.hxx"           // includes cuda.h and tfqmrgpu.h, defines colIndex_t
 #include "tfqmrgpu_util.hxx"      // common utilities: FlopChar, copy_data_to_gpu, get_data_from_gpu, abs2, clear_on_gpu
 #include "tfqmrgpu_bsr.hxx"       // bsr_t, find_in_array
-#include "tfqmrgpu_memWindow.h"   // memWindow_t
-#include "tfqmrgpu_plan.hxx"      // bsrsv_plan_t
-#include "tfqmrgpu_handle.hxx"    // tfq_handle_t
+// #include "tfqmrgpu_memWindow.h"   // memWindow_t
+// #include "tfqmrgpu_plan.hxx"      // bsrsv_plan_t
+// #include "tfqmrgpu_handle.hxx"    // tfq_handle_t
 
-#define DEBUG
+// #define DEBUG
 // #define FULLDEBUG
 
 #ifdef  DEBUG
-    #define debug_printf(...) std::printf(__VA_ARGS__)
+    #define tfqmrgpu_linalg_debug_printf(...) std::printf(__VA_ARGS__)
 #else  // DEBUG
-    #define debug_printf(...)
+    #define tfqmrgpu_linalg_debug_printf(...)
 #endif // DEBUG
 
 namespace tfqmrgpu {
@@ -59,7 +59,7 @@ namespace tfqmrgpu {
                     bet[i][0][j] = 0; bet[i][1][j] = 0; // beta := 0
                     rho[i][0][j] = 0; rho[i][1][j] = 0; // rho  := 0
                     #ifdef  FULLDEBUG
-                        debug_printf("# tfQMRdec35[%i][%i] status= -1  |z35|^2= %.1e  |rho|^2= %.1e\n", i, j, abs2z35, abs2rho);
+                        tfqmrgpu_linalg_debug_printf("# tfQMRdec35[%i][%i] status= -1  |z35|^2= %.1e  |rho|^2= %.1e\n", i, j, abs2z35, abs2rho);
                     #endif // FULLDEBUG
                 } else {
                     auto const rho_denom = 1./abs2rho;
@@ -69,7 +69,7 @@ namespace tfqmrgpu {
                     // rho := z35
                     rho[i][0][j] = z35_Re; rho[i][1][j] = z35_Im;
                     #ifdef  FULLDEBUG
-                        debug_printf("# tfQMRdec35[%i][%i] status= %i  beta= %g,%g  rho= %g,%g\n",
+                        tfqmrgpu_linalg_debug_printf("# tfQMRdec35[%i][%i] status= %i  beta= %g,%g  rho= %g,%g\n",
                             i, j, status[i][j], bet[i][0][j], bet[i][1][j], rho[i][0][j], rho[i][1][j]);
                     #endif // FULLDEBUG
                 }
@@ -125,7 +125,7 @@ namespace tfqmrgpu {
                     alf[i][0][j] = 0; alf[i][1][j] = 0; // alfa := 0
                     c67[i][0][j] = 0; c67[i][1][j] = 0; // c67 := 0
                     #ifdef  FULLDEBUG
-                        debug_printf("# tfQMRdec34[%i][%i] status= -2  |z34|^2= %.1e  |rho|^2= %.1e\n", i, j, abs2z34, abs2rho);
+                        tfqmrgpu_linalg_debug_printf("# tfQMRdec34[%i][%i] status= -2  |z34|^2= %.1e  |rho|^2= %.1e\n", i, j, abs2z34, abs2rho);
                     #endif // FULLDEBUG
                 } else {
                     auto const eta_Re = double(eta[i][0][j]),
@@ -145,7 +145,7 @@ namespace tfqmrgpu {
                     c67[i][0][j] = real_t(z34_Re*tmp_Re - z34_Im*tmp_Im);
                     c67[i][1][j] = real_t(z34_Im*tmp_Re + z34_Re*tmp_Im);
                     #ifdef  FULLDEBUG
-                        debug_printf("# tfQMRdec34[%i][%i] status= %i  alfa= %g,%g  c67= %g,%g\n",
+                        tfqmrgpu_linalg_debug_printf("# tfQMRdec34[%i][%i] status= %i  alfa= %g,%g  c67= %g,%g\n",
                             i, j, status[i][j], alf[i][0][j], alf[i][1][j], c67[i][0][j], c67[i][1][j]);
                     #endif // FULLDEBUG
                 }
@@ -203,7 +203,7 @@ namespace tfqmrgpu {
                     tau[i][j] = D55 * cosi; // store
                     r67 = real_t(Var * cosi);
                     #ifdef  FULLDEBUG
-                        debug_printf("# tfQMRdecT[%i][%i] tau= %g  d55= %g  var= %g  cosi= %g  new tau= %g\n",
+                        tfqmrgpu_linalg_debug_printf("# tfQMRdecT[%i][%i] tau= %g  d55= %g  var= %g  cosi= %g  new tau= %g\n",
                             i, j, Tau, D55, Var, cosi, tau[i][j]);
                     #endif // FULLDEBUG
                 } else {
@@ -211,7 +211,7 @@ namespace tfqmrgpu {
                     var[i][j] = 0; // store
                     tau[i][j] = 0; // store
                     #ifdef  FULLDEBUG
-                        debug_printf("# tfQMRdecT[%i][%i] status= -3\n", i, j);
+                        tfqmrgpu_linalg_debug_printf("# tfQMRdecT[%i][%i] status= -3\n", i, j);
                     #endif // FULLDEBUG
                 }
 
@@ -228,7 +228,7 @@ namespace tfqmrgpu {
                     c67[i][1][j] = 0; // no imaginary part given
                 }
                 #ifdef  FULLDEBUG
-                    debug_printf("# tfQMRdecT[%i][%i] eta= %g,%g  c67= %g\n", i, j, eta[i][0][j], eta[i][1][j], r67);
+                    tfqmrgpu_linalg_debug_printf("# tfQMRdecT[%i][%i] eta= %g,%g  c67= %g\n", i, j, eta[i][0][j], eta[i][1][j], r67);
                 #endif // FULLDEBUG
             } // threads j
         } // blocks i
@@ -336,7 +336,7 @@ namespace tfqmrgpu {
         auto const temp = (real_t*) shared_buffer; // cast pointer
         for(auto inzb = blockIdx.x; inzb < nnzb; inzb += gridDim.x) { // grid stride loop over non-zero blocks
 #else  // HAS_CUDA
-        debug_printf("# %s for operator \'%c\'  in: %d*i + %d*j + %d*c,  out: %d*i + %d*j + %d*c\n",
+        tfqmrgpu_linalg_debug_printf("# %s for operator \'%c\'  in: %d*i + %d*j + %d*c,  out: %d*i + %d*j + %d*c\n",
                         __func__, var, iNi, iNj, iNc, oNi, oNj, oNc);
         std::vector<real_t> temp(blockSize);
         for(uint32_t inzb = 0; inzb < nnzb; ++inzb) { // if OpenMP-parallel, move temp inside
@@ -794,13 +794,13 @@ namespace tfqmrgpu {
         /* Cleanup */
         CURAND_CALL(curandDestroyGenerator(gen));
         #undef  CURAND_CALL
-        debug_printf("# generated %lld random floats using cuRAND\n", length);
+        tfqmrgpu_linalg_debug_printf("# generated %lld random floats using cuRAND\n", length);
 #else  // HAS_CUDA
         float const denom = 1./RAND_MAX;
         for(size_t i = 0; i < length; ++i) {
             v3[i] = rand()*denom;
         } // i
-        debug_printf("# generated %ld random floats\n", length);
+        tfqmrgpu_linalg_debug_printf("# generated %ld random floats\n", length);
 #endif // HAS_CUDA
         return TFQMRGPU_STATUS_SUCCESS;
     } // create_random_numbers
@@ -828,3 +828,5 @@ namespace tfqmrgpu {
     } // highestbit
 
 } // namespace tfqmrgpu
+
+#undef tfqmrgpu_linalg_debug_printf
