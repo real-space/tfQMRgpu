@@ -3,6 +3,9 @@
 
 #include "tfqmrgpu_memWindow.h" // memWindow_t
 
+    size_t constexpr TFQMRGPU_MEMORY_ALIGNMENT = 8; // 8:align to 256 Byte
+
+
     // FlopChar allows to distinguish single and double precision floating point operations as Gflop and GFlop
     template <typename T> inline char FlopChar         () { return '?'; }
     template <>           inline char FlopChar<int>    () { return 'i'; }

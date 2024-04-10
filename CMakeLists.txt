@@ -54,6 +54,7 @@ else(HAS_COMPILED_LIB)
 
     # define which header files are public
     set(tfQMRgpu_public_headers
+        tfQMRgpu/include/tfqmrgpu.h
         tfQMRgpu/include/tfqmrgpu.hxx
         tfQMRgpu/include/tfqmrgpu_memWindow.h
         tfQMRgpu/include/tfqmrgpu_bsr.hxx

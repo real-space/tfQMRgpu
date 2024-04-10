@@ -187,7 +187,6 @@
 
     // tfqmrgpu configuration:
 
-    size_t const TFQMRGPU_MEMORY_ALIGNMENT = 8; // 8:256 Byte
-    int    const TFQMRGPU_NUMBER_OF_INSTANCES_OF_X = 7; // need 7+1 when preprocessing is active
+    int const TFQMRGPU_NUMBER_OF_INSTANCES_OF_X = 7; // need 7+1 when preprocessing is active
 
 #endif // TFQMRGPU_H

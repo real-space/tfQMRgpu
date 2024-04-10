@@ -7,6 +7,7 @@ include(GNUInstallDirs)
 
 # Explicitly depend on the headers to trigger rebuilds on changes
 set(tfQMRgpu_public_headers
+		include/tfqmrgpu.h
 		include/tfqmrgpu.hxx
 		include/tfqmrgpu_memWindow.h
 		include/tfqmrgpu_bsr.hxx
@@ -17,7 +18,6 @@ set(tfQMRgpu_public_headers
 		)
 
 set(tfQMRgpu_internal_headers
-		include/tfqmrgpu.h
 		include/tfqmrgpu_plan.hxx
 		include/tfqmrgpu_blockmult.hxx
 		include/tfqmrgpu_allowed_block_sizes.h
