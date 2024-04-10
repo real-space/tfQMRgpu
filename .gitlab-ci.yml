@@ -13,8 +13,8 @@ build_on_JUSUF:
     - rm -rf build
     - cmake . -B build -DCMAKE_INSTALL_PREFIX=~/tfQMRgpu-install -DHAS_COMPILED_LIB=ON
     - echo "Compiling the code..."
-    - make -j
-    - make install
+    - make -C build -j
+    - make -C build install
     - echo "Compile complete."
     - ls ~/tfQMRgpu-install
   tags:         # Set tags such that we can use the shared runners of the JSC gitlab
