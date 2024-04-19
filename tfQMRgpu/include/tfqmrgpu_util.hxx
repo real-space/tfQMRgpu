@@ -18,17 +18,17 @@
 
     #define CCheck(err) __cudaSafeCall((err), __FILE__, __LINE__)
     inline void __cudaSafeCall(cudaError_t const err, char const *const file, int const line) {
-#ifndef NDEBUG
+#ifndef   NDEBUG
         if (cudaSuccess != err) {
             printf("[ERROR] CUDA call in %s:%d failed, cudaErrorString= %s\n", file, line, cudaGetErrorString(err));
             exit(0);
         }
-#endif // DEBUG
+#endif // NDEBUG
     } // __cudaSafeCall
 
-#ifndef HAS_NO_CUDA
+#ifndef   HAS_NO_CUDA
     inline void __device__ check_launch_params(dim3 const grid, dim3 const blk) {
-#ifdef  DEBUG
+#ifdef    DEBUG
         assert(grid.x == gridDim.x);
         assert(grid.y == gridDim.y);
         assert(grid.z == gridDim.z);
@@ -42,7 +42,7 @@
     // Memory management /////////////////////////////////////////////////////////
     template <typename T>
     void copy_data_to_gpu(T (*devPtr d), T const *const h, size_t const size=1, cudaStream_t const stream=0, char const *const name="") {
-#ifdef DEBUGGPU
+#ifdef    DEBUGGPU
         printf("# transfer %lu x %.3f kByte from %p @host to %p @device %s\n", size, 1e-3*sizeof(T), (void*)h, (void*)d, name);
 #endif // DEBUGGPU
         CCheck(cudaMemcpyAsync(d, h, size*sizeof(T), cudaMemcpyHostToDevice, stream));
@@ -50,7 +50,7 @@
 
     template <typename T>
     void get_data_from_gpu(T *const h, T const (*devPtr d), size_t const size=1, cudaStream_t const stream=0, char const *const name="") {
-#ifdef DEBUGGPU
+#ifdef    DEBUGGPU
         printf("# transfer %lu x %.3f kByte from %p @device to %p @host %s\n", size, 1e-3*sizeof(T), (void*)d, (void*)h, name);
 #endif // DEBUGGPU
         CCheck(cudaMemcpyAsync(h, d, size*sizeof(T), cudaMemcpyDeviceToHost, stream));
@@ -78,12 +78,13 @@
         if (nullptr != win) {
             win->offset = size_t((char*)d);
             win->length = total_size_inByte;
-#ifdef DEBUGGPU
+#ifdef    DEBUGGPU
             printf("# %s: new window [%p, %p) %s\n", __func__, (void*)win->offset, (void*)(win->offset + win->length), win_name);
             fflush(stdout);
 #endif // DEBUGGPU
         } // win
-        buffer += total_size_inByte;
+        // buffer += total_size_inByte; // nullptr + size provokes undefined behavior, therefore:
+        buffer = buffer ? &(buffer[total_size_inByte]) : ((char*)total_size_inByte);
         tfqmrgpu_memAlign(buffer);
         return d;
     } // take_gpu_memory
@@ -107,7 +108,7 @@
         , char const name // only a single character for the array name!
         , char const format='f' // only a single character for the format!
     ) {
-#ifndef HAS_NO_CUDA
+#ifndef   HAS_NO_CUDA
         if (0 == threadIdx.x)
 #endif // HAS_CUDA
         {

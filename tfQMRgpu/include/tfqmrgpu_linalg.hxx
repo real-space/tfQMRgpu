@@ -416,9 +416,12 @@ namespace tfqmrgpu {
 #else  // HAS_CUDA
         for(uint32_t inzb = 0; inzb < nnzb; ++inzb) {
             auto const inzv = subset[inzb]; // load index
-            for(int cij = 0; cij < 2*LM*LN; ++cij) {
-                v[inzv][0][0][cij] += scal*b[inzb][0][0][cij];
-            } // cij
+            for(unsigned i = 0; i < LM; ++i) {
+                for(unsigned j = 0; j < LN; ++j) {
+                    v[inzv][0][i][j] += scal*b[inzb][0][i][j];
+                    v[inzv][1][i][j] += scal*b[inzb][1][i][j];
+                } // j
+            } // i
         } // inzb
 #endif // HAS_CUDA
     } // add_RHS
@@ -559,9 +562,11 @@ namespace tfqmrgpu {
             col_reduction <double,LN,D2> <<< { nCols, np, 1 }, { LN, 1, D2 }, 0, streamId >>> (a, nCols);
         } // level
 #else  // HAS_CUDA
-        for (uint32_t icj = 0; icj < nCols*D2*LN; ++icj) {
-            a[0][0][icj] = 0; // clear
-        } // icj
+        for (uint32_t i = 0; i < nCols; ++i) {
+            for (unsigned j = 0; j < LN; ++j) {
+                a[i][0][j] = 0; a[i][1][j] = 0; // clear
+            } // j
+        } // i
         for (uint32_t inz = 0; inz < nnz; ++inz) {
             auto const icol = ColInd[inz];
             for(int j = 0; j < LN; ++j) { // vectorized
