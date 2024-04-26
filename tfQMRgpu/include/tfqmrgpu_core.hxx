@@ -112,7 +112,11 @@ namespace tfqmrgpu {
       auto const res_ub_h  = new double[nCols][LN]; // residual upper bound squared on host
       auto const invBn2_h  = new double[nCols][LN]; // inverse_norm2_of_B on host
       auto const status_h  = new int8_t[nCols][LN]; // tfQMR status on host
-      for(auto rhs = 0; rhs < nRHSs; ++rhs) { status_h[0][rhs] = 0; }
+      for (auto iCol = 0u; iCol < nCols; ++iCol) {
+          for (int j = 0; j < LN; ++j) {
+              status_h[iCol][j] = 0;
+          } // j
+      } // iCol
 
       ////////////////////////////////////////////////
       // no GPU kernels are called before this line //
@@ -149,7 +153,11 @@ namespace tfqmrgpu {
           set_unit_blocks<real_t,LM,LN>(v2, nnzbB, streamId,  1,0);
           add_RHS<real_t,LM,LN>(v5, v2, 1, subset, nnzbB, streamId); // v5 := v5 + v2
           set_real_value<double,LN>(tau, nCols, 1, streamId);
-          for(auto rhs = 0; rhs < nRHSs; ++rhs) { invBn2_h[0][rhs] = 1; }
+          for (auto iCol = 0u; iCol < nCols; ++iCol) {
+              for (int j = 0; j < LN; ++j) {
+                  invBn2_h[iCol][j] = 1;
+              } // j
+          } // iCol
           // also, we probably called ::solve without much surrounding, so we need to regenerate the random numbers
           auto const stat = create_random_numbers(v3[0][0][0], nnzbX*size_t(2*LM*LN), streamId);
           if (TFQMRGPU_STATUS_SUCCESS != stat) return stat;
@@ -166,11 +174,13 @@ namespace tfqmrgpu {
           // ToDo: split this part into two: allocation on CPU and transfer to the CPU, can be done when setMatrix('B')
           get_data_from_gpu<double[LN]>(invBn2_h, tau, nCols, streamId, "norm2_of_B"); // inverse_norm2_of_B
           double min_norm2{9e99}, max_norm2{-1};
-          for(auto rhs = 0; rhs < nRHSs; ++rhs) {
-              min_norm2 = std::min(min_norm2, invBn2_h[0][rhs]);
-              max_norm2 = std::max(max_norm2, invBn2_h[0][rhs]);
-              invBn2_h[0][rhs] = 1./invBn2_h[0][rhs]; // invert in-place on the host
-          } // rhs
+          for (auto iCol = 0u; iCol < nCols; ++iCol) {
+              for (int j = 0; j < LN; ++j) {
+                  min_norm2 = std::min(min_norm2, invBn2_h[iCol][j]);
+                  max_norm2 = std::max(max_norm2, invBn2_h[iCol][j]);
+                  invBn2_h[iCol][j] = 1./invBn2_h[iCol][j]; // invert in-place on the host
+              } // j
+          } // iCol
           std::printf("# norms of B within [%g, %g]\n", std::sqrt(min_norm2), std::sqrt(max_norm2)); // ToDo: make this debug_printf
       } // rhs_trivial
 
@@ -245,13 +255,15 @@ namespace tfqmrgpu {
 
           double max_bound2{0}, min_bound2{9e99}; // min_bound2 only for debug
           int breakdown5{0}, breakdown4{0};
-          for(auto rhs = 0; rhs < nRHSs; ++rhs) {
-              auto const res2 = res_ub_h[0][rhs] * invBn2_h[0][rhs]; // apply factor inverse_norm2_of_B
-              max_bound2 = std::max(max_bound2, res2);
-              min_bound2 = std::min(min_bound2, res2);
-              breakdown4 += (-2 == status_h[0][rhs]); // breakdown detected in dec34
-              breakdown5 += (-1 == status_h[0][rhs]); // breakdown detected in dec35
-          } // rhs
+          for (auto iCol = 0u; iCol < nCols; ++iCol) {
+              for (int j = 0; j < LN; ++j) {
+                  auto const res2 = res_ub_h[iCol][j] * invBn2_h[iCol][j]; // apply factor inverse_norm2_of_B
+                  max_bound2 = std::max(max_bound2, res2);
+                  min_bound2 = std::min(min_bound2, res2);
+                  breakdown4 += (-2 == status_h[iCol][j]); // breakdown detected in dec34
+                  breakdown5 += (-1 == status_h[iCol][j]); // breakdown detected in dec35
+              } // j
+          } // iCol
           if (0 == (iteration & 0xf)) { // every 16th iteration
               tfqmrgpu_core_debug_printf("# in iteration %d, min_bound2 = %g, max_bound2 = %g * %d = %g, target_bound2 = %g\n",
                        iteration, min_bound2, max_bound2, 2*iteration + 1, max_bound2*(2*iteration + 1), target_bound2);
@@ -280,17 +292,19 @@ namespace tfqmrgpu {
 
               double max_residual2{1.4e-76}, min_residual2{9e99};
               bool isDone{true}, status_modified{false};
-              for(auto rhs = 0; rhs < nRHSs; ++rhs) {
-                  auto const res2 = resnrm2_h[0][0][rhs] * invBn2_h[0][rhs]; // apply factor inverse_norm2_of_B
-                  max_residual2 = std::max(max_residual2, res2);
-                  min_residual2 = std::min(min_residual2, res2);
-                  if (res2 > tol2) {
-                      if (0 == status_h[0][rhs]) isDone = false; // no breakdown has occurred --> continue converging
-                  } else if (res2 <= 0) {
-                      status_h[0][rhs] = 1; // component converged
-                      status_modified = true;
-                  }
-              } // rhs
+              for (auto iCol = 0u; iCol < nCols; ++iCol) {
+                  for (int j = 0; j < LN; ++j) {
+                      auto const res2 = resnrm2_h[iCol][0][j] * invBn2_h[iCol][j]; // apply factor inverse_norm2_of_B
+                      max_residual2 = std::max(max_residual2, res2);
+                      min_residual2 = std::min(min_residual2, res2);
+                      if (res2 > tol2) {
+                          if (0 == status_h[iCol][j]) isDone = false; // no breakdown has occurred --> continue converging
+                      } else if (res2 <= 0) {
+                          status_h[iCol][j] = 1; // component converged
+                          status_modified = true;
+                      }
+                  } // j
+              } // iCol
               residual2_reached = max_residual2;
 // std::printf("#in_iteration %d residual_reached= %g\n", iteration, std::sqrt(residual2_reached)); // show the residual every time for a convergence plot
 
