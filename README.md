@@ -6,7 +6,7 @@ tfQMRgpu
 
 ![tfQMRgpu Logo](docs/logo/tf_QMR.png)
 
-The transpose-free Quasi Minimal Resdiual library for GPUs
+The transpose-free Quasi Minimal Residual library for GPUs
 ----------------------------------------------------------
     A CUDA implementation for graphical processors of the 
     transpose-free Quasi-Minimal Residual method (tfQMR) for
