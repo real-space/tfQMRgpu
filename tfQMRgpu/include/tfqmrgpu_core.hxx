@@ -78,7 +78,11 @@ namespace tfqmrgpu {
       auto const eta  = take_gpu_memory<real_t[2][LN]>(buffer, nCols);
 
       assert(nnzbX > 0);
+#ifdef    TFQMRGPU_USE_ATOMICADD
+      unsigned const l2nX = 0; // if we use atomicAdd, we do not need reduction memory
+#else  // TFQMRGPU_USE_ATOMICADD
       unsigned const l2nX = highestbit(nnzbX - 1) + 1; // number of reduction levels == ceiling(log2(nnzbX))
+#endif // TFQMRGPU_USE_ATOMICADD
       auto const zvv  = take_gpu_memory<double[2][LN]>(buffer, (1ul << l2nX)*nCols);
       // real-valued scalars per RHS
       auto const dvv  = take_gpu_memory<double[1][LN]>(buffer, (1ul << l2nX)*nCols);

@@ -511,16 +511,22 @@ namespace tfqmrgpu {
                 } // D2
             } // k
 
+#ifdef    TFQMRGPU_USE_ATOMICADD
+            atomicAdd(dots[icol][0] + j, dr);
+            if (2 == D2)
+            atomicAdd(dots[icol][1] + j, di);
+#else  // TFQMRGPU_USE_ATOMICADD
             // now store
             dots[iput*nCols + icol][0][j] = dr; // no race condition here
             if (2 == D2) {
                 dots[iput*nCols + icol][1][j] = di; // no race condition here
             } // D2
-
+#endif // TFQMRGPU_USE_ATOMICADD
         } // inz
 
     } // col_inner
 
+#ifndef   TFQMRGPU_USE_ATOMICADD
     template <typename real_t, unsigned LN, unsigned D2>
     void __global__ col_reduction( // GPU kernel, must be launched with <<< { nCols, 2^(p-1), 1 }, { LN, 1, D2 } >>>
           double (*devPtr a)[D2][LN] // in/out, a[2^p*nCols][D2][LN], D2 is 2==Re:Im for v*w and 1 for norm |v|^2
@@ -538,6 +544,8 @@ namespace tfqmrgpu {
         a[iput*nCols + icol][ri][j] += a[iget*nCols + icol][ri][j];
 
     } // col_reduction
+#endif // TFQMRGPU_USE_ATOMICADD
+
 
 #endif // HAS_CUDA
 
@@ -554,6 +562,11 @@ namespace tfqmrgpu {
     ) {
         int constexpr D2 = 2;
 #ifndef HAS_NO_CUDA
+
+#ifdef    TFQMRGPU_USE_ATOMICADD
+        clear_on_gpu<double[D2][LN]>(a, nCols, streamId);
+        col_inner <real_t, LM, LN, D2> <<< nnz, LN, 0, streamId >>> (a, x, y, ColInd, nnz, nCols);
+#else  // TFQMRGPU_USE_ATOMICADD
         uint32_t const np2 = (1 << p2); // 2^p
         clear_on_gpu<double[D2][LN]>(a, np2*nCols, streamId);
         col_inner <real_t, LM, LN, D2> <<< np2, LN, 0, streamId >>> (a, x, y, ColInd, nnz, nCols);
@@ -561,6 +574,8 @@ namespace tfqmrgpu {
             if (nCols*np > 0)
             col_reduction <double,LN,D2> <<< { nCols, np, 1 }, { LN, 1, D2 }, 0, streamId >>> (a, nCols);
         } // level
+#endif // TFQMRGPU_USE_ATOMICADD
+
 #else  // HAS_CUDA
         for (uint32_t i = 0; i < nCols; ++i) {
             for (unsigned j = 0; j < LN; ++j) {
@@ -600,13 +615,20 @@ namespace tfqmrgpu {
     ) {
         unsigned constexpr D2 = 1;
 #ifndef HAS_NO_CUDA
+
+#ifdef    TFQMRGPU_USE_ATOMICADD
+        clear_on_gpu<double[D2][LN]>(a, nCols, streamId);
+        col_inner <real_t, LM, LN, D2> <<< nnz, LN, 0, streamId >>> (a, x, nullptr, ColInd, nnz, nCols);
+#else  // TFQMRGPU_USE_ATOMICADD
         unsigned const np2 = (1 << p2); // 2^p
         clear_on_gpu<double[D2][LN]>(a, np2*nCols, streamId);
-        col_inner <real_t, LM, LN, D2> <<< np2, LN, 0, streamId >>> (a, x, 0x0, ColInd, nnz, nCols);
+        col_inner <real_t, LM, LN, D2> <<< np2, LN, 0, streamId >>> (a, x, nullptr, ColInd, nnz, nCols);
         for(unsigned np = np2 >> 1; np > 0; np >>= 1) { // reduce from 2*np to np
             if (nCols*np > 0)
             col_reduction <double,LN,D2> <<< { nCols, np, 1 }, { LN, 1, D2 }, 0, streamId >>> (a, nCols);
         } // level
+#endif // TFQMRGPU_USE_ATOMICADD
+
 #else  // HAS_CUDA
         for (uint32_t iCol = 0; iCol < nCols; ++iCol) {
             for (int j = 0; j < LN; ++j) {
