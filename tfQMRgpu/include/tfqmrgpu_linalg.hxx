@@ -820,8 +820,8 @@ namespace tfqmrgpu {
     } // transfer_index_lists
 
 
-    inline int __host__ highestbit(unsigned const n) {
-        unsigned nn{n};
+    inline int __host__ highestbit(size_t const n) {
+        size_t nn{n};
         int l2{-1}; // -1 is the return value for n==0
         while (nn > 0) {
             ++l2;
