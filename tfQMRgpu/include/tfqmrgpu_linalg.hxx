@@ -487,7 +487,6 @@ namespace tfqmrgpu {
     ) {
         check_launch_params( { gridDim.x, 1, 1 }, { LN, 1, 1 } );
         auto const j = threadIdx.x; // vectorization
-        auto const iput = blockIdx.x;
 
         // dots must be set to zero before calling this kernel
 
@@ -517,6 +516,7 @@ namespace tfqmrgpu {
             atomicAdd(dots[icol][1] + j, di);
 #else  // TFQMRGPU_USE_ATOMICADD
             // now store
+            auto const iput = blockIdx.x;
             dots[iput*nCols + icol][0][j] = dr; // no race condition here
             if (2 == D2) {
                 dots[iput*nCols + icol][1][j] = di; // no race condition here
